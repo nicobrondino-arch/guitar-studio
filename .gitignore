@@ -1,0 +1,14 @@
+# Backups manuales
+_backup_*/
+
+# Node modules (por si en el futuro usamos npm)
+node_modules/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Editor
+.vscode/
+*.swp
+*.swo
