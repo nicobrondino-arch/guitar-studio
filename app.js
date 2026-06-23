@@ -972,7 +972,6 @@ class GuitarStudioApp {
     loadTeacherNotesUI() {
         const notesRaw = localStorage.getItem("studio-teacher-notes");
         const container = document.getElementById("teacher-notes-preview");
-        const wizardFocusName = document.getElementById("wizard-gp-step").querySelector(".step-label");
         
         if (notesRaw) {
             const notes = JSON.parse(notesRaw);
@@ -1053,7 +1052,8 @@ class GuitarStudioApp {
             
             // Si estamos en la vista de práctica y el paso 4 está activo, inicializar/cargar
             const practiceViewActive = document.getElementById("view-practice").classList.contains("active");
-            const step4Active = document.querySelector(".wizard-step-item[data-step='4']").classList.contains("active");
+            const step4El = document.querySelector(".header-step-item[data-step='4']");
+            const step4Active = step4El ? step4El.classList.contains("active") : false;
             if (practiceViewActive && step4Active) {
                 this.initAlphaTabPlayerIfNeeded();
             }
@@ -1100,34 +1100,37 @@ class GuitarStudioApp {
         element.style.display = "block";
         document.getElementById("alphatab-placeholder").style.display = "none";
         document.getElementById("alphatab-controls").style.display = "flex";
+
+        // Mostrar spinner de carga
+        this.showAlphaTabLoading(true);
         
         try {
-            // Inicializar AlphaTab API con diseño de alta visibilidad en papel (estilo Soundslice)
+            // Inicializar AlphaTab API v1.8.1
             this.atApi = new alphaTab.AlphaTabApi(element, {
+                core: {
+                    fontDirectory: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/font/',
+                    enableLazyLoading: true
+                },
                 player: {
                     enablePlayer: true,
-                    soundFont: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.3.0/dist/soundfont/sonivox.sf2',
-                    enableBackingTracks: true,
-                    scrollElement: document.querySelector('.alphatab-wrapper') // Comportamiento de scroll tipo Soundslice
+                    enableCursor: true,
+                    enableAnimatedBeatCursor: true,
+                    soundFont: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/soundfont/sonivox.sf2',
+                    scrollElement: document.querySelector('.alphatab-wrapper')
                 },
                 display: {
-                    layoutMode: 'page', // Forzar diseño de página vertical (no horizontal)
-                    width: -1, // Autoajuste dinámico al contenedor
-                    resources: {
-                        // Carga la fuente de notación desde el CDN de AlphaTab
-                        musicFont: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.3.0/dist/font/alphaTab.woff',
-                        // Paleta clásica de partituras de alta visibilidad (fondo blanco papel)
-                        staffLineColor: '#dddddd',
-                        barSeparatorColor: '#cccccc',
-                        mainGlyphColor: '#111111',
-                        secondaryGlyphColor: '#111111',
-                        scoreInfoColor: '#111111',
-                        barNumberColor: '#888888',
+                    layoutMode: alphaTab.LayoutMode.Page
+                },
+                notation: {
+                    elements: {
+                        scoreTitle: true,
+                        scoreArtist: true,
+                        trackNames: true
                     }
                 }
             });
 
-            // Enlazar cargado de pistas
+            // Evento: partitura cargada → poblar selector de pistas
             this.atApi.scoreLoaded.on((s) => {
                 const trackSelect = document.getElementById("gp-track-select");
                 trackSelect.innerHTML = "";
@@ -1135,18 +1138,37 @@ class GuitarStudioApp {
                 s.tracks.forEach((track, index) => {
                     const option = document.createElement("option");
                     option.value = index;
-                    option.textContent = track.name;
+                    option.textContent = track.name || `Track ${index + 1}`;
                     trackSelect.appendChild(option);
                 });
                 
-                // Renderizar la primera pista
+                // Renderizar la primera pista por defecto
                 if (s.tracks.length > 0) {
                     this.atApi.renderTracks([s.tracks[0]]);
                 }
             });
 
+            // Evento: renderizado finalizado → ocultar spinner
+            this.atApi.renderFinished.on(() => {
+                this.showAlphaTabLoading(false);
+                console.log("AlphaTab render finished.");
+            });
+
+            // Evento: reproductor listo
             this.atApi.playerReady.on(() => {
                 console.log("AlphaTab Player is ready.");
+            });
+
+            // Evento: cambio de estado del reproductor → actualizar botón play/pause
+            this.atApi.playerStateChanged.on((e) => {
+                const btnPlay = document.getElementById("btn-gp-play");
+                if (e.state === alphaTab.synth.PlayerState.Playing) {
+                    btnPlay.querySelector("span").textContent = this.lang === "es" ? "Pausar" : "Pause";
+                    this.atIsPlaying = true;
+                } else {
+                    btnPlay.querySelector("span").textContent = this.lang === "es" ? "Reproducir" : "Play";
+                    this.atIsPlaying = false;
+                }
             });
 
             // Cargar los bytes guardados en la BD
@@ -1154,6 +1176,25 @@ class GuitarStudioApp {
             
         } catch (error) {
             console.error("AlphaTab error during initialization:", error);
+            this.showAlphaTabLoading(false);
+        }
+    }
+
+    showAlphaTabLoading(show) {
+        let loader = document.getElementById("alphatab-loading");
+        if (show) {
+            if (!loader) {
+                loader = document.createElement("div");
+                loader.id = "alphatab-loading";
+                loader.innerHTML = `
+                    <div class="at-loading-spinner"></div>
+                    <p>${this.lang === "es" ? "Cargando partitura..." : "Loading score..."}</p>
+                `;
+                document.querySelector(".alphatab-wrapper").appendChild(loader);
+            }
+            loader.style.display = "flex";
+        } else {
+            if (loader) loader.style.display = "none";
         }
     }
 
