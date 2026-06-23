@@ -1544,111 +1544,19 @@ textarea.form-control {
 }
 
 /* ==========================================================================
-   Playground View Styles
+   Practice Step alphaTab Visualizers Styling
    ========================================================================== */
-.playground-layout {
-    display: grid;
-    grid-template-columns: 1fr 1.2fr;
-    gap: 32px;
-    height: 75vh;
-    min-height: 550px;
-    max-height: 850px;
-    min-width: 0;
-}
-
-.playground-card-editor {
-    background-color: var(--tb-bg-secondary);
+.alphatab-wrapper-step {
+    background-color: #ffffff;
     border: 1px solid var(--tb-border);
     border-radius: var(--border-radius);
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    min-width: 0;
-}
-
-.playground-editor-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.playground-textarea {
-    flex: 1;
-    resize: none;
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 13px;
-    line-height: 1.6;
-    background-color: #0b0b0c;
-    border: 1px solid var(--tb-border);
-    border-radius: 8px;
-    color: #00ff66; /* Console green */
     padding: 16px;
-    outline: none;
-    transition: var(--transition-fast);
-}
-
-.playground-textarea:focus {
-    border-color: var(--tb-accent);
-    box-shadow: 0 0 10px var(--tb-accent-glow);
-}
-
-.playground-editor-footer {
-    display: flex;
-    gap: 12px;
-}
-
-.playground-card-visualizer {
-    background-color: var(--tb-bg-secondary);
-    border: 1px solid var(--tb-border);
-    border-radius: var(--border-radius);
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    min-width: 0;
-    position: relative;
-}
-
-.playground-visualizer-wrapper {
-    background-color: #ffffff;
-    border: 1px solid var(--tb-border);
-    border-radius: var(--border-radius);
-    flex: 1;
-    overflow-y: auto;
-    position: relative;
-    min-height: 0;
-    min-width: 0;
-}
-
-#playground-alphaTab {
-    background-color: #ffffff;
-    width: 100%;
-    min-height: 400px;
+    margin-top: 16px;
+    min-height: 120px;
     overflow: hidden;
     position: relative;
-    padding: 0;
 }
 
-.playground-controls {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background-color: var(--tb-bg-primary);
-    border: 1px solid var(--tb-border);
-    border-radius: 8px;
-    padding: 10px 16px;
-}
-
-/* Responsiveness overrides for Playground */
-@media (max-width: 1024px) {
-    .playground-layout {
-        grid-template-columns: 1fr;
-        height: auto;
-        max-height: none;
-    }
-    
-    .playground-textarea {
-        height: 300px;
-    }
+.alphatab-wrapper-step div {
+    background-color: #ffffff;
 }

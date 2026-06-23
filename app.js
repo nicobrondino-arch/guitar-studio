@@ -261,7 +261,7 @@ const EXERCISES_DATABASE = [
         nameEn: "1. Ascending Slurs (Hammer-on)",
         descEs: "Alterna dedos 1 y 2 en el traste 5 y 6. Pulsa la primera nota con la púa y golpea la segunda nota fuertemente con el dedo 2 sin pulsar de nuevo.",
         descEn: "Alternate fingers 1 and 2 on frets 5 and 6. Pick the first note and strike the second note firmly with finger 2 without picking again.",
-        snippet: "E |---5h6---5h6---5h6------------------|"
+        alphaTex: "\\title \"Hammer-on\" . :g :8 5.1 6.1 5.1 6.1 5.1 6.1 5.1 6.1"
     },
     {
         id: "ex-left-2",
@@ -271,7 +271,7 @@ const EXERCISES_DATABASE = [
         nameEn: "2. Finger Independence (1-3-2-4)",
         descEs: "Digitación salteada para entrenar la independencia cerebral de los dedos de la mano izquierda en cuerdas altas. Mantén velocidad lenta.",
         descEn: "Skipped fingering pattern to train cognitive independence of left hand fingers on high strings. Keep a slow tempo.",
-        snippet: "E |---5---7---6---8--------------------|"
+        alphaTex: "\\title \"1-3-2-4\" . :g :8 5.1 7.1 6.1 8.1 5.2 7.2 6.2 8.2"
     },
     {
         id: "ex-right-1",
@@ -281,7 +281,7 @@ const EXERCISES_DATABASE = [
         nameEn: "1. Basic Tremolo (Alternated P-I-M-A)",
         descEs: "Toque continuo y rápido de una sola cuerda (ej. 1ª cuerda) alternando dedos anular-medio-índice, precedido por el pulgar en el bajo.",
         descEn: "Continuous, fast plucking of a single string (e.g. 1st string) alternating ring-middle-index fingers, preceded by thumb on bass.",
-        snippet: "E |-------0-0-0-------0-0-0------------|\nB |------------------------------------|\nG |------------------------------------|\nD |---0-----------0--------------------|"
+        alphaTex: "\\title \"Trémolo PIMA\" . :g :8 0.6 :16 0.1 0.1 0.1 :8 0.6 :16 0.1 0.1 0.1"
     },
     {
         id: "ex-right-2",
@@ -291,7 +291,7 @@ const EXERCISES_DATABASE = [
         nameEn: "2. 3-String Sweep Picking",
         descEs: "Desliza la púa hacia abajo a través de 3 cuerdas en un solo movimiento fluido (barrido), y luego hacia arriba. Sincroniza con la mano izquierda.",
         descEn: "Slide the pick downward across 3 strings in a single fluid sweeping motion, then upward. Synchronize with the left hand.",
-        snippet: "E |---------12-15-12-------------------|\nB |-------13---------13----------------|\nG |-----14-------------14--------------|"
+        alphaTex: "\\title \"Sweep Picking\" . :g :8 14.3 13.2 12.1 15.1 12.1 13.2 14.3"
     },
     {
         id: "ex-reading-1",
@@ -301,7 +301,7 @@ const EXERCISES_DATABASE = [
         nameEn: "1. First Position Reading (C Major)",
         descEs: "Lee notas limitándote a los primeros 4 trastes. Memoriza la ubicación de Do, Re, Mi, Fa, Sol, La, Si en pentagrama y mástil.",
         descEn: "Read notes restricted to the first 4 frets. Memorize the locations of C, D, E, F, G, A, B on both staff and fretboard.",
-        snippet: "Notas: C (5ªC tr.3), D (4ªC al aire), E (4ªC tr.2)"
+        alphaTex: "\\title \"Do Mayor\" . :g :4 3.5 0.4 2.4 3.4 0.3 2.3 0.2 1.2 3.2 0.1"
     }
 ];
 
@@ -319,6 +319,7 @@ class GuitarStudioApp {
         // Rutinas activas de práctica (modificables desde la biblioteca)
         this.activeLeftHandEx = null;
         this.activeRightHandEx = null;
+        this.activeReadingEx = null;
 
         // Base de datos y metrónomo
         this.db = new TabDatabase();
@@ -328,10 +329,10 @@ class GuitarStudioApp {
         this.atApi = null;
         this.atIsPlaying = false;
         
-        // Playground Player
-        this.playgroundApi = null;
-        this.playgroundIsPlaying = false;
-        this.playgroundDebounceTimeout = null;
+        // AlphaTab Step instances
+        this.step1Api = null;
+        this.step2Api = null;
+        this.step3Api = null;
         
         // Intervalos de temporizadores del Modo Práctica
         this.timers = [null, null, null]; // Para pasos 1, 2 y 3
@@ -349,6 +350,7 @@ class GuitarStudioApp {
         // Cargar rutinas personalizadas de la biblioteca si existen
         this.activeLeftHandEx = JSON.parse(localStorage.getItem("studio-active-left") || "null");
         this.activeRightHandEx = JSON.parse(localStorage.getItem("studio-active-right") || "null");
+        this.activeReadingEx = JSON.parse(localStorage.getItem("studio-active-reading") || "null");
 
         // Cargar estado de compleción diaria
         const todayStr = this.getTodayString();
@@ -703,54 +705,6 @@ class GuitarStudioApp {
                 this.atApi.renderTracks([this.atApi.score.tracks[trackIndex]]);
             }
         });
-
-        // Botón de exportación GP a AlphaTex
-        const btnGpExport = document.getElementById("btn-gp-export");
-        if (btnGpExport) {
-            btnGpExport.addEventListener("click", () => this.convertCurrentGPToAlphaTex());
-        }
-
-        // Botones del Playground
-        const btnPlaygroundPlay = document.getElementById("btn-playground-play");
-        if (btnPlaygroundPlay) {
-            btnPlaygroundPlay.addEventListener("click", () => this.togglePlaygroundPlayer());
-        }
-
-        const btnPlaygroundStop = document.getElementById("btn-playground-stop");
-        if (btnPlaygroundStop) {
-            btnPlaygroundStop.addEventListener("click", () => this.stopPlaygroundPlayer());
-        }
-
-        const btnPlaygroundExample = document.getElementById("btn-playground-example");
-        if (btnPlaygroundExample) {
-            btnPlaygroundExample.addEventListener("click", () => this.loadPlaygroundExample());
-        }
-
-        const btnPlaygroundCopy = document.getElementById("btn-playground-copy");
-        if (btnPlaygroundCopy) {
-            btnPlaygroundCopy.addEventListener("click", () => this.copyPlaygroundCode());
-        }
-
-        const btnPlaygroundClear = document.getElementById("btn-playground-clear");
-        if (btnPlaygroundClear) {
-            btnPlaygroundClear.addEventListener("click", () => this.clearPlayground());
-        }
-
-        const playgroundTextarea = document.getElementById("playground-textarea");
-        if (playgroundTextarea) {
-            playgroundTextarea.addEventListener("input", (e) => this.handlePlaygroundInput(e));
-        }
-
-        const playgroundSpeedSlider = document.getElementById("playground-speed-slider");
-        if (playgroundSpeedSlider) {
-            playgroundSpeedSlider.addEventListener("input", (e) => {
-                const speed = parseInt(e.target.value, 10);
-                document.getElementById("playground-speed-text").textContent = `${speed}%`;
-                if (this.playgroundApi) {
-                    this.playgroundApi.playbackSpeed = speed / 100.0;
-                }
-            });
-        }
     }
 
     resetMetronomeVisuals() {
@@ -781,14 +735,13 @@ class GuitarStudioApp {
             targetLink.classList.add("active");
         }
 
-        // Si entramos al Modo Práctica y el paso 4 está seleccionado, inicializar
+        // Si entramos al Modo Práctica, renderizar el paso activo
         if (viewId === 'practice') {
             const activeStep = document.querySelector(".header-step-item.active");
-            if (activeStep && activeStep.getAttribute("data-step") === "4") {
-                this.initAlphaTabPlayerIfNeeded();
+            if (activeStep) {
+                const step = parseInt(activeStep.getAttribute("data-step"), 10);
+                this.showWizardStep(step);
             }
-        } else if (viewId === 'playground') {
-            this.initPlaygroundIfNeeded();
         }
     }
 
@@ -806,16 +759,21 @@ class GuitarStudioApp {
         const activeHeaderItem = document.querySelector(`.header-step-item[data-step="${stepNum}"]`);
         if (activeHeaderItem) activeHeaderItem.classList.add("active");
 
-        // Si entramos al paso 4 (Guitar Pro), asegurar que se inicialice o re-renderice
-        if (stepNum === 4) {
-            // Dar tiempo al navegador para que aplique el display y haga visible el contenedor
-            setTimeout(() => {
+        // Gatillar renderizado de alphaTab con un pequeño retardo para asegurar visibilidad en el DOM
+        setTimeout(() => {
+            if (stepNum === 1 && this.step1Api) {
+                this.step1Api.render();
+            } else if (stepNum === 2 && this.step2Api) {
+                this.step2Api.render();
+            } else if (stepNum === 3 && this.step3Api) {
+                this.step3Api.render();
+            } else if (stepNum === 4) {
                 this.initAlphaTabPlayerIfNeeded();
                 if (this.atApi) {
                     this.atApi.render();
                 }
-            }, 100);
-        }
+            }
+        }, 100);
     }
 
     // ==========================================================================
@@ -1282,6 +1240,7 @@ class GuitarStudioApp {
     // ==========================================================================
     renderLibraryExercises() {
         const grid = document.getElementById("library-exercises-grid");
+        if (!grid) return;
         grid.innerHTML = "";
         
         EXERCISES_DATABASE.forEach(ex => {
@@ -1297,8 +1256,7 @@ class GuitarStudioApp {
                 </div>
                 <h4 class="exercise-name">${name}</h4>
                 <p class="library-card-desc">${desc}</p>
-                <div class="library-card-ill" style="white-space: pre; font-family: monospace;">${ex.snippet}</div>
-                <button class="btn btn-outline btn-sm btn-load-ex" data-id="${ex.id}" style="margin-top: 10px; width: 100%;">
+                <button class="btn btn-outline btn-sm btn-load-ex" data-id="${ex.id}" style="margin-top: auto; width: 100%;">
                     ${TRANSLATIONS[this.lang]["add-routine-btn"]}
                 </button>
             `;
@@ -1352,9 +1310,11 @@ class GuitarStudioApp {
                 ? "Ejercicio cargado en tu rutina de Mano Derecha." 
                 : "Exercise loaded into your Right Hand routine.");
         } else if (ex.category === "reading") {
-            alert(this.lang === "es"
-                ? "Para lectura, la biblioteca sirve de guía. Recuerda practicar la partitura correspondiente en el paso 3."
-                : "For reading, the library serves as a guide. Remember to practice your score in step 3.");
+            this.activeReadingEx = ex;
+            localStorage.setItem("studio-active-reading", JSON.stringify(ex));
+            alert(this.lang === "es" 
+                ? "Ejercicio cargado en tu rutina de Lectura." 
+                : "Exercise loaded into your Sight Reading routine.");
         }
 
         this.updatePracticeExercisesUI();
@@ -1364,241 +1324,75 @@ class GuitarStudioApp {
         // Mano Izquierda
         const leftNameEl = document.getElementById("left-hand-ex-name");
         const leftDescEl = document.getElementById("left-hand-ex-desc");
-        const leftSnippet = document.querySelector("#left-hand-ex-ill .tab-snippet");
         
         if (this.activeLeftHandEx) {
-            leftNameEl.textContent = this.lang === "es" ? this.activeLeftHandEx.nameEs : this.activeLeftHandEx.nameEn;
-            leftDescEl.textContent = this.lang === "es" ? this.activeLeftHandEx.descEs : this.activeLeftHandEx.descEn;
-            leftSnippet.innerHTML = `<span class="tab-string">${this.activeLeftHandEx.snippet.replace(/\n/g, '<br>')}</span>`;
+            if (leftNameEl) leftNameEl.textContent = this.lang === "es" ? this.activeLeftHandEx.nameEs : this.activeLeftHandEx.nameEn;
+            if (leftDescEl) leftDescEl.textContent = this.lang === "es" ? this.activeLeftHandEx.descEs : this.activeLeftHandEx.descEn;
         } else {
-            leftNameEl.textContent = TRANSLATIONS[this.lang]["left-hand-default-name"];
-            leftDescEl.textContent = TRANSLATIONS[this.lang]["left-hand-default-desc"];
-            leftSnippet.innerHTML = `<span class="tab-string">E |---1---2---3---4-------------------|</span><br><span class="tab-string">B |-------------------1---2---3---4---|</span>`;
+            if (leftNameEl) leftNameEl.textContent = TRANSLATIONS[this.lang]["left-hand-default-name"];
+            if (leftDescEl) leftDescEl.textContent = TRANSLATIONS[this.lang]["left-hand-default-desc"];
+        }
+
+        const el1 = document.getElementById("alphaTab-step-1");
+        if (el1 && typeof alphaTab !== 'undefined') {
+            if (!this.step1Api) {
+                this.step1Api = new alphaTab.AlphaTabApi(el1, {
+                    core: { fontDirectory: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/font/' },
+                    display: { layoutMode: alphaTab.LayoutMode.Page, padding: [10, 10, 10, 10] }
+                });
+            }
+            const leftTex = this.activeLeftHandEx ? this.activeLeftHandEx.alphaTex : "\\title \"La Araña\" . :g :8 5.6 6.6 7.6 8.6 7.6 6.6 5.6";
+            this.step1Api.tex(leftTex);
         }
 
         // Mano Derecha
         const rightNameEl = document.getElementById("right-hand-ex-name");
         const rightDescEl = document.getElementById("right-hand-ex-desc");
-        const rightSnippet = document.querySelector("#right-hand-ex-ill .tab-snippet");
         
         if (this.activeRightHandEx) {
-            rightNameEl.textContent = this.lang === "es" ? this.activeRightHandEx.nameEs : this.activeRightHandEx.nameEn;
-            rightDescEl.textContent = this.lang === "es" ? this.activeRightHandEx.descEs : this.activeRightHandEx.descEn;
-            rightSnippet.innerHTML = `<span class="tab-string">${this.activeRightHandEx.snippet.replace(/\n/g, '<br>')}</span>`;
+            if (rightNameEl) rightNameEl.textContent = this.lang === "es" ? this.activeRightHandEx.nameEs : this.activeRightHandEx.nameEn;
+            if (rightDescEl) rightDescEl.textContent = this.lang === "es" ? this.activeRightHandEx.descEs : this.activeRightHandEx.descEn;
         } else {
-            rightNameEl.textContent = TRANSLATIONS[this.lang]["right-hand-default-name"];
-            rightDescEl.textContent = TRANSLATIONS[this.lang]["right-hand-default-desc"];
-            rightSnippet.innerHTML = `<span class="tab-string">E |-----------0-----------------------|</span><br><span class="tab-string">B |-------0-------0-------------------|</span><br><span class="tab-string">G |---0---------------0---------------|</span><br><span class="tab-string">E |-0---------------------------------|</span>`;
+            if (rightNameEl) rightNameEl.textContent = TRANSLATIONS[this.lang]["right-hand-default-name"];
+            if (rightDescEl) rightDescEl.textContent = TRANSLATIONS[this.lang]["right-hand-default-desc"];
         }
-    }
 
-    // ==========================================================================
-    // 11. Playground / Editor Interactivo de AlphaTex
-    // ==========================================================================
-    initPlaygroundIfNeeded() {
-        if (this.playgroundApi) return;
-
-        const element = document.getElementById("playground-alphaTab");
-        if (!element) return;
-
-        // Mostrar loading spinner
-        this.showPlaygroundLoading(true);
-
-        try {
-            this.playgroundApi = new alphaTab.AlphaTabApi(element, {
-                core: {
-                    fontDirectory: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/font/',
-                    enableLazyLoading: true
-                },
-                player: {
-                    enablePlayer: true,
-                    enableCursor: true,
-                    enableAnimatedBeatCursor: true,
-                    soundFont: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/soundfont/sonivox.sf2',
-                    scrollElement: document.querySelector('.playground-visualizer-wrapper')
-                },
-                display: {
-                    layoutMode: alphaTab.LayoutMode.Page,
-                    padding: [20, 20, 20, 20]
-                },
-                notation: {
-                    elements: {
-                        scoreTitle: true,
-                        scoreArtist: true,
-                        trackNames: true
-                    }
-                }
-            });
-
-            this.playgroundApi.renderFinished.on(() => {
-                this.showPlaygroundLoading(false);
-                console.log("Playground render finished.");
-            });
-
-            this.playgroundApi.playerReady.on(() => {
-                console.log("Playground Player is ready.");
-            });
-
-            this.playgroundApi.playerStateChanged.on((e) => {
-                const btnPlay = document.getElementById("btn-playground-play");
-                if (e.state === alphaTab.synth.PlayerState.Playing) {
-                    btnPlay.querySelector("span").textContent = this.lang === "es" ? "Pausar" : "Pause";
-                    this.playgroundIsPlaying = true;
-                } else {
-                    btnPlay.querySelector("span").textContent = this.lang === "es" ? "Reproducir" : "Play";
-                    this.playgroundIsPlaying = false;
-                }
-            });
-
-            // Cargar el texto inicial del textarea (si tiene)
-            const textarea = document.getElementById("playground-textarea");
-            if (textarea && textarea.value.trim()) {
-                this.playgroundApi.tex(textarea.value);
-            } else {
-                this.loadPlaygroundExample();
+        const el2 = document.getElementById("alphaTab-step-2");
+        if (el2 && typeof alphaTab !== 'undefined') {
+            if (!this.step2Api) {
+                this.step2Api = new alphaTab.AlphaTabApi(el2, {
+                    core: { fontDirectory: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/font/' },
+                    display: { layoutMode: alphaTab.LayoutMode.Page, padding: [10, 10, 10, 10] }
+                });
             }
-
-        } catch (error) {
-            console.error("AlphaTab Playground error during initialization:", error);
-            this.showPlaygroundLoading(false);
-        }
-    }
-
-    showPlaygroundLoading(show) {
-        const loader = document.getElementById("playground-loading");
-        if (loader) {
-            loader.style.display = show ? "flex" : "none";
-        }
-    }
-
-    handlePlaygroundInput(e) {
-        const text = e.target.value;
-        if (this.playgroundDebounceTimeout) {
-            clearTimeout(this.playgroundDebounceTimeout);
-        }
-        this.playgroundDebounceTimeout = setTimeout(() => {
-            if (this.playgroundApi) {
-                try {
-                    this.playgroundApi.tex(text);
-                } catch (err) {
-                    console.error("AlphaTex parsing error:", err);
-                }
-            }
-        }, 300);
-    }
-
-    togglePlaygroundPlayer() {
-        if (!this.playgroundApi) return;
-
-        // Resume AudioContexts
-        if (this.playgroundApi.player && this.playgroundApi.player.audioContext) {
-            this.playgroundApi.player.audioContext.resume();
-        }
-        if (this.playgroundApi.player && this.playgroundApi.player.synth && this.playgroundApi.player.synth.audioContext) {
-            this.playgroundApi.player.synth.audioContext.resume();
-        }
-        if (this.metronome.audioContext) {
-            this.metronome.audioContext.resume();
+            const rightTex = this.activeRightHandEx ? this.activeRightHandEx.alphaTex : "\\title \"Arpegios\" . :g :8 0.6 0.3 0.2 0.1 0.2 0.3";
+            this.step2Api.tex(rightTex);
         }
 
-        if (this.playgroundIsPlaying) {
-            this.playgroundApi.pause();
-        } else {
-            this.playgroundApi.play();
-        }
-    }
-
-    stopPlaygroundPlayer() {
-        if (!this.playgroundApi) return;
-        this.playgroundApi.stop();
-    }
-
-    loadPlaygroundExample() {
-        const example = `\\title "Escala Pentatónica"
-\\subtitle "Ejemplo de Práctica"
-\\tempo 120
-.
-:g :4 5.6 8.6 5.5 7.5 5.4 7.4 5.3 7.3 5.2 8.2 5.1 8.1 | 8.1 5.1 8.2 5.2 7.3 5.3 7.4 5.4 7.5 5.5 8.6 5.6`;
+        // Lectura
+        const readingNameEl = document.getElementById("reading-ex-name");
+        const readingDescEl = document.getElementById("reading-ex-desc");
         
-        const textarea = document.getElementById("playground-textarea");
-        if (textarea) {
-            textarea.value = example;
-        }
-        
-        if (this.playgroundApi) {
-            this.playgroundApi.tex(example);
-        }
-    }
-
-    copyPlaygroundCode() {
-        const textarea = document.getElementById("playground-textarea");
-        if (!textarea) return;
-        const text = textarea.value;
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(text).then(() => {
-                alert(TRANSLATIONS[this.lang]["code-copied-success"]);
-            }).catch(err => {
-                console.error("Failed to copy using clipboard API:", err);
-                textarea.select();
-                document.execCommand("copy");
-                alert(TRANSLATIONS[this.lang]["code-copied-success"]);
-            });
+        if (this.activeReadingEx) {
+            if (readingNameEl) readingNameEl.textContent = this.lang === "es" ? this.activeReadingEx.nameEs : this.activeReadingEx.nameEn;
+            if (readingDescEl) readingDescEl.textContent = this.lang === "es" ? this.activeReadingEx.descEs : this.activeReadingEx.descEn;
         } else {
-            textarea.select();
-            document.execCommand("copy");
-            alert(TRANSLATIONS[this.lang]["code-copied-success"]);
-        }
-    }
-
-    clearPlayground() {
-        const textarea = document.getElementById("playground-textarea");
-        if (textarea) {
-            textarea.value = "";
-        }
-        if (this.playgroundApi) {
-            this.playgroundApi.tex("");
-        }
-    }
-
-    async convertCurrentGPToAlphaTex() {
-        if (!this.atApi || !this.atApi.score) {
-            alert(this.lang === "es" ? "No hay ninguna partitura cargada para exportar." : "No score is loaded to export.");
-            return;
+            if (readingNameEl) readingNameEl.textContent = this.lang === "es" ? "Descifrado Rápido de Notas" : "Quick Note Decoding";
+            if (readingDescEl) readingDescEl.textContent = this.lang === "es"
+                ? "Abre una partitura al azar en la biblioteca o de tus libros de estudio. Toca directamente la línea melódica sin ensayar antes, prestando atención exclusiva al ritmo y la fluidez del pulso, no importa si erras algunas notas."
+                : "Open a random score in the library or from your books. Directly play the melodic line without practicing beforehand, focusing purely on pulse and flow.";
         }
 
-        try {
-            let exporter = null;
-            if (alphaTab.exporter && alphaTab.exporter.AlphaTexExporter) {
-                exporter = new alphaTab.exporter.AlphaTexExporter();
-            } else if (alphaTab.AlphaTexExporter) {
-                exporter = new alphaTab.AlphaTexExporter();
+        const el3 = document.getElementById("alphaTab-step-3");
+        if (el3 && typeof alphaTab !== 'undefined') {
+            if (!this.step3Api) {
+                this.step3Api = new alphaTab.AlphaTabApi(el3, {
+                    core: { fontDirectory: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/font/' },
+                    display: { layoutMode: alphaTab.LayoutMode.Page, padding: [10, 10, 10, 10] }
+                });
             }
-
-            if (!exporter) {
-                throw new Error("AlphaTexExporter not found in alphaTab library.");
-            }
-
-            const texCode = exporter.export(this.atApi.score);
-            
-            // Colocar en el textarea del playground
-            const textarea = document.getElementById("playground-textarea");
-            if (textarea) {
-                textarea.value = texCode;
-            }
-
-            // Cambiar a la vista de playground
-            this.navigateToView('playground');
-
-            // Cargar en el visor del playground si ya existe
-            if (this.playgroundApi) {
-                this.playgroundApi.tex(texCode);
-            }
-
-        } catch (error) {
-            console.error("Error exporting to AlphaTex:", error);
-            alert(this.lang === "es" 
-                ? "Error al exportar la partitura. Formato no soportado por el exportador." 
-                : "Error exporting score. Format not supported by the exporter.");
+            const readingTex = this.activeReadingEx ? this.activeReadingEx.alphaTex : "\\title \"Lectura C\" . :g :4 3.5 0.4 2.4 3.4 0.3";
+            this.step3Api.tex(readingTex);
         }
     }
 }

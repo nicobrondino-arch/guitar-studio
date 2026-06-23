@@ -64,15 +64,6 @@
                         <span class="nav-text" data-i18n="nav-library">Biblioteca</span>
                     </a>
                 </li>
-                <li class="nav-item" data-view="playground">
-                    <a href="#playground">
-                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="16 18 22 12 16 6"></polyline>
-                            <polyline points="8 6 2 12 8 18"></polyline>
-                        </svg>
-                        <span class="nav-text" data-i18n="nav-playground">Editor AlphaTex</span>
-                    </a>
-                </li>
             </ul>
             
             <!-- Language Selector at the Bottom -->
@@ -254,16 +245,11 @@
                                 <div class="step-view-header">
                                     <h2 class="step-view-title" data-i18n="left-hand-routine-title">Rutina de Mano Izquierda</h2>
                                     <div class="routine-duration">5-10 min</div>
-                                </div>
-                                <div class="exercise-card">
+                                                       <div class="exercise-card">
                                     <h4 class="exercise-name" id="left-hand-ex-name">1. La Araña Dinámica (Ejercicios de Digitación)</h4>
                                     <p class="exercise-desc" id="left-hand-ex-desc">Toca en el traste 5 en adelante, cuerda por cuerda, alternando dedos 1-2-3-4. Mantén la mano relajada y el pulgar alineado en el centro del mástil.</p>
-                                    <div class="exercise-illustration" id="left-hand-ex-ill">
-                                        <!-- SVG / Tab Preview -->
-                                        <div class="tab-snippet">
-                                            <span class="tab-string">E |---1---2---3---4-------------------|</span>
-                                            <span class="tab-string">B |-------------------1---2---3---4---|</span>
-                                        </div>
+                                    <div class="alphatab-wrapper-step">
+                                        <div id="alphaTab-step-1"></div>
                                     </div>
                                 </div>
                                 
@@ -278,7 +264,7 @@
                                     <button class="btn btn-primary btn-lg" onclick="app.completeStep(1)" data-i18n="btn-complete-step">Marcar como Completado</button>
                                 </div>
                             </div>
-
+ 
                             <div class="wizard-step-view" id="step-view-2">
                                 <div class="step-view-header">
                                     <h2 class="step-view-title" data-i18n="right-hand-routine-title">Rutina de Mano Derecha</h2>
@@ -287,15 +273,8 @@
                                 <div class="exercise-card">
                                     <h4 class="exercise-name" id="right-hand-ex-name">1. Patrón de Arpegios Giulani (P-I-M-A)</h4>
                                     <p class="exercise-desc" id="right-hand-ex-desc">Toca cuerdas al aire en patrón de arpegio: Pulgar en los bajos (6ª, 5ª o 4ª), Índice en 3ª, Medio en 2ª y Anular en 1ª cuerda. Concentra tu atención en la uniformidad del volumen.</p>
-                                    <div class="exercise-illustration" id="right-hand-ex-ill">
-                                        <div class="tab-snippet">
-                                            <span class="tab-string">E |-----------0-----------------------|</span>
-                                            <span class="tab-string">B |-------0-------0-------------------|</span>
-                                            <span class="tab-string">G |---0---------------0---------------|</span>
-                                            <span class="tab-string">D |-----------------------------------|</span>
-                                            <span class="tab-string">A |-----------------------------------|</span>
-                                            <span class="tab-string">E |-0---------------------------------|</span>
-                                        </div>
+                                    <div class="alphatab-wrapper-step">
+                                        <div id="alphaTab-step-2"></div>
                                     </div>
                                 </div>
                                 
@@ -310,19 +289,17 @@
                                     <button class="btn btn-primary btn-lg" onclick="app.completeStep(2)" data-i18n="btn-complete-step">Marcar como Completado</button>
                                 </div>
                             </div>
-
+ 
                             <div class="wizard-step-view" id="step-view-3">
                                 <div class="step-view-header">
                                     <h2 class="step-view-title" data-i18n="sight-reading-title">Lectura a Primera Vista</h2>
                                     <div class="routine-duration">5 min</div>
                                 </div>
                                 <div class="exercise-card">
-                                    <h4 class="exercise-name" data-i18n="sight-reading-ex-title">Descifrado Rápido de Notas</h4>
-                                    <p class="exercise-desc" data-i18n="sight-reading-ex-desc">Abre una partitura al azar en la biblioteca o de tus libros de estudio. Toca directamente la línea melódica sin ensayar antes, prestando atención exclusiva al ritmo y la fluidez del pulso, no importa si erras algunas notas.</p>
-                                    <div class="sight-reading-challenge">
-                                        <div class="challenge-tip" data-i18n="sight-reading-tip-box">
-                                            <strong>💡 Consejo del Día:</strong> Lee un compás adelante de lo que tus dedos están tocando en ese momento. Eso te dará tiempo para anticipar los cambios de posición.
-                                        </div>
+                                    <h4 class="exercise-name" id="reading-ex-name" data-i18n="sight-reading-ex-title">Descifrado Rápido de Notas</h4>
+                                    <p class="exercise-desc" id="reading-ex-desc" data-i18n="sight-reading-ex-desc">Abre una partitura al azar en la biblioteca o de tus libros de estudio. Toca directamente la línea melódica sin ensayar antes, prestando atención exclusiva al ritmo y la fluidez del pulso, no importa si erras algunas notas.</p>
+                                    <div class="alphatab-wrapper-step">
+                                        <div id="alphaTab-step-3"></div>
                                     </div>
                                 </div>
                                 
@@ -470,15 +447,7 @@
                                     <span class="file-name" id="file-loaded-name" data-i18n="no-file-loaded">Ningún archivo cargado</span>
                                     <button class="btn btn-text btn-sm btn-delete-file" id="btn-delete-gp-file" style="color: var(--tb-accent); display: none;" data-i18n="btn-delete">Eliminar</button>
                                 </div>
-                                <div class="file-export-row" id="file-export-row" style="margin-top: 10px; display: none;">
-                                    <button class="btn btn-outline btn-sm" id="btn-gp-export" style="width: 100%; justify-content: center; font-size: 13px;">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px; margin-right: 4px;">
-                                            <polyline points="16 18 22 12 16 6"></polyline>
-                                            <polyline points="8 6 2 12 8 18"></polyline>
-                                        </svg>
-                                        <span data-i18n="btn-convert-playground">Convertir y Editar en Playground</span>
-                                    </button>
-                                </div>
+
                             </div>
                         </div>
                     </div>
@@ -507,58 +476,7 @@
                     </div>
                 </section>
 
-                <!-- VIEW 5: PLAYGROUND (EDITOR ALPHATEX) -->
-                <section id="view-playground" class="app-view">
-                    <div class="view-header-flex">
-                        <div>
-                            <h2 class="view-section-title" data-i18n="playground-title">Editor Interactivo (Playground)</h2>
-                            <p class="view-section-subtitle" data-i18n="playground-subtitle">Escribe, edita y reproduce tablaturas en formato de texto AlphaTex</p>
-                        </div>
-                    </div>
-                    
-                    <div class="playground-layout">
-                        <!-- Left Panel: Text Editor -->
-                        <div class="playground-card-editor">
-                            <div class="playground-editor-header">
-                                <h3 class="card-title" style="margin-bottom: 0;" data-i18n="playground-editor-title">Código AlphaTex</h3>
-                                <button class="btn btn-outline btn-sm" id="btn-playground-example" data-i18n="btn-load-example">Cargar Ejemplo</button>
-                            </div>
-                            <textarea class="form-control playground-textarea" id="playground-textarea" spellcheck="false" placeholder="\title &quot;Ejemplo&quot;&#10;\subtitle &quot;Creado en Guitar Studio&quot;&#10;.&#10;:g :8 5.6 6.6 7.6 8.6 7.6 6.6 5.6"></textarea>
-                            <div class="playground-editor-footer">
-                                <button class="btn btn-outline btn-sm" id="btn-playground-copy" data-i18n="btn-copy-code">Copiar Código</button>
-                                <button class="btn btn-outline btn-sm" id="btn-playground-clear" data-i18n="btn-clear-code">Limpiar</button>
-                            </div>
-                        </div>
-                        
-                        <!-- Right Panel: AlphaTab Visualizer -->
-                        <div class="playground-card-visualizer">
-                            <div class="playground-visualizer-wrapper">
-                                <!-- Loader -->
-                                <div class="alphatab-loading" id="playground-loading" style="display: none;">
-                                    <div class="at-loading-spinner"></div>
-                                    <p data-i18n="gp-loading">Cargando partitura...</p>
-                                </div>
-                                <!-- Visor Render Element -->
-                                <div id="playground-alphaTab"></div>
-                            </div>
-                            
-                            <!-- Controls -->
-                            <div class="playground-controls">
-                                <button class="btn btn-primary btn-sm" id="btn-playground-play">
-                                    <span data-i18n="btn-play">Reproducir</span>
-                                </button>
-                                <button class="btn btn-outline btn-sm" id="btn-playground-stop">
-                                    <span data-i18n="btn-stop">Detener</span>
-                                </button>
-                                <div class="gp-tempo-control" style="font-size: 12px; margin-left: auto;">
-                                    <span class="gp-control-label" data-i18n="gp-speed">Velocidad:</span>
-                                    <input type="range" class="slider" id="playground-speed-slider" min="25" max="150" value="100" style="width: 80px;">
-                                    <span id="playground-speed-text" style="font-weight: 700;">100%</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
+
 
             </div>
         </main>
