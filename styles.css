@@ -229,6 +229,76 @@ button {
     border-bottom: 1px solid var(--tb-border);
 }
 
+/* Header Steps Navigation */
+.header-steps-list {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    flex-wrap: wrap;
+}
+
+.header-step-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 30px;
+    background-color: var(--tb-bg-secondary);
+    border: 1px solid var(--tb-border);
+    color: var(--tb-text-secondary);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    transition: var(--transition-fast);
+    user-select: none;
+}
+
+.header-step-item:hover {
+    color: var(--tb-text-primary);
+    border-color: var(--tb-border-hover);
+    background-color: var(--tb-bg-elevated);
+}
+
+.header-step-item.active {
+    color: var(--tb-text-primary);
+    border-color: var(--tb-accent);
+    background-color: var(--tb-accent-glow);
+    box-shadow: 0 0 12px var(--tb-accent-glow);
+}
+
+.header-step-item.completed {
+    border-color: var(--tb-success);
+    color: var(--tb-text-muted);
+}
+
+.header-step-item.completed .step-num {
+    background-color: var(--tb-success);
+    color: var(--tb-bg-primary);
+    box-shadow: 0 0 6px var(--tb-success);
+}
+
+.header-step-item .step-num {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background-color: var(--tb-bg-elevated);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--tb-text-secondary);
+    transition: var(--transition-fast);
+}
+
+.header-step-item.active .step-num {
+    background-color: var(--tb-accent);
+    color: var(--tb-text-primary);
+}
+
 #header-title {
     font-size: 32px;
     font-weight: 700;
@@ -721,9 +791,12 @@ button {
     border-radius: var(--border-radius);
     padding: 32px;
     box-shadow: 0 4px 16px var(--tb-shadow);
-    min-height: 480px;
+    height: 75vh;
+    min-height: 550px;
+    max-height: 850px;
     display: flex;
     flex-direction: column;
+    min-width: 0;
 }
 
 .wizard-step-view {
@@ -944,7 +1017,8 @@ button {
     flex-direction: column;
     flex: 1;
     position: relative;
-    min-height: 480px;
+    min-height: 0;
+    min-width: 0;
 }
 
 .alphatab-wrapper {
@@ -957,6 +1031,8 @@ button {
     display: flex;
     flex-direction: column;
     margin-bottom: 120px; /* Space for the fixed controls below */
+    min-height: 0;
+    min-width: 0;
 }
 
 /* Style overrides for AlphaTab default elements to match Soundslice aesthetic */
@@ -967,7 +1043,7 @@ button {
 
 #alphaTab {
     background-color: #ffffff; /* Crisp white paper sheet */
-    padding: 24px;
+    padding: 0;
     border-radius: 8px;
     width: 100%;
     min-height: 400px;
@@ -1464,5 +1540,115 @@ textarea.form-control {
     }
     100% {
         transform: scale(1.15);
+    }
+}
+
+/* ==========================================================================
+   Playground View Styles
+   ========================================================================== */
+.playground-layout {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    gap: 32px;
+    height: 75vh;
+    min-height: 550px;
+    max-height: 850px;
+    min-width: 0;
+}
+
+.playground-card-editor {
+    background-color: var(--tb-bg-secondary);
+    border: 1px solid var(--tb-border);
+    border-radius: var(--border-radius);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+.playground-editor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.playground-textarea {
+    flex: 1;
+    resize: none;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    background-color: #0b0b0c;
+    border: 1px solid var(--tb-border);
+    border-radius: 8px;
+    color: #00ff66; /* Console green */
+    padding: 16px;
+    outline: none;
+    transition: var(--transition-fast);
+}
+
+.playground-textarea:focus {
+    border-color: var(--tb-accent);
+    box-shadow: 0 0 10px var(--tb-accent-glow);
+}
+
+.playground-editor-footer {
+    display: flex;
+    gap: 12px;
+}
+
+.playground-card-visualizer {
+    background-color: var(--tb-bg-secondary);
+    border: 1px solid var(--tb-border);
+    border-radius: var(--border-radius);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+    position: relative;
+}
+
+.playground-visualizer-wrapper {
+    background-color: #ffffff;
+    border: 1px solid var(--tb-border);
+    border-radius: var(--border-radius);
+    flex: 1;
+    overflow-y: auto;
+    position: relative;
+    min-height: 0;
+    min-width: 0;
+}
+
+#playground-alphaTab {
+    background-color: #ffffff;
+    width: 100%;
+    min-height: 400px;
+    overflow: hidden;
+    position: relative;
+    padding: 0;
+}
+
+.playground-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background-color: var(--tb-bg-primary);
+    border: 1px solid var(--tb-border);
+    border-radius: 8px;
+    padding: 10px 16px;
+}
+
+/* Responsiveness overrides for Playground */
+@media (max-width: 1024px) {
+    .playground-layout {
+        grid-template-columns: 1fr;
+        height: auto;
+        max-height: none;
+    }
+    
+    .playground-textarea {
+        height: 300px;
     }
 }

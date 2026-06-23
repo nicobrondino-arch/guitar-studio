@@ -78,7 +78,18 @@ const TRANSLATIONS = {
         "left-hand-default-name": "La Araña Dinámica (Digitación)",
         "left-hand-default-desc": "Toca en el traste 5 en adelante, cuerda por cuerda, alternando dedos 1-2-3-4. Mantén la mano relajada y el pulgar alineado en el centro del mástil.",
         "right-hand-default-name": "Patrón de Arpegios Giuliani (P-I-M-A)",
-        "right-hand-default-desc": "Toca cuerdas al aire en patrón de arpegio: Pulgar en los bajos (6ª, 5ª o 4ª), Índice en 3ª, Medio en 2ª y Anular en 1ª cuerda. Uniformidad y regularidad."
+        "right-hand-default-desc": "Toca cuerdas al aire en patrón de arpegio: Pulgar en los bajos (6ª, 5ª o 4ª), Índice en 3ª, Medio en 2ª y Anular en 1ª cuerda. Uniformidad y regularidad.",
+        "nav-playground": "Editor AlphaTex",
+        "playground-title": "Editor Interactivo (Playground)",
+        "playground-subtitle": "Escribe, edita y reproduce tablaturas en formato de texto AlphaTex",
+        "playground-editor-title": "Código AlphaTex",
+        "btn-load-example": "Cargar Ejemplo",
+        "btn-copy-code": "Copiar Código",
+        "btn-clear-code": "Limpiar",
+        "btn-convert-playground": "Convertir y Editar en Playground",
+        "code-copied-success": "¡Código copiado al portapapeles!",
+        "example-loaded-success": "¡Ejemplo cargado!",
+        "gp-loading": "Cargando partitura..."
     },
     en: {
         "app-title": "Guitar Studio - Streak and Practice Routine",
@@ -149,7 +160,18 @@ const TRANSLATIONS = {
         "left-hand-default-name": "The Dynamic Spider (Fingering)",
         "left-hand-default-desc": "Play fret 5 and up, string by string, alternating fingers 1-2-3-4. Keep the hand relaxed and the thumb aligned in the center of the neck.",
         "right-hand-default-name": "Giuliani Arpeggio Pattern (P-I-M-A)",
-        "right-hand-default-desc": "Play open strings in an arpeggio pattern: Thumb on bass strings, Index on 3rd, Middle on 2nd, Ring on 1st. Regularity and volume control."
+        "right-hand-default-desc": "Play open strings in an arpeggio pattern: Thumb on bass strings, Index on 3rd, Middle on 2nd, Ring on 1st. Regularity and volume control.",
+        "nav-playground": "AlphaTex Editor",
+        "playground-title": "Interactive Editor (Playground)",
+        "playground-subtitle": "Write, edit, and play tablature in AlphaTex text format",
+        "playground-editor-title": "AlphaTex Code",
+        "btn-load-example": "Load Example",
+        "btn-copy-code": "Copy Code",
+        "btn-clear-code": "Clear",
+        "btn-convert-playground": "Convert and Edit in Playground",
+        "code-copied-success": "Code copied to clipboard!",
+        "example-loaded-success": "Example loaded!",
+        "gp-loading": "Loading score..."
     }
 };
 
@@ -305,6 +327,11 @@ class GuitarStudioApp {
         // AlphaTab Player
         this.atApi = null;
         this.atIsPlaying = false;
+        
+        // Playground Player
+        this.playgroundApi = null;
+        this.playgroundIsPlaying = false;
+        this.playgroundDebounceTimeout = null;
         
         // Intervalos de temporizadores del Modo Práctica
         this.timers = [null, null, null]; // Para pasos 1, 2 y 3
@@ -545,6 +572,7 @@ class GuitarStudioApp {
         headerStepItems.forEach(item => {
             item.addEventListener("click", () => {
                 const step = parseInt(item.getAttribute("data-step"), 10);
+                this.navigateToView('practice');
                 this.showWizardStep(step);
             });
         });
@@ -675,6 +703,54 @@ class GuitarStudioApp {
                 this.atApi.renderTracks([this.atApi.score.tracks[trackIndex]]);
             }
         });
+
+        // Botón de exportación GP a AlphaTex
+        const btnGpExport = document.getElementById("btn-gp-export");
+        if (btnGpExport) {
+            btnGpExport.addEventListener("click", () => this.convertCurrentGPToAlphaTex());
+        }
+
+        // Botones del Playground
+        const btnPlaygroundPlay = document.getElementById("btn-playground-play");
+        if (btnPlaygroundPlay) {
+            btnPlaygroundPlay.addEventListener("click", () => this.togglePlaygroundPlayer());
+        }
+
+        const btnPlaygroundStop = document.getElementById("btn-playground-stop");
+        if (btnPlaygroundStop) {
+            btnPlaygroundStop.addEventListener("click", () => this.stopPlaygroundPlayer());
+        }
+
+        const btnPlaygroundExample = document.getElementById("btn-playground-example");
+        if (btnPlaygroundExample) {
+            btnPlaygroundExample.addEventListener("click", () => this.loadPlaygroundExample());
+        }
+
+        const btnPlaygroundCopy = document.getElementById("btn-playground-copy");
+        if (btnPlaygroundCopy) {
+            btnPlaygroundCopy.addEventListener("click", () => this.copyPlaygroundCode());
+        }
+
+        const btnPlaygroundClear = document.getElementById("btn-playground-clear");
+        if (btnPlaygroundClear) {
+            btnPlaygroundClear.addEventListener("click", () => this.clearPlayground());
+        }
+
+        const playgroundTextarea = document.getElementById("playground-textarea");
+        if (playgroundTextarea) {
+            playgroundTextarea.addEventListener("input", (e) => this.handlePlaygroundInput(e));
+        }
+
+        const playgroundSpeedSlider = document.getElementById("playground-speed-slider");
+        if (playgroundSpeedSlider) {
+            playgroundSpeedSlider.addEventListener("input", (e) => {
+                const speed = parseInt(e.target.value, 10);
+                document.getElementById("playground-speed-text").textContent = `${speed}%`;
+                if (this.playgroundApi) {
+                    this.playgroundApi.playbackSpeed = speed / 100.0;
+                }
+            });
+        }
     }
 
     resetMetronomeVisuals() {
@@ -705,35 +781,14 @@ class GuitarStudioApp {
             targetLink.classList.add("active");
         }
 
-        // Gestión de la cabecera dinámica
-        const titleBox = document.getElementById("header-page-title-box");
-        const stepsList = document.getElementById("header-steps-list");
-        const titleEl = document.getElementById("header-title");
-
+        // Si entramos al Modo Práctica y el paso 4 está seleccionado, inicializar
         if (viewId === 'practice') {
-            titleBox.style.display = "none";
-            stepsList.style.display = "flex";
-            
-            // Si entramos al Modo Práctica y el paso 4 está seleccionado, inicializar
             const activeStep = document.querySelector(".header-step-item.active");
             if (activeStep && activeStep.getAttribute("data-step") === "4") {
                 this.initAlphaTabPlayerIfNeeded();
             }
-        } else {
-            titleBox.style.display = "block";
-            stepsList.style.display = "none";
-            
-            // Cambiar título según la vista activa
-            if (viewId === 'studio') {
-                titleEl.textContent = this.lang === 'es' ? 'Mi Estudio' : 'My Studio';
-                titleEl.setAttribute('data-i18n', 'nav-studio');
-            } else if (viewId === 'notebook') {
-                titleEl.textContent = this.lang === 'es' ? 'Cuaderno del Profesor' : "Teacher's Notebook";
-                titleEl.setAttribute('data-i18n', 'notebook-title');
-            } else if (viewId === 'library') {
-                titleEl.textContent = this.lang === 'es' ? 'Biblioteca de Estudio' : 'Study Library';
-                titleEl.setAttribute('data-i18n', 'library-title');
-            }
+        } else if (viewId === 'playground') {
+            this.initPlaygroundIfNeeded();
         }
     }
 
@@ -782,19 +837,9 @@ class GuitarStudioApp {
         if (this.lang === "es") {
             document.getElementById("btn-lang-es").classList.add("active");
             document.getElementById("btn-lang-en").classList.remove("active");
-            document.getElementById("header-title").textContent = "Hola, Guitarrista";
-            
-            // Fecha en Español
-            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-            document.getElementById("header-date").textContent = new Date().toLocaleDateString('es-ES', options);
         } else {
             document.getElementById("btn-lang-es").classList.remove("active");
             document.getElementById("btn-lang-en").classList.add("active");
-            document.getElementById("header-title").textContent = "Hello, Guitarist";
-            
-            // Fecha en Inglés
-            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-            document.getElementById("header-date").textContent = new Date().toLocaleDateString('en-US', options);
         }
 
         // Traducir todos los elementos marcados con data-i18n
@@ -1039,11 +1084,15 @@ class GuitarStudioApp {
         const score = await this.db.getScore();
         const fileLoadedName = document.getElementById("file-loaded-name");
         const btnDelete = document.getElementById("btn-delete-gp-file");
+        const fileExportRow = document.getElementById("file-export-row");
         
         if (score) {
             fileLoadedName.textContent = score.name;
             fileLoadedName.style.color = "var(--tb-text-primary)";
             btnDelete.style.display = "block";
+            if (fileExportRow) {
+                fileExportRow.style.display = "block";
+            }
             
             // Ocultar placeholder del visor en Modo Práctica
             document.getElementById("alphatab-placeholder").style.display = "none";
@@ -1061,6 +1110,9 @@ class GuitarStudioApp {
             fileLoadedName.textContent = TRANSLATIONS[this.lang]["no-file-loaded"];
             fileLoadedName.style.color = "var(--tb-text-muted)";
             btnDelete.style.display = "none";
+            if (fileExportRow) {
+                fileExportRow.style.display = "none";
+            }
             
             document.getElementById("alphatab-placeholder").style.display = "flex";
             document.getElementById("alphaTab").style.display = "none";
@@ -1119,7 +1171,8 @@ class GuitarStudioApp {
                     scrollElement: document.querySelector('.alphatab-wrapper')
                 },
                 display: {
-                    layoutMode: alphaTab.LayoutMode.Page
+                    layoutMode: alphaTab.LayoutMode.Page,
+                    padding: [20, 20, 20, 20]
                 },
                 notation: {
                     elements: {
@@ -1201,29 +1254,27 @@ class GuitarStudioApp {
     toggleGPPlayer() {
         if (!this.atApi) return;
         
-        const btnPlay = document.getElementById("btn-gp-play");
-        
+        // Resume all potential AudioContexts to bypass browser autoplay policies
+        if (this.atApi.player && this.atApi.player.audioContext) {
+            this.atApi.player.audioContext.resume();
+        }
+        if (this.atApi.player && this.atApi.player.synth && this.atApi.player.synth.audioContext) {
+            this.atApi.player.synth.audioContext.resume();
+        }
+        if (this.metronome.audioContext) {
+            this.metronome.audioContext.resume();
+        }
+
         if (this.atIsPlaying) {
             this.atApi.pause();
-            btnPlay.querySelector("span").textContent = this.lang === "es" ? "Reproducir" : "Play";
-            this.atIsPlaying = false;
         } else {
-            // Reanudar contexto si hace falta
-            if (this.metronome.audioContext) {
-                this.metronome.audioContext.resume();
-            }
-            
             this.atApi.play();
-            btnPlay.querySelector("span").textContent = this.lang === "es" ? "Pausar" : "Pause";
-            this.atIsPlaying = true;
         }
     }
 
     stopGPPlayer() {
         if (!this.atApi) return;
         this.atApi.stop();
-        document.getElementById("btn-gp-play").querySelector("span").textContent = this.lang === "es" ? "Reproducir" : "Play";
-        this.atIsPlaying = false;
     }
 
     // ==========================================================================
@@ -1338,6 +1389,216 @@ class GuitarStudioApp {
             rightNameEl.textContent = TRANSLATIONS[this.lang]["right-hand-default-name"];
             rightDescEl.textContent = TRANSLATIONS[this.lang]["right-hand-default-desc"];
             rightSnippet.innerHTML = `<span class="tab-string">E |-----------0-----------------------|</span><br><span class="tab-string">B |-------0-------0-------------------|</span><br><span class="tab-string">G |---0---------------0---------------|</span><br><span class="tab-string">E |-0---------------------------------|</span>`;
+        }
+    }
+
+    // ==========================================================================
+    // 11. Playground / Editor Interactivo de AlphaTex
+    // ==========================================================================
+    initPlaygroundIfNeeded() {
+        if (this.playgroundApi) return;
+
+        const element = document.getElementById("playground-alphaTab");
+        if (!element) return;
+
+        // Mostrar loading spinner
+        this.showPlaygroundLoading(true);
+
+        try {
+            this.playgroundApi = new alphaTab.AlphaTabApi(element, {
+                core: {
+                    fontDirectory: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/font/',
+                    enableLazyLoading: true
+                },
+                player: {
+                    enablePlayer: true,
+                    enableCursor: true,
+                    enableAnimatedBeatCursor: true,
+                    soundFont: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/soundfont/sonivox.sf2',
+                    scrollElement: document.querySelector('.playground-visualizer-wrapper')
+                },
+                display: {
+                    layoutMode: alphaTab.LayoutMode.Page,
+                    padding: [20, 20, 20, 20]
+                },
+                notation: {
+                    elements: {
+                        scoreTitle: true,
+                        scoreArtist: true,
+                        trackNames: true
+                    }
+                }
+            });
+
+            this.playgroundApi.renderFinished.on(() => {
+                this.showPlaygroundLoading(false);
+                console.log("Playground render finished.");
+            });
+
+            this.playgroundApi.playerReady.on(() => {
+                console.log("Playground Player is ready.");
+            });
+
+            this.playgroundApi.playerStateChanged.on((e) => {
+                const btnPlay = document.getElementById("btn-playground-play");
+                if (e.state === alphaTab.synth.PlayerState.Playing) {
+                    btnPlay.querySelector("span").textContent = this.lang === "es" ? "Pausar" : "Pause";
+                    this.playgroundIsPlaying = true;
+                } else {
+                    btnPlay.querySelector("span").textContent = this.lang === "es" ? "Reproducir" : "Play";
+                    this.playgroundIsPlaying = false;
+                }
+            });
+
+            // Cargar el texto inicial del textarea (si tiene)
+            const textarea = document.getElementById("playground-textarea");
+            if (textarea && textarea.value.trim()) {
+                this.playgroundApi.tex(textarea.value);
+            } else {
+                this.loadPlaygroundExample();
+            }
+
+        } catch (error) {
+            console.error("AlphaTab Playground error during initialization:", error);
+            this.showPlaygroundLoading(false);
+        }
+    }
+
+    showPlaygroundLoading(show) {
+        const loader = document.getElementById("playground-loading");
+        if (loader) {
+            loader.style.display = show ? "flex" : "none";
+        }
+    }
+
+    handlePlaygroundInput(e) {
+        const text = e.target.value;
+        if (this.playgroundDebounceTimeout) {
+            clearTimeout(this.playgroundDebounceTimeout);
+        }
+        this.playgroundDebounceTimeout = setTimeout(() => {
+            if (this.playgroundApi) {
+                try {
+                    this.playgroundApi.tex(text);
+                } catch (err) {
+                    console.error("AlphaTex parsing error:", err);
+                }
+            }
+        }, 300);
+    }
+
+    togglePlaygroundPlayer() {
+        if (!this.playgroundApi) return;
+
+        // Resume AudioContexts
+        if (this.playgroundApi.player && this.playgroundApi.player.audioContext) {
+            this.playgroundApi.player.audioContext.resume();
+        }
+        if (this.playgroundApi.player && this.playgroundApi.player.synth && this.playgroundApi.player.synth.audioContext) {
+            this.playgroundApi.player.synth.audioContext.resume();
+        }
+        if (this.metronome.audioContext) {
+            this.metronome.audioContext.resume();
+        }
+
+        if (this.playgroundIsPlaying) {
+            this.playgroundApi.pause();
+        } else {
+            this.playgroundApi.play();
+        }
+    }
+
+    stopPlaygroundPlayer() {
+        if (!this.playgroundApi) return;
+        this.playgroundApi.stop();
+    }
+
+    loadPlaygroundExample() {
+        const example = `\\title "Escala Pentatónica"
+\\subtitle "Ejemplo de Práctica"
+\\tempo 120
+.
+:g :4 5.6 8.6 5.5 7.5 5.4 7.4 5.3 7.3 5.2 8.2 5.1 8.1 | 8.1 5.1 8.2 5.2 7.3 5.3 7.4 5.4 7.5 5.5 8.6 5.6`;
+        
+        const textarea = document.getElementById("playground-textarea");
+        if (textarea) {
+            textarea.value = example;
+        }
+        
+        if (this.playgroundApi) {
+            this.playgroundApi.tex(example);
+        }
+    }
+
+    copyPlaygroundCode() {
+        const textarea = document.getElementById("playground-textarea");
+        if (!textarea) return;
+        const text = textarea.value;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert(TRANSLATIONS[this.lang]["code-copied-success"]);
+            }).catch(err => {
+                console.error("Failed to copy using clipboard API:", err);
+                textarea.select();
+                document.execCommand("copy");
+                alert(TRANSLATIONS[this.lang]["code-copied-success"]);
+            });
+        } else {
+            textarea.select();
+            document.execCommand("copy");
+            alert(TRANSLATIONS[this.lang]["code-copied-success"]);
+        }
+    }
+
+    clearPlayground() {
+        const textarea = document.getElementById("playground-textarea");
+        if (textarea) {
+            textarea.value = "";
+        }
+        if (this.playgroundApi) {
+            this.playgroundApi.tex("");
+        }
+    }
+
+    async convertCurrentGPToAlphaTex() {
+        if (!this.atApi || !this.atApi.score) {
+            alert(this.lang === "es" ? "No hay ninguna partitura cargada para exportar." : "No score is loaded to export.");
+            return;
+        }
+
+        try {
+            let exporter = null;
+            if (alphaTab.exporter && alphaTab.exporter.AlphaTexExporter) {
+                exporter = new alphaTab.exporter.AlphaTexExporter();
+            } else if (alphaTab.AlphaTexExporter) {
+                exporter = new alphaTab.AlphaTexExporter();
+            }
+
+            if (!exporter) {
+                throw new Error("AlphaTexExporter not found in alphaTab library.");
+            }
+
+            const texCode = exporter.export(this.atApi.score);
+            
+            // Colocar en el textarea del playground
+            const textarea = document.getElementById("playground-textarea");
+            if (textarea) {
+                textarea.value = texCode;
+            }
+
+            // Cambiar a la vista de playground
+            this.navigateToView('playground');
+
+            // Cargar en el visor del playground si ya existe
+            if (this.playgroundApi) {
+                this.playgroundApi.tex(texCode);
+            }
+
+        } catch (error) {
+            console.error("Error exporting to AlphaTex:", error);
+            alert(this.lang === "es" 
+                ? "Error al exportar la partitura. Formato no soportado por el exportador." 
+                : "Error exporting score. Format not supported by the exporter.");
         }
     }
 }

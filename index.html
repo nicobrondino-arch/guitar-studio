@@ -64,6 +64,15 @@
                         <span class="nav-text" data-i18n="nav-library">Biblioteca</span>
                     </a>
                 </li>
+                <li class="nav-item" data-view="playground">
+                    <a href="#playground">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="16 18 22 12 16 6"></polyline>
+                            <polyline points="8 6 2 12 8 18"></polyline>
+                        </svg>
+                        <span class="nav-text" data-i18n="nav-playground">Editor AlphaTex</span>
+                    </a>
+                </li>
             </ul>
             
             <!-- Language Selector at the Bottom -->
@@ -81,14 +90,8 @@
             <!-- Header bar -->
             <header class="app-header">
                 <div class="header-left">
-                    <!-- Page title (shown for Studio, Notebook, Library) -->
-                    <div id="header-page-title-box">
-                        <h1 id="header-title" data-i18n="header-welcome">Hola, Guitarrista</h1>
-                        <p class="header-subtitle" id="header-date">Martes, 23 de Junio de 2026</p>
-                    </div>
-                    
-                    <!-- Practice steps horizontal menu (shown only when in Practice view) -->
-                    <ul class="header-steps-list" id="header-steps-list" style="display: none;">
+                    <!-- Practice steps horizontal menu (shown always) -->
+                    <ul class="header-steps-list" id="header-steps-list">
                         <li class="header-step-item active" data-step="1">
                             <span class="step-num">1</span>
                             <span class="step-label" data-i18n="mod-left-hand">Mano Izquierda</span>
@@ -467,6 +470,15 @@
                                     <span class="file-name" id="file-loaded-name" data-i18n="no-file-loaded">Ningún archivo cargado</span>
                                     <button class="btn btn-text btn-sm btn-delete-file" id="btn-delete-gp-file" style="color: var(--tb-accent); display: none;" data-i18n="btn-delete">Eliminar</button>
                                 </div>
+                                <div class="file-export-row" id="file-export-row" style="margin-top: 10px; display: none;">
+                                    <button class="btn btn-outline btn-sm" id="btn-gp-export" style="width: 100%; justify-content: center; font-size: 13px;">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px; margin-right: 4px;">
+                                            <polyline points="16 18 22 12 16 6"></polyline>
+                                            <polyline points="8 6 2 12 8 18"></polyline>
+                                        </svg>
+                                        <span data-i18n="btn-convert-playground">Convertir y Editar en Playground</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -492,6 +504,59 @@
                     <!-- Exercises Grid -->
                     <div class="exercises-grid" id="library-exercises-grid">
                         <!-- Llenado dinámico por JS -->
+                    </div>
+                </section>
+
+                <!-- VIEW 5: PLAYGROUND (EDITOR ALPHATEX) -->
+                <section id="view-playground" class="app-view">
+                    <div class="view-header-flex">
+                        <div>
+                            <h2 class="view-section-title" data-i18n="playground-title">Editor Interactivo (Playground)</h2>
+                            <p class="view-section-subtitle" data-i18n="playground-subtitle">Escribe, edita y reproduce tablaturas en formato de texto AlphaTex</p>
+                        </div>
+                    </div>
+                    
+                    <div class="playground-layout">
+                        <!-- Left Panel: Text Editor -->
+                        <div class="playground-card-editor">
+                            <div class="playground-editor-header">
+                                <h3 class="card-title" style="margin-bottom: 0;" data-i18n="playground-editor-title">Código AlphaTex</h3>
+                                <button class="btn btn-outline btn-sm" id="btn-playground-example" data-i18n="btn-load-example">Cargar Ejemplo</button>
+                            </div>
+                            <textarea class="form-control playground-textarea" id="playground-textarea" spellcheck="false" placeholder="\title &quot;Ejemplo&quot;&#10;\subtitle &quot;Creado en Guitar Studio&quot;&#10;.&#10;:g :8 5.6 6.6 7.6 8.6 7.6 6.6 5.6"></textarea>
+                            <div class="playground-editor-footer">
+                                <button class="btn btn-outline btn-sm" id="btn-playground-copy" data-i18n="btn-copy-code">Copiar Código</button>
+                                <button class="btn btn-outline btn-sm" id="btn-playground-clear" data-i18n="btn-clear-code">Limpiar</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Right Panel: AlphaTab Visualizer -->
+                        <div class="playground-card-visualizer">
+                            <div class="playground-visualizer-wrapper">
+                                <!-- Loader -->
+                                <div class="alphatab-loading" id="playground-loading" style="display: none;">
+                                    <div class="at-loading-spinner"></div>
+                                    <p data-i18n="gp-loading">Cargando partitura...</p>
+                                </div>
+                                <!-- Visor Render Element -->
+                                <div id="playground-alphaTab"></div>
+                            </div>
+                            
+                            <!-- Controls -->
+                            <div class="playground-controls">
+                                <button class="btn btn-primary btn-sm" id="btn-playground-play">
+                                    <span data-i18n="btn-play">Reproducir</span>
+                                </button>
+                                <button class="btn btn-outline btn-sm" id="btn-playground-stop">
+                                    <span data-i18n="btn-stop">Detener</span>
+                                </button>
+                                <div class="gp-tempo-control" style="font-size: 12px; margin-left: auto;">
+                                    <span class="gp-control-label" data-i18n="gp-speed">Velocidad:</span>
+                                    <input type="range" class="slider" id="playground-speed-slider" min="25" max="150" value="100" style="width: 80px;">
+                                    <span id="playground-speed-text" style="font-weight: 700;">100%</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </section>
 
