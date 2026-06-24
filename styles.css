@@ -405,6 +405,7 @@ button {
     opacity: 0;
     transform: translateY(10px);
     transition: opacity 0.3s ease, transform 0.3s ease;
+    position: relative;
 }
 
 .app-view.active {
@@ -3689,6 +3690,40 @@ textarea.form-control {
     font-size: 11px;
     color: var(--tb-text-muted);
     margin-top: 10px;
+}
+
+/* ==========================================================================
+   VISOR PDF INLINE
+   ========================================================================== */
+#pdf-viewer-panel {
+    position: absolute;
+    inset: 0;
+    background: var(--tb-bg-primary);
+    z-index: 10;
+    flex-direction: column;
+}
+.pdf-viewer-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--tb-border);
+    flex-shrink: 0;
+}
+.pdf-viewer-title {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--tb-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.pdf-iframe {
+    flex: 1;
+    border: none;
+    width: 100%;
+    background: #fff;
 }
 
 /* Responsive */

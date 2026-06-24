@@ -574,6 +574,22 @@
                         <!-- Mobile container for quick tools -->
                         <div id="mobile-quick-tools-container" class="mobile-only-container"></div>
                     </div>
+
+                    <!-- VISOR PDF (inline, fuera del wizard para ocupar toda la altura) -->
+                    <div id="pdf-viewer-panel" style="display:none; flex-direction:column; height:100%;">
+                        <div class="pdf-viewer-bar">
+                            <button class="btn btn-outline btn-sm" id="btn-pdf-close">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;margin-right:4px"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                                Volver
+                            </button>
+                            <span class="pdf-viewer-title" id="pdf-viewer-title"></span>
+                            <a class="btn btn-outline btn-sm" id="btn-pdf-download" download>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                Guardar
+                            </a>
+                        </div>
+                        <iframe id="pdf-iframe" class="pdf-iframe" src="" title="Visor PDF"></iframe>
+                    </div>
                 </section>
 
                 <!-- VIEW 3: CUADERNO DEL PROFESOR -->

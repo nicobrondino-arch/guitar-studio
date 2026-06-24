@@ -1164,8 +1164,8 @@ class GuitarStudioApp {
             });
         });
 
-        // Tabs de categoría dentro de la vista práctica
-        this.categoryIds.forEach(cat => {
+        // Tabs de categoría dentro de la vista práctica (incluye supplementary)
+        [...this.categoryIds, 'supplementary'].forEach(cat => {
             const tab = document.getElementById(`pcat-${cat}`);
             if (tab) {
                 tab.addEventListener("click", () => this.selectCategory(cat));
@@ -1175,6 +1175,9 @@ class GuitarStudioApp {
         // Botón "← Ejercicios" (volver del player)
         const backBtn = document.getElementById("btn-back-to-exercises");
         if (backBtn) backBtn.addEventListener("click", () => this.exitPlayer());
+
+        // Botón "Volver" del visor PDF
+        document.getElementById("btn-pdf-close")?.addEventListener("click", () => this.closePDFViewer());
 
         // Chip de perfil (abrir selector)
         const profileChip = document.getElementById("btn-profile-chip");
@@ -1619,9 +1622,50 @@ class GuitarStudioApp {
     async openPDF(libraryItemId) {
         const item = await this.data.getLibraryItem(libraryItemId);
         if (!item || !item.bytes) return;
+
+        // Revocar blob anterior si existe
+        if (this._pdfBlobUrl) {
+            URL.revokeObjectURL(this._pdfBlobUrl);
+            this._pdfBlobUrl = null;
+        }
+
         const blob = new Blob([item.bytes], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
+        this._pdfBlobUrl = URL.createObjectURL(blob);
+
+        // Ocultar contenido de práctica, mostrar visor
+        const practiceContainer = document.querySelector('.practice-wizard-container');
+        const pdfPanel = document.getElementById('pdf-viewer-panel');
+        const iframe = document.getElementById('pdf-iframe');
+        const titleEl = document.getElementById('pdf-viewer-title');
+        const downloadBtn = document.getElementById('btn-pdf-download');
+        const catTabs = document.getElementById('practice-cat-tabs');
+
+        if (practiceContainer) practiceContainer.style.display = 'none';
+        if (catTabs) catTabs.style.display = 'none';
+        if (pdfPanel) pdfPanel.style.display = 'flex';
+        if (iframe) iframe.src = this._pdfBlobUrl;
+        if (titleEl) titleEl.textContent = item.title || 'Documento';
+        if (downloadBtn) {
+            downloadBtn.href = this._pdfBlobUrl;
+            downloadBtn.download = item.title ? `${item.title}.pdf` : 'documento.pdf';
+        }
+    }
+
+    closePDFViewer() {
+        const practiceContainer = document.querySelector('.practice-wizard-container');
+        const pdfPanel = document.getElementById('pdf-viewer-panel');
+        const iframe = document.getElementById('pdf-iframe');
+        const catTabs = document.getElementById('practice-cat-tabs');
+
+        if (pdfPanel) pdfPanel.style.display = 'none';
+        if (iframe) iframe.src = '';
+        if (practiceContainer) practiceContainer.style.display = '';
+        if (catTabs) catTabs.style.display = 'flex';
+
+        if (this._pdfBlobUrl) {
+            URL.revokeObjectURL(this._pdfBlobUrl);
+            this._pdfBlobUrl = null;
+        }
     }
 
     // Abre YouTube embebido o en nueva pestaña
