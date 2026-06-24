@@ -3755,12 +3755,14 @@ textarea.form-control {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
+    padding-top: 8vh;
     gap: 20px;
     color: var(--tb-text-muted);
     font-size: 17px;
     text-align: center;
-    padding: 40px;
+    padding-left: 40px;
+    padding-right: 40px;
 }
 .yt-embed-error svg {
     width: 72px;
