@@ -142,7 +142,39 @@ const TRANSLATIONS = {
         "gp-autobpm-step-lbl": "+BPM/rep",
         "gp-autobpm-target-lbl": "Meta",
         "gp-autobpm-on": "ON",
-        "gp-autobpm-off": "OFF"
+        "gp-autobpm-off": "OFF",
+        "cat-technique": "Técnica",
+        "cat-reading": "Lectura Musical",
+        "cat-repertoire": "Enfoque Semanal",
+        "btn-back-exercises": "Ejercicios",
+        "btn-complete-category": "Marcar Completado",
+        "card-weeks-title": "Semanas de Trabajo",
+        "btn-new-week": "+ Nueva Semana",
+        "no-weeks-yet": "No hay semanas creadas aún.",
+        "card-library-title": "Biblioteca de Contenido",
+        "no-library-items": "La biblioteca está vacía. Sube archivos o agrega URLs arriba.",
+        "uploader-gp-title": "Archivo Guitar Pro",
+        "uploader-pdf-title": "Archivo PDF",
+        "uploader-yt-title": "Video de YouTube",
+        "uploader-spotify-title": "Spotify",
+        "dropzone-gp-text": ".gp, .gp5, .gpx",
+        "dropzone-pdf-text": ".pdf",
+        "btn-add-url": "Agregar",
+        "lbl-week-assign": "Asignar a semana",
+        "lbl-categories": "Categorías",
+        "practice-empty-state": "No hay ejercicios asignados a esta categoría para ninguna semana.",
+        "practice-empty-go-notebook": "Ir al Cuaderno para agregar contenido",
+        "btn-open-player": "Abrir en Player",
+        "btn-open-pdf": "Abrir PDF",
+        "week-new-title-placeholder": "Ej. Semana 3 - Escalas mayores",
+        "week-title-label": "Título de la semana",
+        "btn-create-week": "Crear Semana",
+        "btn-cancel": "Cancelar",
+        "confirm-delete-week": "¿Eliminar esta semana y todos sus ejercicios asignados?",
+        "confirm-delete-library-item": "¿Eliminar este ítem de la biblioteca?",
+        "notebook-subtitle": "Anotaciones, semanas de trabajo y biblioteca de contenido",
+        "timer-label": "Tiempo en esta categoría",
+        "lbl-focus": "Enfoque de la Semana"
     },
     en: {
         "app-title": "Guitar Studio - Streak and Practice Routine",
@@ -235,7 +267,39 @@ const TRANSLATIONS = {
         "gp-autobpm-step-lbl": "+BPM/loop",
         "gp-autobpm-target-lbl": "Target",
         "gp-autobpm-on": "ON",
-        "gp-autobpm-off": "OFF"
+        "gp-autobpm-off": "OFF",
+        "cat-technique": "Technique",
+        "cat-reading": "Music Reading",
+        "cat-repertoire": "Weekly Focus",
+        "btn-back-exercises": "Exercises",
+        "btn-complete-category": "Mark Completed",
+        "card-weeks-title": "Work Weeks",
+        "btn-new-week": "+ New Week",
+        "no-weeks-yet": "No weeks created yet.",
+        "card-library-title": "Content Library",
+        "no-library-items": "Library is empty. Upload files or add URLs above.",
+        "uploader-gp-title": "Guitar Pro File",
+        "uploader-pdf-title": "PDF File",
+        "uploader-yt-title": "YouTube Video",
+        "uploader-spotify-title": "Spotify",
+        "dropzone-gp-text": ".gp, .gp5, .gpx",
+        "dropzone-pdf-text": ".pdf",
+        "btn-add-url": "Add",
+        "lbl-week-assign": "Assign to week",
+        "lbl-categories": "Categories",
+        "practice-empty-state": "No exercises assigned to this category for any week.",
+        "practice-empty-go-notebook": "Go to Notebook to add content",
+        "btn-open-player": "Open in Player",
+        "btn-open-pdf": "Open PDF",
+        "week-new-title-placeholder": "E.g. Week 3 - Major Scales",
+        "week-title-label": "Week title",
+        "btn-create-week": "Create Week",
+        "btn-cancel": "Cancel",
+        "confirm-delete-week": "Delete this week and all its assigned exercises?",
+        "confirm-delete-library-item": "Delete this library item?",
+        "notebook-subtitle": "Annotations, work weeks and content library",
+        "timer-label": "Time in this category",
+        "lbl-focus": "Weekly Focus"
     }
 };
 
@@ -245,21 +309,58 @@ const TRANSLATIONS = {
 class TabDatabase {
     constructor() {
         this.dbName = "GuitarStudioDB";
-        this.dbVersion = 2; // v2: added practiceLogs store
+        this.dbVersion = 3; // v3: library, weeks, weekItems stores
         this.db = null;
     }
 
     init() {
         return new Promise((resolve, reject) => {
             const request = indexedDB.open(this.dbName, this.dbVersion);
-            
+
             request.onupgradeneeded = (e) => {
                 const db = e.target.result;
+                const tx = e.target.transaction;
+                const oldVersion = e.oldVersion;
+
                 if (!db.objectStoreNames.contains("scores")) {
                     db.createObjectStore("scores", { keyPath: "id" });
                 }
                 if (!db.objectStoreNames.contains("practiceLogs")) {
                     db.createObjectStore("practiceLogs", { keyPath: "date" });
+                }
+                if (!db.objectStoreNames.contains("library")) {
+                    db.createObjectStore("library", { keyPath: "id" });
+                }
+                if (!db.objectStoreNames.contains("weeks")) {
+                    db.createObjectStore("weeks", { keyPath: "id" });
+                }
+                if (!db.objectStoreNames.contains("weekItems")) {
+                    db.createObjectStore("weekItems", { keyPath: "id" });
+                }
+
+                // Migration: convert existing "weekly-score" → library + week + weekItem
+                if (oldVersion > 0 && oldVersion < 3) {
+                    const getReq = tx.objectStore("scores").get("weekly-score");
+                    getReq.onsuccess = () => {
+                        const score = getReq.result;
+                        if (!score) return;
+                        const now = Date.now();
+                        tx.objectStore("library").put({
+                            id: "lib-migrated", type: "score",
+                            title: score.name, filename: score.name,
+                            bytes: score.bytes, uploadedAt: score.uploadedAt || now,
+                            categories: ["repertoire"]
+                        });
+                        tx.objectStore("weeks").put({
+                            id: "week-migrated", title: "Semana 1",
+                            createdAt: now, order: 0, isActive: true
+                        });
+                        tx.objectStore("weekItems").put({
+                            id: "wi-migrated", weekId: "week-migrated",
+                            libraryItemId: "lib-migrated",
+                            category: "repertoire", addedAt: now
+                        });
+                    };
                 }
             };
 
@@ -275,44 +376,140 @@ class TabDatabase {
         });
     }
 
-
     saveScore(name, arrayBuffer) {
         return new Promise((resolve, reject) => {
-            const transaction = this.db.transaction(["scores"], "readwrite");
-            const store = transaction.objectStore("scores");
-            
-            const data = {
-                id: "weekly-score",
-                name: name,
-                bytes: arrayBuffer,
-                uploadedAt: new Date().getTime()
-            };
-            
-            const request = store.put(data);
-            request.onsuccess = () => resolve();
-            request.onerror = (e) => reject(e);
+            const tx = this.db.transaction(["scores"], "readwrite");
+            const req = tx.objectStore("scores").put({
+                id: "weekly-score", name, bytes: arrayBuffer,
+                uploadedAt: Date.now()
+            });
+            req.onsuccess = () => resolve();
+            req.onerror = (e) => reject(e);
         });
     }
 
     getScore() {
         return new Promise((resolve, reject) => {
-            const transaction = this.db.transaction(["scores"], "readonly");
-            const store = transaction.objectStore("scores");
-            const request = store.get("weekly-score");
-            
-            request.onsuccess = (e) => resolve(e.target.result);
-            request.onerror = (e) => reject(e);
+            const tx = this.db.transaction(["scores"], "readonly");
+            const req = tx.objectStore("scores").get("weekly-score");
+            req.onsuccess = (e) => resolve(e.target.result);
+            req.onerror = (e) => reject(e);
         });
     }
 
     deleteScore() {
         return new Promise((resolve, reject) => {
-            const transaction = this.db.transaction(["scores"], "readwrite");
-            const store = transaction.objectStore("scores");
-            const request = store.delete("weekly-score");
-            
-            request.onsuccess = () => resolve();
-            request.onerror = (e) => reject(e);
+            const tx = this.db.transaction(["scores"], "readwrite");
+            const req = tx.objectStore("scores").delete("weekly-score");
+            req.onsuccess = () => resolve();
+            req.onerror = (e) => reject(e);
+        });
+    }
+
+    // Library CRUD
+    getAllLibraryItems() {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction("library", "readonly");
+            const req = tx.objectStore("library").getAll();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = (e) => reject(e);
+        });
+    }
+
+    getLibraryItem(id) {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction("library", "readonly");
+            const req = tx.objectStore("library").get(id);
+            req.onsuccess = () => resolve(req.result || null);
+            req.onerror = (e) => reject(e);
+        });
+    }
+
+    saveLibraryItem(item) {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction("library", "readwrite");
+            const req = tx.objectStore("library").put(item);
+            req.onsuccess = () => resolve();
+            req.onerror = (e) => reject(e);
+        });
+    }
+
+    deleteLibraryItem(id) {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction("library", "readwrite");
+            const req = tx.objectStore("library").delete(id);
+            req.onsuccess = () => resolve();
+            req.onerror = (e) => reject(e);
+        });
+    }
+
+    // Weeks CRUD
+    getAllWeeks() {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction("weeks", "readonly");
+            const req = tx.objectStore("weeks").getAll();
+            req.onsuccess = () => resolve((req.result || []).sort((a, b) => b.order - a.order));
+            req.onerror = (e) => reject(e);
+        });
+    }
+
+    saveWeek(week) {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction("weeks", "readwrite");
+            const req = tx.objectStore("weeks").put(week);
+            req.onsuccess = () => resolve();
+            req.onerror = (e) => reject(e);
+        });
+    }
+
+    deleteWeek(id) {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction(["weeks", "weekItems"], "readwrite");
+            tx.objectStore("weeks").delete(id);
+            const allReq = tx.objectStore("weekItems").getAll();
+            allReq.onsuccess = () => {
+                (allReq.result || []).filter(i => i.weekId === id)
+                    .forEach(i => tx.objectStore("weekItems").delete(i.id));
+            };
+            tx.oncomplete = () => resolve();
+            tx.onerror = (e) => reject(e);
+        });
+    }
+
+    // WeekItems CRUD
+    getWeekItemsForWeek(weekId) {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction("weekItems", "readonly");
+            const req = tx.objectStore("weekItems").getAll();
+            req.onsuccess = () => resolve((req.result || []).filter(i => i.weekId === weekId));
+            req.onerror = (e) => reject(e);
+        });
+    }
+
+    getAllWeekItems() {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction("weekItems", "readonly");
+            const req = tx.objectStore("weekItems").getAll();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = (e) => reject(e);
+        });
+    }
+
+    saveWeekItem(item) {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction("weekItems", "readwrite");
+            const req = tx.objectStore("weekItems").put(item);
+            req.onsuccess = () => resolve();
+            req.onerror = (e) => reject(e);
+        });
+    }
+
+    deleteWeekItem(id) {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction("weekItems", "readwrite");
+            const req = tx.objectStore("weekItems").delete(id);
+            req.onsuccess = () => resolve();
+            req.onerror = (e) => reject(e);
         });
     }
 }
@@ -381,18 +578,19 @@ class GuitarStudioApp {
         this.lang = "es";
         this.streak = 0;
         this.lastPracticedDate = "";
-        this.history = []; // Fechas ("YYYY-MM-DD") de prácticas completadas
-        this.completedSteps = [false, false, false, false];
-        
-        // Rutinas activas de práctica (modificables desde la biblioteca)
-        this.activeLeftHandEx = null;
-        this.activeRightHandEx = null;
-        this.activeReadingEx = null;
+        this.history = [];
+        // 3 categorías: 0=technique, 1=reading, 2=repertoire
+        this.completedSteps = [false, false, false];
+        this.categoryIds = ['technique', 'reading', 'repertoire'];
 
-        // DataService (capa de abstracción de datos)
+        // DataService y metrónomo
         this.data = new DataService();
         this.metronome = new Metronome();
-        
+
+        // Estado de práctica: categoría activa y player
+        this.currentCategory = 'technique';
+        this.playerActiveItemId = null; // ID del ítem de biblioteca activo en el player
+
         // AlphaTab Player
         this.atApi = null;
         this.atIsPlaying = false;
@@ -404,11 +602,11 @@ class GuitarStudioApp {
         this.bpmAutoIncrStep = 1;
         this.bpmAutoIncrTarget = 120;
 
-        // Timer ascendente por paso (cuenta hacia arriba)
-        this.timerSeconds = [0, 0, 0, 0]; // Segundos acumulados por paso (1-4)
-        this.timerIntervals = [null, null, null, null];
-        this.activeTimerStep = null; // Paso actualmente siendo cronometrado
-        this.stepCategories = ['technique-left', 'technique-right', 'sight-reading', 'repertoire'];
+        // Timer ascendente por categoría (0=technique, 1=reading, 2=repertoire)
+        this.timerSeconds = [0, 0, 0];
+        this.timerIntervals = [null, null, null];
+        this.activeTimerStep = null;
+        this.stepCategories = ['technique', 'reading', 'repertoire'];
     }
 
     async init() {
@@ -421,11 +619,6 @@ class GuitarStudioApp {
         this.lastPracticedDate = this.data.getLastPracticedDate();
         this.history = this.data.getHistory();
         
-        // Cargar rutinas personalizadas de la biblioteca si existen
-        this.activeLeftHandEx = this.data.getActiveExercise('left');
-        this.activeRightHandEx = this.data.getActiveExercise('right');
-        this.activeReadingEx = this.data.getActiveExercise('reading');
-
         // Cargar estado de compleción diaria
         const todayStr = this.getTodayString();
         const lastReset = this.data.getLastResetCheck();
@@ -455,13 +648,12 @@ class GuitarStudioApp {
         this.renderHeatmap();
         this.loadTeacherNotesUI();
         this.renderLibraryExercises();
-        this.updatePracticeExercisesUI();
+
+        // Renderizar vista de práctica con el nuevo modelo
+        await this.renderPracticeView();
 
         // Comprobar la racha diaria en base a las fechas
         this.checkStreakValidity();
-
-        // Cargar archivo Guitar Pro si existe en DB
-        this.loadWeeklyGPFile();
     }
 
     /**
@@ -472,9 +664,9 @@ class GuitarStudioApp {
             const log = await this.data.getPracticeLog(this.getTodayString());
             if (log && log.entries) {
                 log.entries.forEach(entry => {
-                    const stepIdx = entry.step - 1;
-                    if (stepIdx >= 0 && stepIdx < 4) {
-                        this.timerSeconds[stepIdx] = entry.seconds || 0;
+                    const catIdx = this.categoryIds.indexOf(entry.category);
+                    if (catIdx >= 0) {
+                        this.timerSeconds[catIdx] = entry.seconds || 0;
                     }
                 });
             }
@@ -557,31 +749,27 @@ class GuitarStudioApp {
 
     updateProgressUI() {
         const completedCount = this.completedSteps.filter(Boolean).length;
-        const percentage = Math.round((completedCount / 4) * 100);
-        
-        // Actualizar círculo de progreso
-        const circle = document.getElementById("progress-ring-circle");
-        const radius = circle.r.baseVal.value;
-        const circumference = 2 * Math.PI * radius; // Aprox 314.16
-        
-        const offset = circumference - (percentage / 100) * circumference;
-        circle.style.strokeDashoffset = offset;
-        
-        document.getElementById("progress-percentage").textContent = `${percentage}%`;
+        const percentage = Math.round((completedCount / 3) * 100);
 
-        // Actualizar elementos de lista en el Dashboard y la cabecera
-        for (let i = 1; i <= 4; i++) {
-            const summaryItem = document.getElementById(`summary-step-${i}`);
-            const headerItem = document.querySelector(`.header-step-item[data-step="${i}"]`);
-            
-            if (this.completedSteps[i - 1]) {
-                summaryItem.classList.add("completed");
-                if (headerItem) headerItem.classList.add("completed");
-            } else {
-                summaryItem.classList.remove("completed");
-                if (headerItem) headerItem.classList.remove("completed");
-            }
+        const circle = document.getElementById("progress-ring-circle");
+        if (circle) {
+            const circumference = 2 * Math.PI * circle.r.baseVal.value;
+            circle.style.strokeDashoffset = circumference - (percentage / 100) * circumference;
         }
+        const pctEl = document.getElementById("progress-percentage");
+        if (pctEl) pctEl.textContent = `${percentage}%`;
+
+        this.categoryIds.forEach((cat, i) => {
+            const summaryEl = document.getElementById(`summary-cat-${cat}`);
+            const headerTab = document.getElementById(`cat-tab-${cat}`);
+            if (this.completedSteps[i]) {
+                if (summaryEl) summaryEl.classList.add("completed");
+                if (headerTab) headerTab.classList.add("completed");
+            } else {
+                if (summaryEl) summaryEl.classList.remove("completed");
+                if (headerTab) headerTab.classList.remove("completed");
+            }
+        });
     }
 
     bindEvents() {
@@ -664,59 +852,81 @@ class GuitarStudioApp {
             });
         });
 
-        // Paso del Asistente - Navegación horizontal en cabecera
-        const headerStepItems = document.querySelectorAll(".header-step-item");
-        headerStepItems.forEach(item => {
-            item.addEventListener("click", () => {
-                const step = parseInt(item.getAttribute("data-step"), 10);
-                this.navigateToView('practice');
-                this.showWizardStep(step);
-            });
+        // Category tabs en cabecera
+        this.categoryIds.forEach(cat => {
+            const tab = document.getElementById(`cat-tab-${cat}`);
+            if (tab) {
+                tab.addEventListener("click", () => {
+                    this.navigateToView('practice');
+                    this.selectCategory(cat);
+                });
+            }
         });
 
-        // Timers del Modo Práctica
-        for (let i = 1; i <= 3; i++) {
-            const btnStart = document.getElementById(`btn-timer-start-${i}`);
-            const btnReset = document.getElementById(`btn-timer-reset-${i}`);
-            
-            btnStart.addEventListener("click", () => this.toggleTimer(i));
-            btnReset.addEventListener("click", () => this.resetTimer(i));
-        }
+        // Botón "← Ejercicios" (volver del player)
+        const backBtn = document.getElementById("btn-back-to-exercises");
+        if (backBtn) backBtn.addEventListener("click", () => this.exitPlayer());
 
         // Guardar anotaciones del cuaderno
         document.getElementById("btn-save-notes").addEventListener("click", () => this.saveTeacherNotes());
 
-        // Manejo de Carga de Archivo Guitar Pro (Drag & Drop)
+        // Botón Nueva Semana
+        const btnNewWeek = document.getElementById("btn-new-week");
+        if (btnNewWeek) btnNewWeek.addEventListener("click", () => this.showNewWeekForm());
+
+        // GP file input (Drag & Drop + browse)
         const dropzone = document.getElementById("upload-dropzone");
         const fileInput = document.getElementById("gp-file-input");
         const btnBrowse = document.getElementById("btn-browse-file");
 
-        btnBrowse.addEventListener("click", () => fileInput.click());
-        fileInput.addEventListener("change", (e) => {
-            if (e.target.files.length > 0) {
-                this.handleGPUpload(e.target.files[0]);
-            }
-        });
+        if (btnBrowse) btnBrowse.addEventListener("click", () => fileInput.click());
+        if (fileInput) {
+            fileInput.addEventListener("change", (e) => {
+                Array.from(e.target.files).forEach(f => this.handleGPUploadToLibrary(f));
+                fileInput.value = "";
+            });
+        }
+        if (dropzone) {
+            dropzone.addEventListener("dragover", (e) => { e.preventDefault(); dropzone.classList.add("dragover"); });
+            dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+            dropzone.addEventListener("drop", (e) => {
+                e.preventDefault();
+                dropzone.classList.remove("dragover");
+                Array.from(e.dataTransfer.files).filter(f => /\.(gp\d?|gpx)$/i.test(f.name))
+                    .forEach(f => this.handleGPUploadToLibrary(f));
+            });
+        }
 
-        dropzone.addEventListener("dragover", (e) => {
-            e.preventDefault();
-            dropzone.classList.add("dragover");
-        });
+        // PDF file input
+        const pdfDropzone = document.getElementById("upload-pdf-dropzone");
+        const pdfInput = document.getElementById("pdf-file-input");
+        const btnBrowsePdf = document.getElementById("btn-browse-pdf");
 
-        dropzone.addEventListener("dragleave", () => {
-            dropzone.classList.remove("dragover");
-        });
+        if (btnBrowsePdf) btnBrowsePdf.addEventListener("click", () => pdfInput.click());
+        if (pdfInput) {
+            pdfInput.addEventListener("change", (e) => {
+                Array.from(e.target.files).forEach(f => this.handlePDFUploadToLibrary(f));
+                pdfInput.value = "";
+            });
+        }
+        if (pdfDropzone) {
+            pdfDropzone.addEventListener("dragover", (e) => { e.preventDefault(); pdfDropzone.classList.add("dragover"); });
+            pdfDropzone.addEventListener("dragleave", () => pdfDropzone.classList.remove("dragover"));
+            pdfDropzone.addEventListener("drop", (e) => {
+                e.preventDefault();
+                pdfDropzone.classList.remove("dragover");
+                Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.pdf'))
+                    .forEach(f => this.handlePDFUploadToLibrary(f));
+            });
+        }
 
-        dropzone.addEventListener("drop", (e) => {
-            e.preventDefault();
-            dropzone.classList.remove("dragover");
-            if (e.dataTransfer.files.length > 0) {
-                this.handleGPUpload(e.dataTransfer.files[0]);
-            }
-        });
+        // YouTube URL
+        const btnAddYt = document.getElementById("btn-add-youtube");
+        if (btnAddYt) btnAddYt.addEventListener("click", () => this.handleAddYouTube());
 
-        // Eliminar Guitar Pro File
-        document.getElementById("btn-delete-gp-file").addEventListener("click", () => this.deleteGPFile());
+        // Spotify URL
+        const btnAddSpotify = document.getElementById("btn-add-spotify");
+        if (btnAddSpotify) btnAddSpotify.addEventListener("click", () => this.handleAddSpotify());
 
         // Toggle de la barra lateral colapsable
         const sidebarToggle = document.getElementById("btn-sidebar-toggle");
@@ -726,8 +936,7 @@ class GuitarStudioApp {
                 const mainContent = document.querySelector(".main-content");
                 const atViewport = document.querySelector(".at-viewport");
                 
-                const activeStepEl = document.querySelector(".header-step-item.active");
-                const isPlayerActive = activeStepEl && parseInt(activeStepEl.getAttribute("data-step"), 10) === 4 && this.atApi;
+                const isPlayerActive = !!this.playerActiveItemId && this.atApi;
                 
                 if (isPlayerActive && atViewport) {
                     // Lock the viewport width to prevent alphaTab intermediate resizes
@@ -786,51 +995,522 @@ class GuitarStudioApp {
         // Activar vista seleccionada
         const targetView = document.getElementById(`view-${viewId}`);
         const targetLink = document.querySelector(`.nav-item[data-view="${viewId}"]`);
-        
+
         if (targetView && targetLink) {
             targetView.classList.add("active");
             targetLink.classList.add("active");
         }
 
-        // Si entramos al Modo Práctica, renderizar el paso activo
         if (viewId === 'practice') {
-            const activeStep = document.querySelector(".header-step-item.active");
-            if (activeStep) {
-                const step = parseInt(activeStep.getAttribute("data-step"), 10);
-                this.showWizardStep(step);
-            }
+            this.renderPracticeView();
+        } else if (viewId === 'notebook') {
+            this.renderWeeksInNotebook();
+            this.renderLibraryInNotebook();
         }
-        this.updateHeaderCompleteButtonVisibility();
     }
 
-    showWizardStep(stepNum) {
-        // Ocultar pasos
-        document.querySelectorAll(".wizard-step-view").forEach(view => {
-            view.classList.remove("active");
+    // Selecciona una categoría de práctica
+    selectCategory(cat) {
+        if (!this.categoryIds.includes(cat)) return;
+        this.currentCategory = cat;
+
+        // Actualizar tabs del header
+        this.categoryIds.forEach(c => {
+            const tab = document.getElementById(`cat-tab-${c}`);
+            if (tab) tab.classList.toggle("active", c === cat);
         });
-        document.querySelectorAll(".header-step-item").forEach(item => {
-            item.classList.remove("active");
-        });
 
-        // Mostrar paso activo
-        document.getElementById(`step-view-${stepNum}`).classList.add("active");
-        const activeHeaderItem = document.querySelector(`.header-step-item[data-step="${stepNum}"]`);
-        if (activeHeaderItem) activeHeaderItem.classList.add("active");
+        // Auto-iniciar timer de esta categoría
+        const catIdx = this.categoryIds.indexOf(cat) + 1;
+        this.startStepTimer(catIdx);
+        this.renderPracticeView();
+    }
 
-        // Auto-iniciar timer del paso activo (pausa el anterior automáticamente)
-        this.startStepTimer(stepNum);
-        this.updateTimerDisplay(stepNum);
+    // Renderiza el área de práctica según la categoría actual
+    async renderPracticeView() {
+        const area = document.getElementById("practice-content-area");
+        const playerView = document.getElementById("step-view-4");
+        if (!area) return;
 
-        // Gatillar renderizado de alphaTab con un pequeño retardo para asegurar visibilidad en el DOM
-        setTimeout(() => {
-            if (stepNum === 4) {
-                this.initAlphaTabPlayerIfNeeded();
-                if (this.atApi) {
-                    this.atApi.render();
+        // Si el player está activo, no renderizar el área de contenido
+        if (this.playerActiveItemId) {
+            area.style.display = "none";
+            if (playerView) playerView.style.display = "flex";
+            return;
+        }
+
+        area.style.display = "block";
+        if (playerView) playerView.style.display = "none";
+
+        const cat = this.currentCategory;
+        const catIdx = this.categoryIds.indexOf(cat);
+        const t = (key) => TRANSLATIONS[this.lang][key] || key;
+
+        // Timer y botón completar para la categoría activa
+        const timerSecs = this.timerSeconds[catIdx] || 0;
+        const mm = String(Math.floor(timerSecs / 60)).padStart(2, '0');
+        const ss = String(timerSecs % 60).padStart(2, '0');
+        const isCompleted = this.completedSteps[catIdx];
+        const isTimerRunning = !!this.timerIntervals[catIdx];
+
+        let html = `<div class="practice-category-header">
+            <div class="practice-timer-block">
+                <span class="practice-timer-display" id="practice-timer-display">${mm}:${ss}</span>
+                <button class="btn btn-outline btn-sm" id="btn-cat-timer-toggle">
+                    ${isTimerRunning ? (this.lang === 'es' ? '⏸ Pausar' : '⏸ Pause') : (timerSecs > 0 ? (this.lang === 'es' ? '▶ Continuar' : '▶ Resume') : (this.lang === 'es' ? '▶ Iniciar' : '▶ Start'))}
+                </button>
+            </div>
+            <button class="btn ${isCompleted ? 'btn-outline' : 'btn-primary'} btn-sm" id="btn-complete-cat" ${isCompleted ? 'disabled' : ''}>
+                ${isCompleted ? '✓ ' : ''}${t('btn-complete-category')}
+            </button>
+        </div>`;
+
+        // Cargar semanas y sus ítems para esta categoría
+        let weeks = [], allWeekItems = [];
+        try {
+            weeks = await this.data.getWeeks();
+            allWeekItems = await this.data.getAllWeekItems();
+        } catch(e) { console.warn(e); }
+
+        // Filtrar weekItems de esta categoría
+        const catItems = allWeekItems.filter(wi => wi.category === cat);
+
+        // Agrupar por semana
+        const weeksWithItems = weeks.map(w => ({
+            week: w,
+            items: catItems.filter(wi => wi.weekId === w.id)
+        })).filter(({ items }) => items.length > 0);
+
+        if (weeksWithItems.length === 0) {
+            html += `<div class="practice-empty-state">
+                <p class="text-muted">${t('practice-empty-state')}</p>
+                <button class="btn btn-outline btn-sm" onclick="app.navigateToView('notebook')">${t('practice-empty-go-notebook')}</button>
+            </div>`;
+        } else {
+            // Cargar todos los library items necesarios
+            let libraryCache = {};
+            try {
+                const allLib = await this.data.getLibraryItems();
+                allLib.forEach(item => { libraryCache[item.id] = item; });
+            } catch(e) { console.warn(e); }
+
+            html += `<div class="weeks-accordion">`;
+            weeksWithItems.forEach(({ week, items }, wIdx) => {
+                const isOpen = wIdx === 0; // La más reciente (mayor order) abierta por defecto
+                html += `<div class="week-accordion-item ${isOpen ? 'open' : ''}">
+                    <div class="week-accordion-header" onclick="this.parentElement.classList.toggle('open')">
+                        <span class="week-accordion-title">${this._escapeHtml(week.title)}</span>
+                        <svg class="week-accordion-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </div>
+                    <div class="week-accordion-body">`;
+
+                // GP score cards
+                const scoreItems = items.map(wi => libraryCache[wi.libraryItemId]).filter(i => i && i.type === 'score');
+                if (scoreItems.length > 0) {
+                    html += `<div class="exercise-cards-grid">`;
+                    scoreItems.forEach(item => {
+                        html += `<div class="gp-exercise-card" data-item-id="${item.id}">
+                            <div class="gp-card-icon"><i class="fas fa-guitar"></i></div>
+                            <div class="gp-card-info">
+                                <span class="gp-card-title">${this._escapeHtml(item.title)}</span>
+                                <span class="gp-card-meta">${item.filename || ''}</span>
+                            </div>
+                            <button class="btn btn-primary btn-sm gp-open-btn" onclick="app.openPlayerForItem('${item.id}')">
+                                <i class="fas fa-play"></i>
+                            </button>
+                        </div>`;
+                    });
+                    html += `</div>`;
                 }
-            }
-        }, 100);
-        this.updateHeaderCompleteButtonVisibility();
+
+                // Resource cards (PDF, YouTube, Spotify)
+                const resourceItems = items.map(wi => libraryCache[wi.libraryItemId]).filter(i => i && i.type !== 'score');
+                if (resourceItems.length > 0) {
+                    html += `<div class="resource-cards-row">`;
+                    resourceItems.forEach(item => {
+                        if (item.type === 'pdf') {
+                            html += `<div class="resource-card resource-pdf" onclick="app.openPDF('${item.id}')">
+                                <i class="fas fa-file-pdf" style="color:#e53e3e"></i>
+                                <span>${this._escapeHtml(item.title)}</span>
+                            </div>`;
+                        } else if (item.type === 'youtube') {
+                            html += `<div class="resource-card resource-youtube" onclick="app.openYouTube('${item.id}')">
+                                <i class="fab fa-youtube" style="color:#FF0000"></i>
+                                <span>${this._escapeHtml(item.title)}</span>
+                            </div>`;
+                        } else if (item.type === 'spotify') {
+                            html += `<div class="resource-card resource-spotify" onclick="app.openSpotify('${item.id}')">
+                                <i class="fab fa-spotify" style="color:#1DB954"></i>
+                                <span>${this._escapeHtml(item.title)}</span>
+                            </div>`;
+                        }
+                    });
+                    html += `</div>`;
+                }
+
+                html += `</div></div>`; // close accordion body + item
+            });
+            html += `</div>`; // close weeks-accordion
+        }
+
+        area.innerHTML = html;
+
+        // Bind timer toggle
+        const timerBtn = document.getElementById("btn-cat-timer-toggle");
+        if (timerBtn) {
+            timerBtn.addEventListener("click", () => this.toggleTimer(catIdx + 1));
+        }
+
+        // Bind complete button
+        const completeBtn = document.getElementById("btn-complete-cat");
+        if (completeBtn && !isCompleted) {
+            completeBtn.addEventListener("click", () => this.completeCategory(catIdx));
+        }
+    }
+
+    _escapeHtml(str) {
+        return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // Abre el player AlphaTab para un ítem de la biblioteca
+    async openPlayerForItem(libraryItemId) {
+        const item = await this.data.getLibraryItem(libraryItemId);
+        if (!item || item.type !== 'score') return;
+
+        this.playerActiveItemId = libraryItemId;
+
+        // Mostrar back button, ocultar category tabs
+        const backItem = document.getElementById("header-back-item");
+        if (backItem) backItem.style.display = "flex";
+        document.querySelectorAll(".header-step-item").forEach(t => t.style.display = "none");
+
+        // Cambiar a step-view-4
+        const contentArea = document.getElementById("practice-content-area");
+        const playerView = document.getElementById("step-view-4");
+        if (contentArea) contentArea.style.display = "none";
+        if (playerView) playerView.style.display = "flex";
+
+        // Inicializar y cargar
+        await this.initAlphaTabPlayerIfNeeded(item);
+        if (this.atApi && this.atCurrentItemId !== libraryItemId) {
+            this.atApi.load(new Uint8Array(item.bytes));
+            this.atCurrentItemId = libraryItemId;
+        }
+
+        // Render si ya estaba inicializado
+        if (this.atApi) {
+            setTimeout(() => this.atApi.render(), 100);
+        }
+    }
+
+    // Vuelve de la vista del player a la lista de ejercicios
+    exitPlayer() {
+        this.playerActiveItemId = null;
+
+        const backItem = document.getElementById("header-back-item");
+        if (backItem) backItem.style.display = "none";
+        document.querySelectorAll(".header-step-item").forEach(t => t.style.display = "");
+
+        const playerView = document.getElementById("step-view-4");
+        if (playerView) playerView.style.display = "none";
+
+        if (this.atApi) this.atApi.stop();
+
+        this.renderPracticeView();
+    }
+
+    // Abre un PDF en nueva pestaña
+    async openPDF(libraryItemId) {
+        const item = await this.data.getLibraryItem(libraryItemId);
+        if (!item || !item.bytes) return;
+        const blob = new Blob([item.bytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+    }
+
+    // Abre YouTube embebido o en nueva pestaña
+    async openYouTube(libraryItemId) {
+        const item = await this.data.getLibraryItem(libraryItemId);
+        if (!item || !item.url) return;
+        window.open(item.url, '_blank');
+    }
+
+    // Abre Spotify en nueva pestaña
+    async openSpotify(libraryItemId) {
+        const item = await this.data.getLibraryItem(libraryItemId);
+        if (!item || !item.url) return;
+        window.open(item.url, '_blank');
+    }
+
+    // Muestra el formulario de nueva semana en el Cuaderno
+    showNewWeekForm() {
+        const container = document.getElementById("weeks-list-notebook");
+        if (!container) return;
+        const t = (key) => TRANSLATIONS[this.lang][key] || key;
+
+        // Evitar duplicados
+        if (document.getElementById("new-week-form")) return;
+
+        const form = document.createElement("div");
+        form.id = "new-week-form";
+        form.className = "new-week-form";
+        form.innerHTML = `
+            <input type="text" class="form-control" id="new-week-title-input" placeholder="${t('week-new-title-placeholder')}" style="margin-bottom:8px;">
+            <div style="display:flex;gap:8px;">
+                <button class="btn btn-primary btn-sm" id="btn-confirm-new-week">${t('btn-create-week')}</button>
+                <button class="btn btn-outline btn-sm" id="btn-cancel-new-week">${t('btn-cancel')}</button>
+            </div>
+        `;
+        container.prepend(form);
+
+        document.getElementById("btn-cancel-new-week").onclick = () => form.remove();
+        document.getElementById("btn-confirm-new-week").onclick = async () => {
+            const title = document.getElementById("new-week-title-input").value.trim();
+            if (!title) return;
+            const weeks = await this.data.getWeeks();
+            const maxOrder = weeks.length > 0 ? Math.max(...weeks.map(w => w.order)) + 1 : 0;
+            const week = {
+                id: this.data.generateId('week'),
+                title,
+                createdAt: Date.now(),
+                order: maxOrder,
+                isActive: true
+            };
+            await this.data.saveWeek(week);
+            form.remove();
+            this.renderWeeksInNotebook();
+        };
+        document.getElementById("new-week-title-input").focus();
+    }
+
+    // Renderiza la lista de semanas en el Cuaderno
+    async renderWeeksInNotebook() {
+        const container = document.getElementById("weeks-list-notebook");
+        if (!container) return;
+        const t = (key) => TRANSLATIONS[this.lang][key] || key;
+
+        const weeks = await this.data.getWeeks();
+        if (weeks.length === 0) {
+            container.innerHTML = `<p class="text-muted">${t('no-weeks-yet')}</p>`;
+            return;
+        }
+
+        container.innerHTML = weeks.map(w => `
+            <div class="week-list-item" data-week-id="${w.id}">
+                <span class="week-list-title">${this._escapeHtml(w.title)}</span>
+                <div class="week-list-actions">
+                    <button class="btn btn-text btn-sm" onclick="app.renameWeek('${w.id}', this)" style="color:var(--tb-text-secondary)">
+                        <i class="fas fa-pencil-alt"></i>
+                    </button>
+                    <button class="btn btn-text btn-sm" onclick="app.deleteWeek('${w.id}')" style="color:var(--tb-accent)">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    async renameWeek(weekId, btn) {
+        const item = btn.closest('.week-list-item');
+        const titleEl = item.querySelector('.week-list-title');
+        const currentTitle = titleEl.textContent;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'form-control';
+        input.value = currentTitle;
+        input.style.cssText = 'display:inline-block;width:auto;height:28px;font-size:13px;';
+        titleEl.replaceWith(input);
+        input.focus();
+        input.select();
+        const save = async () => {
+            const newTitle = input.value.trim() || currentTitle;
+            const weeks = await this.data.getWeeks();
+            const week = weeks.find(w => w.id === weekId);
+            if (week) { week.title = newTitle; await this.data.saveWeek(week); }
+            this.renderWeeksInNotebook();
+        };
+        input.onblur = save;
+        input.onkeydown = (e) => { if (e.key === 'Enter') input.blur(); if (e.key === 'Escape') { input.value = currentTitle; input.blur(); } };
+    }
+
+    async deleteWeek(weekId) {
+        const t = (key) => TRANSLATIONS[this.lang][key] || key;
+        if (!confirm(t('confirm-delete-week'))) return;
+        await this.data.deleteWeek(weekId);
+        this.renderWeeksInNotebook();
+        this.renderPracticeView();
+    }
+
+    // Renderiza la biblioteca en el Cuaderno
+    async renderLibraryInNotebook() {
+        const container = document.getElementById("library-items-list");
+        if (!container) return;
+        const t = (key) => TRANSLATIONS[this.lang][key] || key;
+
+        const [items, weeks, allWeekItems] = await Promise.all([
+            this.data.getLibraryItems(),
+            this.data.getWeeks(),
+            this.data.getAllWeekItems()
+        ]);
+
+        if (items.length === 0) {
+            container.innerHTML = `<p class="text-muted">${t('no-library-items')}</p>`;
+            return;
+        }
+
+        const typeIcon = { score: 'fa-guitar', pdf: 'fa-file-pdf', youtube: 'fa-youtube', spotify: 'fa-spotify' };
+        const typeColor = { score: 'var(--tb-accent)', pdf: '#e53e3e', youtube: '#FF0000', spotify: '#1DB954' };
+
+        container.innerHTML = items.map(item => {
+            const weekOptions = weeks.map(w => {
+                const assigned = allWeekItems.find(wi => wi.libraryItemId === item.id && wi.weekId === w.id);
+                return `<option value="${w.id}" ${assigned ? 'selected' : ''}>${this._escapeHtml(w.title)}</option>`;
+            }).join('');
+
+            const catOptions = this.categoryIds.map(cat => {
+                const wi = allWeekItems.find(wi => wi.libraryItemId === item.id);
+                return `<option value="${cat}" ${wi && wi.category === cat ? 'selected' : ''}>${t('cat-' + cat)}</option>`;
+            }).join('');
+
+            return `<div class="library-item-row" data-item-id="${item.id}">
+                <div class="library-item-icon" style="color:${typeColor[item.type] || 'var(--tb-text-secondary)'}">
+                    <i class="fas ${typeIcon[item.type] || 'fa-file'}"></i>
+                </div>
+                <div class="library-item-info">
+                    <span class="library-item-title">${this._escapeHtml(item.title)}</span>
+                    <span class="library-item-type">${item.type}</span>
+                </div>
+                <div class="library-item-assign">
+                    <select class="form-select-sm lib-week-select" data-item-id="${item.id}">
+                        <option value="">— ${t('lbl-week-assign')} —</option>
+                        ${weekOptions}
+                    </select>
+                    <select class="form-select-sm lib-cat-select" data-item-id="${item.id}">
+                        ${catOptions}
+                    </select>
+                    <button class="btn btn-outline btn-sm lib-assign-btn" data-item-id="${item.id}" data-i18n="btn-assign">Asignar</button>
+                </div>
+                <button class="btn btn-text btn-sm" onclick="app.deleteLibraryItem('${item.id}')" style="color:var(--tb-accent)">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>`;
+        }).join('');
+
+        // Bind assign buttons
+        container.querySelectorAll('.lib-assign-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const itemId = btn.getAttribute('data-item-id');
+                const row = btn.closest('.library-item-row');
+                const weekId = row.querySelector('.lib-week-select').value;
+                const category = row.querySelector('.lib-cat-select').value;
+                if (!weekId) { alert(this.lang === 'es' ? 'Seleccioná una semana primero.' : 'Select a week first.'); return; }
+                // Remove existing weekItem for this library item in this week
+                const existing = allWeekItems.find(wi => wi.libraryItemId === itemId && wi.weekId === weekId);
+                if (existing) await this.data.deleteWeekItem(existing.id);
+                // Create new weekItem
+                await this.data.saveWeekItem({
+                    id: this.data.generateId('wi'),
+                    weekId, libraryItemId: itemId, category, addedAt: Date.now()
+                });
+                this.renderLibraryInNotebook();
+                this.renderPracticeView();
+            });
+        });
+    }
+
+    async deleteLibraryItem(itemId) {
+        const t = (key) => TRANSLATIONS[this.lang][key] || key;
+        if (!confirm(t('confirm-delete-library-item'))) return;
+        // Also remove all weekItems referencing this item
+        const allWI = await this.data.getAllWeekItems();
+        await Promise.all(allWI.filter(wi => wi.libraryItemId === itemId).map(wi => this.data.deleteWeekItem(wi.id)));
+        await this.data.deleteLibraryItem(itemId);
+        this.renderLibraryInNotebook();
+        this.renderPracticeView();
+    }
+
+    // Sube un archivo GP a la biblioteca
+    async handleGPUploadToLibrary(file) {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const item = {
+                id: this.data.generateId('lib'),
+                type: 'score',
+                title: file.name.replace(/\.[^.]+$/, ''),
+                filename: file.name,
+                bytes: e.target.result,
+                uploadedAt: Date.now(),
+                categories: ['repertoire']
+            };
+            await this.data.saveLibraryItem(item);
+            this.renderLibraryInNotebook();
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    // Sube un PDF a la biblioteca
+    async handlePDFUploadToLibrary(file) {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const item = {
+                id: this.data.generateId('lib'),
+                type: 'pdf',
+                title: file.name.replace(/\.pdf$/i, ''),
+                filename: file.name,
+                bytes: e.target.result,
+                uploadedAt: Date.now(),
+                categories: []
+            };
+            await this.data.saveLibraryItem(item);
+            this.renderLibraryInNotebook();
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    // Agrega una URL de YouTube a la biblioteca
+    async handleAddYouTube() {
+        const input = document.getElementById("yt-url-input");
+        const url = (input ? input.value.trim() : '');
+        if (!url) return;
+        const title = prompt(this.lang === 'es' ? 'Título del video:' : 'Video title:', '');
+        if (title === null) return;
+        await this.data.saveLibraryItem({
+            id: this.data.generateId('lib'),
+            type: 'youtube',
+            title: title || url,
+            url,
+            uploadedAt: Date.now(),
+            categories: []
+        });
+        if (input) input.value = '';
+        this.renderLibraryInNotebook();
+    }
+
+    // Agrega una URL de Spotify a la biblioteca
+    async handleAddSpotify() {
+        const input = document.getElementById("spotify-url-input");
+        const url = (input ? input.value.trim() : '');
+        if (!url) return;
+        const title = prompt(this.lang === 'es' ? 'Título de la pista:' : 'Track title:', '');
+        if (title === null) return;
+        await this.data.saveLibraryItem({
+            id: this.data.generateId('lib'),
+            type: 'spotify',
+            title: title || url,
+            url,
+            uploadedAt: Date.now(),
+            categories: []
+        });
+        if (input) input.value = '';
+        this.renderLibraryInNotebook();
+    }
+
+    // showWizardStep mantiene compatibilidad pero ya no se usa en el flujo principal
+    showWizardStep(stepNum) {
+        if (stepNum === 4) { /* player activado vía card */ return; }
+        const catMap = { 1: 'technique', 2: 'technique', 3: 'reading' };
+        const cat = catMap[stepNum] || 'technique';
+        this.selectCategory(cat);
     }
 
     // ==========================================================================
@@ -843,9 +1523,10 @@ class GuitarStudioApp {
         this.updateLanguageUI();
         this.updateStreakUI();
         this.renderLibraryExercises();
-        this.updatePracticeExercisesUI();
         this.loadTeacherNotesUI();
-        this.updateHeaderCompleteButtonVisibility();
+        this.renderPracticeView();
+        this.renderWeeksInNotebook();
+        this.renderLibraryInNotebook();
     }
 
     updateLanguageUI() {
@@ -961,8 +1642,16 @@ class GuitarStudioApp {
         const totalSecs = this.timerSeconds[timerId];
         const minutes = Math.floor(totalSecs / 60);
         const seconds = totalSecs % 60;
-        
+
         const displayStr = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+        // Display en el área de práctica (nuevo flujo)
+        const practiceDisplay = document.getElementById("practice-timer-display");
+        if (practiceDisplay && this.categoryIds[timerId] === this.currentCategory) {
+            practiceDisplay.textContent = displayStr;
+        }
+
+        // Display legacy (por compatibilidad)
         const el = document.getElementById(`timer-display-${stepIndex}`);
         if (el) el.textContent = displayStr;
 
@@ -979,18 +1668,14 @@ class GuitarStudioApp {
         }
     }
 
-    /**
-     * Marca un paso como completado automáticamente al superar el mínimo de tiempo.
-     */
     autoCompleteStep(stepIndex) {
-        this.completedSteps[stepIndex - 1] = true;
+        const catIdx = stepIndex - 1;
+        if (catIdx < 0 || catIdx >= 3) return;
+        this.completedSteps[catIdx] = true;
         this.data.setCompletedSteps(this.completedSteps);
         this.updateProgressUI();
         this.playTimerAlert();
-
-        // Feedback visual
-        const stepHeader = document.querySelector(`.header-step-item[data-step="${stepIndex}"]`);
-        if (stepHeader) stepHeader.classList.add('completed');
+        this.renderPracticeView();
     }
 
     /**
@@ -1001,19 +1686,11 @@ class GuitarStudioApp {
         const entries = [];
         let totalSeconds = 0;
 
-        for (let i = 0; i < 4; i++) {
+        for (let i = 0; i < 3; i++) {
             if (this.timerSeconds[i] > 0) {
-                const exerciseNames = [
-                    this.activeLeftHandEx ? (this.lang === 'es' ? this.activeLeftHandEx.nameEs : this.activeLeftHandEx.nameEn) : 'Default',
-                    this.activeRightHandEx ? (this.lang === 'es' ? this.activeRightHandEx.nameEs : this.activeRightHandEx.nameEn) : 'Default',
-                    this.activeReadingEx ? (this.lang === 'es' ? this.activeReadingEx.nameEs : this.activeReadingEx.nameEn) : 'Default',
-                    'Repertorio / Guitar Pro'
-                ];
                 entries.push({
-                    step: i + 1,
                     category: this.stepCategories[i],
-                    seconds: this.timerSeconds[i],
-                    exercise: exerciseNames[i]
+                    seconds: this.timerSeconds[i]
                 });
                 totalSeconds += this.timerSeconds[i];
             }
@@ -1045,27 +1722,26 @@ class GuitarStudioApp {
     // ==========================================================================
     // 7. Registro de Práctica, Compleción y Racha
     // ==========================================================================
-    completeStep(stepNum) {
-        this.completedSteps[stepNum - 1] = true;
+    completeCategory(catIndex) {
+        this.completedSteps[catIndex] = true;
         this.data.setCompletedSteps(this.completedSteps);
         this.updateProgressUI();
+        this.renderPracticeView();
 
-        // Si se han completado los 4 pasos, finalizar práctica del día
         if (this.completedSteps.every(Boolean)) {
             this.finalizeDailyPractice();
-        } else {
-            // Avanzar al siguiente paso del asistente si existe
-            if (stepNum < 4) {
-                this.showWizardStep(stepNum + 1);
-            }
         }
+    }
+
+    // Mantener alias por compatibilidad con posibles llamadas externas
+    completeStep(stepNum) {
+        this.completeCategory(stepNum - 1);
     }
 
     finalizeDailyPractice() {
         const todayStr = this.getTodayString();
 
-        // Pausar todos los timers y guardar progreso final
-        for (let i = 1; i <= 4; i++) {
+        for (let i = 1; i <= 3; i++) {
             this.pauseStepTimer(i);
         }
         this.savePracticeProgress();
@@ -1185,115 +1861,22 @@ class GuitarStudioApp {
     }
 
     // ==========================================================================
-    // 9. Carga y Procesamiento de Guitar Pro (AlphaTab)
     // ==========================================================================
-    async handleGPUpload(file) {
-        try {
-            // Leer archivo en ArrayBuffer
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                const arrayBuffer = e.target.result;
-                
-                // Guardar en la IndexedDB local
-                await this.data.saveScore(file.name, arrayBuffer);
-                
-                // Actualizar interfaz
-                this.loadWeeklyGPFile();
-                
-                alert(this.lang === "es" 
-                    ? `¡Archivo ${file.name} guardado correctamente en tu navegador!` 
-                    : `File ${file.name} saved successfully in your browser!`);
-            };
-            reader.readAsArrayBuffer(file);
-        } catch (error) {
-            console.error("Error uploading GP file:", error);
-            alert("Error al procesar el archivo.");
+    // 9. AlphaTab Player
+    // ==========================================================================
+    async initAlphaTabPlayerIfNeeded(libraryItem) {
+        // Si ya está inicializado, solo cargar el score si es diferente
+        if (this.atApi) {
+            if (libraryItem && this.atCurrentItemId !== libraryItem.id) {
+                this.atApi.load(new Uint8Array(libraryItem.bytes));
+                this.atCurrentItemId = libraryItem.id;
+            }
+            return;
         }
-    }
 
-    async loadWeeklyGPFile() {
-        const score = await this.data.getScore();
-        const fileLoadedName = document.getElementById("file-loaded-name");
-        const btnDelete = document.getElementById("btn-delete-gp-file");
-        const fileExportRow = document.getElementById("file-export-row");
-        const wrapper = document.querySelector(".at-wrap");
-        const placeholder = document.getElementById("alphatab-placeholder");
-        
-        if (score) {
-            if (fileLoadedName) {
-                fileLoadedName.textContent = score.name;
-                fileLoadedName.style.color = "var(--tb-text-primary)";
-            }
-            if (btnDelete) btnDelete.style.display = "block";
-            if (fileExportRow) {
-                fileExportRow.style.display = "block";
-            }
-            
-            // Ocultar placeholder y mostrar visor
-            if (placeholder) placeholder.style.display = "none";
-            if (wrapper) wrapper.style.display = "flex";
-            
-            // Si estamos en la vista de práctica y el paso 4 está activo, inicializar/cargar
-            const practiceViewActive = document.getElementById("view-practice").classList.contains("active");
-            const step4El = document.querySelector(".header-step-item[data-step='4']");
-            const step4Active = step4El ? step4El.classList.contains("active") : false;
-            if (practiceViewActive && step4Active) {
-                this.initAlphaTabPlayerIfNeeded();
-            }
-        } else {
-            if (fileLoadedName) {
-                fileLoadedName.textContent = TRANSLATIONS[this.lang]["no-file-loaded"];
-                fileLoadedName.style.color = "var(--tb-text-muted)";
-            }
-            if (btnDelete) btnDelete.style.display = "none";
-            if (fileExportRow) {
-                fileExportRow.style.display = "none";
-            }
-            
-            if (placeholder) placeholder.style.display = "flex";
-            if (wrapper) wrapper.style.display = "none";
-            
-            // Destruir reproductor si existe
-            if (this.atApi) {
-                this.atApi.destroy();
-                this.atApi = null;
-            }
-        }
-        this.updateHeaderCompleteButtonVisibility();
-    }
-
-    updateHeaderCompleteButtonVisibility() {
-        const btn = document.getElementById("btn-complete-practice-header");
-        if (!btn) return;
-        
-        const practiceViewActive = document.getElementById("view-practice").classList.contains("active");
-        const step4El = document.querySelector(".header-step-item[data-step='4']");
-        const step4Active = step4El ? step4El.classList.contains("active") : false;
-        
-        this.data.getScore().then(score => {
-            if (practiceViewActive && step4Active && score) {
-                btn.style.display = "inline-flex";
-            } else {
-                btn.style.display = "none";
-            }
-        }).catch(() => {
-            btn.style.display = "none";
-        });
-    }
-
-    async deleteGPFile() {
-        if (confirm(this.lang === "es" ? "¿Seguro que quieres eliminar la partitura?" : "Are you sure you want to delete the score?")) {
-            await this.data.deleteScore();
-            this.loadWeeklyGPFile();
-        }
-    }
-
-    async initAlphaTabPlayerIfNeeded() {
-        const score = await this.data.getScore();
+        // Necesitamos bytes para inicializar
+        const score = libraryItem || await this.data.getScore();
         if (!score) return;
-        
-        // Si ya está inicializado, no hacer nada
-        if (this.atApi) return;
 
         const getSectionName = (mb) => {
             const sObj = mb.section || mb.marker;
@@ -1353,10 +1936,6 @@ class GuitarStudioApp {
         if (!wrapper) return;
         const main = wrapper.querySelector(".at-main");
         if (!main) return;
-        const placeholder = document.getElementById("alphatab-placeholder");
-        
-        // Asegurar visibilidad del elemento antes de inicializar
-        if (placeholder) placeholder.style.display = "none";
         wrapper.style.display = "flex";
 
         try {
@@ -2162,8 +2741,13 @@ class GuitarStudioApp {
                 }
             });
 
-            // Cargar los bytes guardados en la BD
-            this.atApi.load(new Uint8Array(score.bytes));
+            // Cargar los bytes del ítem proporcionado
+            if (libraryItem) {
+                this.atApi.load(new Uint8Array(libraryItem.bytes));
+                this.atCurrentItemId = libraryItem.id;
+            } else if (score && score.bytes) {
+                this.atApi.load(new Uint8Array(score.bytes));
+            }
 
         } catch (error) {
             console.error("AlphaTab error during initialization:", error);
@@ -2199,11 +2783,16 @@ class GuitarStudioApp {
             grid.appendChild(card);
         });
 
-        // Eventos para botones de agregar
+        // Eventos para botones de la biblioteca estática (vista Library)
         grid.querySelectorAll(".btn-load-ex").forEach(btn => {
             btn.addEventListener("click", () => {
+                // En el nuevo modelo la biblioteca estática sirve de referencia
+                // Los ejercicios reales se asignan desde el Cuaderno
                 const exId = btn.getAttribute("data-id");
-                this.loadExerciseIntoRoutine(exId);
+                const ex = EXERCISES_DATABASE.find(e => e.id === exId);
+                if (ex) alert(this.lang === 'es'
+                    ? `Para asignar "${ex.nameEs || ex.nameEn}" a la práctica, súbelo como archivo GP desde el Cuaderno.`
+                    : `To assign "${ex.nameEn || ex.nameEs}" to practice, upload it as a GP file from the Notebook.`);
             });
         });
 
@@ -2227,77 +2816,6 @@ class GuitarStudioApp {
             });
         });
     }
-
-    loadExerciseIntoRoutine(exId) {
-        const ex = EXERCISES_DATABASE.find(item => item.id === exId);
-        if (!ex) return;
-
-        if (ex.category === "left") {
-            this.activeLeftHandEx = ex;
-            this.data.setActiveExercise('left', ex);
-            alert(this.lang === "es" 
-                ? "Ejercicio cargado en tu rutina de Mano Izquierda." 
-                : "Exercise loaded into your Left Hand routine.");
-        } else if (ex.category === "right") {
-            this.activeRightHandEx = ex;
-            this.data.setActiveExercise('right', ex);
-            alert(this.lang === "es" 
-                ? "Ejercicio cargado en tu rutina de Mano Derecha." 
-                : "Exercise loaded into your Right Hand routine.");
-        } else if (ex.category === "reading") {
-            this.activeReadingEx = ex;
-            this.data.setActiveExercise('reading', ex);
-            alert(this.lang === "es" 
-                ? "Ejercicio cargado en tu rutina de Lectura." 
-                : "Exercise loaded into your Sight Reading routine.");
-        }
-
-        this.updatePracticeExercisesUI();
-    }
-
-    updatePracticeExercisesUI() {
-        // Mano Izquierda
-        const leftNameEl = document.getElementById("left-hand-ex-name");
-        const leftDescEl = document.getElementById("left-hand-ex-desc");
-        
-        if (this.activeLeftHandEx) {
-            if (leftNameEl) leftNameEl.textContent = this.lang === "es" ? this.activeLeftHandEx.nameEs : this.activeLeftHandEx.nameEn;
-            if (leftDescEl) leftDescEl.textContent = this.lang === "es" ? this.activeLeftHandEx.descEs : this.activeLeftHandEx.descEn;
-        } else {
-            if (leftNameEl) leftNameEl.textContent = TRANSLATIONS[this.lang]["left-hand-default-name"];
-            if (leftDescEl) leftDescEl.textContent = TRANSLATIONS[this.lang]["left-hand-default-desc"];
-        }
-
-        // Mano Derecha
-        const rightNameEl = document.getElementById("right-hand-ex-name");
-        const rightDescEl = document.getElementById("right-hand-ex-desc");
-        
-        if (this.activeRightHandEx) {
-            if (rightNameEl) rightNameEl.textContent = this.lang === "es" ? this.activeRightHandEx.nameEs : this.activeRightHandEx.nameEn;
-            if (rightDescEl) rightDescEl.textContent = this.lang === "es" ? this.activeRightHandEx.descEs : this.activeRightHandEx.descEn;
-        } else {
-            if (rightNameEl) rightNameEl.textContent = TRANSLATIONS[this.lang]["right-hand-default-name"];
-            if (rightDescEl) rightDescEl.textContent = TRANSLATIONS[this.lang]["right-hand-default-desc"];
-        }
-
-        // Lectura
-        const readingNameEl = document.getElementById("reading-ex-name");
-        const readingDescEl = document.getElementById("reading-ex-desc");
-        
-        if (this.activeReadingEx) {
-            if (readingNameEl) readingNameEl.textContent = this.lang === "es" ? this.activeReadingEx.nameEs : this.activeReadingEx.nameEn;
-            if (readingDescEl) readingDescEl.textContent = this.lang === "es" ? this.activeReadingEx.descEs : this.activeReadingEx.descEn;
-        } else {
-            if (readingNameEl) readingNameEl.textContent = this.lang === "es" ? "Descifrado Rápido de Notas" : "Quick Note Decoding";
-            if (readingDescEl) readingDescEl.textContent = this.lang === "es"
-                ? "Abre una partitura al azar en la biblioteca o de tus libros de estudio. Toca directamente la línea melódica sin ensayar antes, prestando atención exclusiva al ritmo y la fluidez del pulso, no importa si erras algunas notas."
-                : "Open a random score in the library or from your books. Directly play the melodic line without practicing beforehand, focusing purely on pulse and flow.";
-        }
-
-
-    }
-
-
 
     adjustQuickToolsLocation() {
         const quickTools = document.querySelector('.quick-tools-box');

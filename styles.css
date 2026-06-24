@@ -2706,3 +2706,317 @@ textarea.form-control {
     backface-visibility: hidden;
 }
 
+/* ==========================================================================
+   NUEVOS COMPONENTES v3 — Práctica por categorías + Biblioteca
+   ========================================================================== */
+
+/* Header back button */
+.header-back-item {
+    display: flex;
+    align-items: center;
+}
+.header-back-btn {
+    display: flex;
+    align-items: center;
+    background: none;
+    border: 1px solid var(--tb-border);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 13px;
+    color: var(--tb-text-primary);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.header-back-btn:hover {
+    background: var(--tb-bg-tertiary);
+}
+
+/* Practice category header (timer + complete) */
+.practice-category-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 0 20px;
+    border-bottom: 1px solid var(--tb-border);
+    margin-bottom: 20px;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.practice-timer-block {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.practice-timer-display {
+    font-size: 24px;
+    font-weight: 700;
+    font-family: 'Outfit', monospace;
+    color: var(--tb-text-primary);
+    min-width: 72px;
+}
+
+/* Practice empty state */
+.practice-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 60px 20px;
+    text-align: center;
+}
+
+/* Weeks accordion */
+.weeks-accordion {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.week-accordion-item {
+    border: 1px solid var(--tb-border);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--tb-bg-secondary);
+}
+.week-accordion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+}
+.week-accordion-header:hover {
+    background: var(--tb-bg-tertiary);
+}
+.week-accordion-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--tb-text-primary);
+}
+.week-accordion-chevron {
+    width: 18px;
+    height: 18px;
+    color: var(--tb-text-secondary);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+}
+.week-accordion-item.open .week-accordion-chevron {
+    transform: rotate(180deg);
+}
+.week-accordion-body {
+    display: none;
+    padding: 4px 16px 16px;
+    border-top: 1px solid var(--tb-border);
+}
+.week-accordion-item.open .week-accordion-body {
+    display: block;
+}
+
+/* GP Exercise cards grid */
+.exercise-cards-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.gp-exercise-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--tb-bg-primary);
+    border: 1px solid var(--tb-border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    transition: border-color 0.15s;
+}
+.gp-exercise-card:hover {
+    border-color: var(--tb-accent);
+}
+.gp-card-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: rgba(var(--tb-accent-rgb, 99, 102, 241), 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--tb-accent);
+    flex-shrink: 0;
+}
+.gp-card-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.gp-card-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--tb-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.gp-card-meta {
+    font-size: 11px;
+    color: var(--tb-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.gp-open-btn {
+    flex-shrink: 0;
+}
+
+/* Resource cards */
+.resource-cards-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 4px;
+}
+.resource-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--tb-bg-primary);
+    border: 1px solid var(--tb-border);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--tb-text-primary);
+    transition: background 0.15s, border-color 0.15s;
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.resource-card:hover {
+    background: var(--tb-bg-tertiary);
+    border-color: var(--tb-accent);
+}
+
+/* Notebook — weeks list */
+.week-list-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border: 1px solid var(--tb-border);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    background: var(--tb-bg-primary);
+}
+.week-list-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--tb-text-primary);
+}
+.week-list-actions {
+    display: flex;
+    gap: 4px;
+}
+
+/* New week form */
+.new-week-form {
+    padding: 12px;
+    background: var(--tb-bg-tertiary);
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+/* Notebook library section */
+.notebook-library-section {
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid var(--tb-border);
+}
+.library-uploaders-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+.library-uploader-card {
+    background: var(--tb-bg-secondary);
+    border: 1px solid var(--tb-border);
+    border-radius: 12px;
+    padding: 16px;
+}
+.uploader-card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--tb-text-secondary);
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.upload-dropzone-sm {
+    padding: 16px;
+    text-align: center;
+}
+.url-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Library item rows */
+.library-item-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--tb-bg-secondary);
+    border: 1px solid var(--tb-border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+.library-item-icon {
+    font-size: 18px;
+    width: 28px;
+    text-align: center;
+    flex-shrink: 0;
+}
+.library-item-info {
+    flex: 1;
+    min-width: 120px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.library-item-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--tb-text-primary);
+}
+.library-item-type {
+    font-size: 11px;
+    color: var(--tb-text-muted);
+    text-transform: uppercase;
+}
+.library-item-assign {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.form-select-sm {
+    background: var(--tb-bg-primary);
+    border: 1px solid var(--tb-border);
+    border-radius: 6px;
+    color: var(--tb-text-primary);
+    padding: 4px 8px;
+    font-size: 12px;
+    height: 30px;
+}
+.form-select-sm:focus {
+    outline: none;
+    border-color: var(--tb-accent);
+}
+

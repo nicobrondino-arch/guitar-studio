@@ -66,10 +66,10 @@ class DataService {
     }
 
     // ==========================================================================
-    // Pasos completados (diario)
+    // Categorías completadas (diario) — 3 categorías: technique, reading, repertoire
     // ==========================================================================
     getCompletedSteps() {
-        return JSON.parse(localStorage.getItem("completed-steps") || "[false, false, false, false]");
+        return JSON.parse(localStorage.getItem("completed-steps") || "[false, false, false]");
     }
 
     setCompletedSteps(arr) {
@@ -187,7 +187,7 @@ class DataService {
     }
 
     // ==========================================================================
-    // Guitar Pro (delegado a TabDatabase)
+    // Guitar Pro legacy (delegado a TabDatabase — solo para compatibilidad)
     // ==========================================================================
     async saveScore(fileName, arrayBuffer) {
         return this._tabDb.saveScore(fileName, arrayBuffer);
@@ -202,11 +202,69 @@ class DataService {
     }
 
     // ==========================================================================
+    // Biblioteca de contenido
+    // ==========================================================================
+    async getLibraryItems() {
+        return this._tabDb.getAllLibraryItems();
+    }
+
+    async getLibraryItem(id) {
+        return this._tabDb.getLibraryItem(id);
+    }
+
+    async saveLibraryItem(item) {
+        return this._tabDb.saveLibraryItem(item);
+    }
+
+    async deleteLibraryItem(id) {
+        return this._tabDb.deleteLibraryItem(id);
+    }
+
+    // ==========================================================================
+    // Semanas
+    // ==========================================================================
+    async getWeeks() {
+        return this._tabDb.getAllWeeks();
+    }
+
+    async saveWeek(week) {
+        return this._tabDb.saveWeek(week);
+    }
+
+    async deleteWeek(id) {
+        return this._tabDb.deleteWeek(id);
+    }
+
+    // ==========================================================================
+    // Ítems de semana (relación semana ↔ biblioteca)
+    // ==========================================================================
+    async getWeekItems(weekId) {
+        return this._tabDb.getWeekItemsForWeek(weekId);
+    }
+
+    async getAllWeekItems() {
+        return this._tabDb.getAllWeekItems();
+    }
+
+    async saveWeekItem(item) {
+        return this._tabDb.saveWeekItem(item);
+    }
+
+    async deleteWeekItem(id) {
+        return this._tabDb.deleteWeekItem(id);
+    }
+
+    // ==========================================================================
     // Guardar/cargar toda la racha de una vez (helper para saveStreak)
     // ==========================================================================
     saveStreakData(streak, lastPracticedDate, history) {
         this.setStreak(streak);
         this.setLastPracticedDate(lastPracticedDate);
         this.setHistory(history);
+    }
+
+    // Helper para generar IDs únicos
+    generateId(prefix = 'id') {
+        return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     }
 }
