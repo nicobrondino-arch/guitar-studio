@@ -4,6 +4,48 @@
  * metrónomo de UI, persistencia de racha (LocalStorage), base de datos (IndexedDB)
  * para Guitar Pro y la biblioteca de ejercicios.
  */
+// ==========================================================================
+// ResizeObserver Harmless Error Suppression (Popups)
+// ==========================================================================
+// AlphaTab's print() opens a new tab by default. 
+// We intercept window.open to force it to use an invisible iframe instead.
+// This prevents opening a new tab and avoids the ResizeObserver console error on close.
+const originalWindowOpen = window.open;
+window.open = function(url, target, features) {
+    if (!url || url === 'about:blank' || url === '') {
+        const iframe = document.createElement('iframe');
+        iframe.style.position = 'absolute';
+        iframe.style.top = '-10000px';
+        iframe.style.left = '-10000px';
+        iframe.style.width = '800px'; // Approx A4 width
+        iframe.style.height = '1122px'; // Approx A4 height
+        iframe.style.border = 'none';
+        document.body.appendChild(iframe);
+        
+        const win = iframe.contentWindow;
+        
+        // Suppress any ResizeObserver or render errors inside the iframe (using capture phase)
+        // suppressResizeObserverError is defined globally in index.html <head>
+        if (typeof suppressResizeObserverError !== 'undefined') {
+            win.addEventListener('error', suppressResizeObserverError, true);
+        }
+        
+        // Intercept alphaTab calling win.print() when it finishes rendering
+        const originalPrint = win.print;
+        win.print = function() {
+            originalPrint.call(win);
+            // After the print dialog closes, destroy the iframe to free memory
+            setTimeout(() => {
+                if (document.body.contains(iframe)) {
+                    document.body.removeChild(iframe);
+                }
+            }, 1000);
+        };
+        
+        return win;
+    }
+    return originalWindowOpen.apply(this, arguments);
+};
 
 // ==========================================================================
 // 1. Diccionario de Traducción (ES / EN)
@@ -89,7 +131,18 @@ const TRANSLATIONS = {
         "btn-convert-playground": "Convertir y Editar en Playground",
         "code-copied-success": "¡Código copiado al portapapeles!",
         "example-loaded-success": "¡Ejemplo cargado!",
-        "gp-loading": "Cargando partitura..."
+        "gp-loading": "Cargando partitura...",
+        "gp-bar-label": "Compás",
+        "gp-loop-section-lbl": "Repetir Sección",
+        "gp-loop-section-select-opt": "- Ninguna -",
+        "gp-loop-from-lbl": "De:",
+        "gp-loop-to-lbl": "A:",
+        "gp-loop-apply-btn": "OK",
+        "gp-autobpm-lbl": "Auto BPM",
+        "gp-autobpm-step-lbl": "+BPM/rep",
+        "gp-autobpm-target-lbl": "Meta",
+        "gp-autobpm-on": "ON",
+        "gp-autobpm-off": "OFF"
     },
     en: {
         "app-title": "Guitar Studio - Streak and Practice Routine",
@@ -171,7 +224,18 @@ const TRANSLATIONS = {
         "btn-convert-playground": "Convert and Edit in Playground",
         "code-copied-success": "Code copied to clipboard!",
         "example-loaded-success": "Example loaded!",
-        "gp-loading": "Loading score..."
+        "gp-loading": "Loading score...",
+        "gp-bar-label": "Bar",
+        "gp-loop-section-lbl": "Repeat Section",
+        "gp-loop-section-select-opt": "- None -",
+        "gp-loop-from-lbl": "From:",
+        "gp-loop-to-lbl": "To:",
+        "gp-loop-apply-btn": "OK",
+        "gp-autobpm-lbl": "Auto BPM",
+        "gp-autobpm-step-lbl": "+BPM/loop",
+        "gp-autobpm-target-lbl": "Target",
+        "gp-autobpm-on": "ON",
+        "gp-autobpm-off": "OFF"
     }
 };
 
@@ -181,7 +245,7 @@ const TRANSLATIONS = {
 class TabDatabase {
     constructor() {
         this.dbName = "GuitarStudioDB";
-        this.dbVersion = 1;
+        this.dbVersion = 2; // v2: added practiceLogs store
         this.db = null;
     }
 
@@ -193,6 +257,9 @@ class TabDatabase {
                 const db = e.target.result;
                 if (!db.objectStoreNames.contains("scores")) {
                     db.createObjectStore("scores", { keyPath: "id" });
+                }
+                if (!db.objectStoreNames.contains("practiceLogs")) {
+                    db.createObjectStore("practiceLogs", { keyPath: "date" });
                 }
             };
 
@@ -207,6 +274,7 @@ class TabDatabase {
             };
         });
     }
+
 
     saveScore(name, arrayBuffer) {
         return new Promise((resolve, reject) => {
@@ -321,54 +389,64 @@ class GuitarStudioApp {
         this.activeRightHandEx = null;
         this.activeReadingEx = null;
 
-        // Base de datos y metrónomo
-        this.db = new TabDatabase();
+        // DataService (capa de abstracción de datos)
+        this.data = new DataService();
         this.metronome = new Metronome();
         
         // AlphaTab Player
         this.atApi = null;
         this.atIsPlaying = false;
-        
-        // AlphaTab Step instances
-        this.step1Api = null;
-        this.step2Api = null;
-        this.step3Api = null;
-        
-        // Intervalos de temporizadores del Modo Práctica
-        this.timers = [null, null, null]; // Para pasos 1, 2 y 3
-        this.timerTimes = [300, 300, 300]; // 5 minutos en segundos
-        this.timerIntervals = [null, null, null];
+        this.userInterrupted = false;
+        this.isResettingLoop = false;
+
+        // Auto BPM Increment per loop
+        this.bpmAutoIncrEnabled = false;
+        this.bpmAutoIncrStep = 1;
+        this.bpmAutoIncrTarget = 120;
+
+        // Timer ascendente por paso (cuenta hacia arriba)
+        this.timerSeconds = [0, 0, 0, 0]; // Segundos acumulados por paso (1-4)
+        this.timerIntervals = [null, null, null, null];
+        this.activeTimerStep = null; // Paso actualmente siendo cronometrado
+        this.stepCategories = ['technique-left', 'technique-right', 'sight-reading', 'repertoire'];
     }
 
     async init() {
-        // Cargar configuración guardada
-        this.lang = localStorage.getItem("studio-lang") || "es";
-        this.streak = parseInt(localStorage.getItem("studio-streak") || "0", 10);
-        this.lastPracticedDate = localStorage.getItem("studio-last-practiced") || "";
-        this.history = JSON.parse(localStorage.getItem("studio-history") || "[]");
+        // Inicializar DataService (IndexedDB)
+        await this.data.init();
+
+        // Cargar configuración guardada via DataService
+        this.lang = this.data.getLang();
+        this.streak = this.data.getStreak();
+        this.lastPracticedDate = this.data.getLastPracticedDate();
+        this.history = this.data.getHistory();
         
         // Cargar rutinas personalizadas de la biblioteca si existen
-        this.activeLeftHandEx = JSON.parse(localStorage.getItem("studio-active-left") || "null");
-        this.activeRightHandEx = JSON.parse(localStorage.getItem("studio-active-right") || "null");
-        this.activeReadingEx = JSON.parse(localStorage.getItem("studio-active-reading") || "null");
+        this.activeLeftHandEx = this.data.getActiveExercise('left');
+        this.activeRightHandEx = this.data.getActiveExercise('right');
+        this.activeReadingEx = this.data.getActiveExercise('reading');
 
         // Cargar estado de compleción diaria
         const todayStr = this.getTodayString();
-        const lastReset = localStorage.getItem("studio-last-reset-check") || "";
+        const lastReset = this.data.getLastResetCheck();
         if (lastReset !== todayStr) {
-            // Es un nuevo día, resetear los pasos completados
+            // Es un nuevo día, resetear los pasos completados y timers
             this.completedSteps = [false, false, false, false];
-            localStorage.setItem("completed-steps", JSON.stringify(this.completedSteps));
-            localStorage.setItem("studio-last-reset-check", todayStr);
+            this.timerSeconds = [0, 0, 0, 0];
+            this.data.setCompletedSteps(this.completedSteps);
+            this.data.setLastResetCheck(todayStr);
         } else {
-            this.completedSteps = JSON.parse(localStorage.getItem("completed-steps") || "[false, false, false, false]");
+            this.completedSteps = this.data.getCompletedSteps();
+            // Restaurar tiempos acumulados del día si existen
+            await this.restoreTodayTimers();
         }
-
-        // Inicializar Base de Datos
-        await this.db.init();
 
         // Enlazar eventos de la UI
         this.bindEvents();
+        
+        // Reubicar metrónomo según resolución
+        this.adjustQuickToolsLocation();
+        window.addEventListener("resize", () => this.adjustQuickToolsLocation());
         
         // Inicializar vistas, traducción e idioma
         this.updateLanguageUI();
@@ -384,6 +462,25 @@ class GuitarStudioApp {
 
         // Cargar archivo Guitar Pro si existe en DB
         this.loadWeeklyGPFile();
+    }
+
+    /**
+     * Restaura los tiempos de práctica del día actual desde IndexedDB.
+     */
+    async restoreTodayTimers() {
+        try {
+            const log = await this.data.getPracticeLog(this.getTodayString());
+            if (log && log.entries) {
+                log.entries.forEach(entry => {
+                    const stepIdx = entry.step - 1;
+                    if (stepIdx >= 0 && stepIdx < 4) {
+                        this.timerSeconds[stepIdx] = entry.seconds || 0;
+                    }
+                });
+            }
+        } catch (e) {
+            console.warn('Could not restore today timers:', e);
+        }
     }
 
     getTodayString() {
@@ -416,9 +513,7 @@ class GuitarStudioApp {
     }
 
     saveStreak() {
-        localStorage.setItem("studio-streak", this.streak);
-        localStorage.setItem("studio-last-practiced", this.lastPracticedDate);
-        localStorage.setItem("studio-history", JSON.stringify(this.history));
+        this.data.saveStreakData(this.streak, this.lastPracticedDate, this.history);
         this.updateStreakUI();
     }
 
@@ -623,88 +718,45 @@ class GuitarStudioApp {
         // Eliminar Guitar Pro File
         document.getElementById("btn-delete-gp-file").addEventListener("click", () => this.deleteGPFile());
 
-        // Botones e interfaz del visor de Guitar Pro (AlphaTab)
-        document.getElementById("btn-gp-play").addEventListener("click", () => this.toggleGPPlayer());
-        document.getElementById("btn-gp-stop").addEventListener("click", () => this.stopGPPlayer());
-        
-        const speedSlider = document.getElementById("gp-speed-slider");
-        speedSlider.addEventListener("input", (e) => {
-            const speed = parseInt(e.target.value, 10);
-            document.getElementById("gp-speed-text").textContent = `${speed}%`;
-            if (this.atApi) {
-                this.atApi.playbackSpeed = speed / 100.0;
-            }
-        });
-
-        // Control de Zoom de Guitar Pro
-        let currentZoom = 100;
-        const zoomText = document.getElementById("gp-zoom-text");
-        
-        document.getElementById("btn-gp-zoom-in").addEventListener("click", () => {
-            if (currentZoom < 200) {
-                currentZoom += 10;
-                zoomText.textContent = `${currentZoom}%`;
-                if (this.atApi) {
-                    this.atApi.updateSettings({
-                        display: {
-                            scale: currentZoom / 100.0
-                        }
-                    });
-                    this.atApi.render();
+        // Toggle de la barra lateral colapsable
+        const sidebarToggle = document.getElementById("btn-sidebar-toggle");
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener("click", () => {
+                const sidebar = document.querySelector(".sidebar");
+                const mainContent = document.querySelector(".main-content");
+                const atViewport = document.querySelector(".at-viewport");
+                
+                const activeStepEl = document.querySelector(".header-step-item.active");
+                const isPlayerActive = activeStepEl && parseInt(activeStepEl.getAttribute("data-step"), 10) === 4 && this.atApi;
+                
+                if (isPlayerActive && atViewport) {
+                    // Lock the viewport width to prevent alphaTab intermediate resizes
+                    const currentWidth = atViewport.clientWidth;
+                    atViewport.style.width = `${currentWidth}px`;
+                    atViewport.style.right = "auto";
                 }
-            }
-        });
-
-        document.getElementById("btn-gp-zoom-out").addEventListener("click", () => {
-            if (currentZoom > 50) {
-                currentZoom -= 10;
-                zoomText.textContent = `${currentZoom}%`;
-                if (this.atApi) {
-                    this.atApi.updateSettings({
-                        display: {
-                            scale: currentZoom / 100.0
-                        }
-                    });
-                    this.atApi.render();
+                
+                sidebar.classList.toggle("collapsed");
+                
+                // Wait for CSS transition to finish before re-rendering alphaTab
+                // This prevents the flicker caused by alphaTab recalculating layout mid-transition
+                const onTransitionDone = () => {
+                    mainContent.removeEventListener("transitionend", onTransitionDone);
+                    
+                    if (isPlayerActive && atViewport) {
+                        // Unlock width and let alphaTab resize/render once at the final size
+                        atViewport.style.width = "";
+                        atViewport.style.right = "";
+                        this.atApi.render();
+                    } else if (isPlayerActive) {
+                        this.atApi.render();
+                    }
+                };
+                if (mainContent) {
+                    mainContent.addEventListener("transitionend", onTransitionDone);
                 }
-            }
-        });
-
-        document.getElementById("btn-gp-loop").addEventListener("click", (e) => {
-            e.target.classList.toggle("active");
-            if (this.atApi) {
-                this.atApi.isLooping = e.target.classList.contains("active");
-            }
-        });
-
-        document.getElementById("btn-gp-metro").addEventListener("click", (e) => {
-            e.target.classList.toggle("active");
-            if (this.atApi) {
-                const vol = e.target.classList.contains("active") 
-                    ? (parseInt(document.getElementById("gp-metro-volume").value, 10) / 100.0) 
-                    : 0.0;
-                this.atApi.metronomeVolume = vol;
-            }
-        });
-
-        // Control de volumen del metrónomo de Guitar Pro
-        const gpMetroVolSlider = document.getElementById("gp-metro-volume");
-        gpMetroVolSlider.addEventListener("input", (e) => {
-            const vol = parseInt(e.target.value, 10) / 100.0;
-            if (this.atApi) {
-                const isMetroActive = document.getElementById("btn-gp-metro").classList.contains("active");
-                if (isMetroActive) {
-                    this.atApi.metronomeVolume = vol;
-                }
-            }
-        });
-
-        document.getElementById("gp-track-select").addEventListener("change", (e) => {
-            const trackIndex = parseInt(e.target.value, 10);
-            if (this.atApi && this.atApi.score && this.atApi.score.tracks[trackIndex]) {
-                this.atApi.renderTracks([this.atApi.score.tracks[trackIndex]]);
-            }
-        });
+            });
+        }
     }
 
     resetMetronomeVisuals() {
@@ -716,6 +768,11 @@ class GuitarStudioApp {
         // Pausar metrónomo si cambiamos de vista
         if (this.metronome.isPlaying && viewId !== 'practice') {
             document.getElementById("btn-metro-toggle").click();
+        }
+
+        // Pausar timer activo si salimos de práctica
+        if (viewId !== 'practice' && this.activeTimerStep !== null) {
+            this.pauseStepTimer(this.activeTimerStep);
         }
 
         // Ocultar vistas activas
@@ -743,6 +800,7 @@ class GuitarStudioApp {
                 this.showWizardStep(step);
             }
         }
+        this.updateHeaderCompleteButtonVisibility();
     }
 
     showWizardStep(stepNum) {
@@ -759,21 +817,20 @@ class GuitarStudioApp {
         const activeHeaderItem = document.querySelector(`.header-step-item[data-step="${stepNum}"]`);
         if (activeHeaderItem) activeHeaderItem.classList.add("active");
 
+        // Auto-iniciar timer del paso activo (pausa el anterior automáticamente)
+        this.startStepTimer(stepNum);
+        this.updateTimerDisplay(stepNum);
+
         // Gatillar renderizado de alphaTab con un pequeño retardo para asegurar visibilidad en el DOM
         setTimeout(() => {
-            if (stepNum === 1 && this.step1Api) {
-                this.step1Api.render();
-            } else if (stepNum === 2 && this.step2Api) {
-                this.step2Api.render();
-            } else if (stepNum === 3 && this.step3Api) {
-                this.step3Api.render();
-            } else if (stepNum === 4) {
+            if (stepNum === 4) {
                 this.initAlphaTabPlayerIfNeeded();
                 if (this.atApi) {
                     this.atApi.render();
                 }
             }
         }, 100);
+        this.updateHeaderCompleteButtonVisibility();
     }
 
     // ==========================================================================
@@ -782,12 +839,13 @@ class GuitarStudioApp {
     changeLanguage(lang) {
         if (this.lang === lang) return;
         this.lang = lang;
-        localStorage.setItem("studio-lang", lang);
+        this.data.setLang(lang);
         this.updateLanguageUI();
         this.updateStreakUI();
         this.renderLibraryExercises();
         this.updatePracticeExercisesUI();
         this.loadTeacherNotesUI();
+        this.updateHeaderCompleteButtonVisibility();
     }
 
     updateLanguageUI() {
@@ -818,53 +876,163 @@ class GuitarStudioApp {
     // ==========================================================================
     // 6. Temporizadores de Práctica
     // ==========================================================================
-    toggleTimer(stepIndex) {
+    /**
+     * Inicia el timer ascendente para un paso. Pausa el paso anterior si hay uno activo.
+     * Se llama automáticamente al entrar a un paso del wizard.
+     */
+    startStepTimer(stepIndex) {
+        // Si ya hay un timer activo en otro paso, pausarlo
+        if (this.activeTimerStep !== null && this.activeTimerStep !== stepIndex) {
+            this.pauseStepTimer(this.activeTimerStep);
+        }
+
         const timerId = stepIndex - 1;
+        // No iniciar si ya está corriendo
+        if (this.timerIntervals[timerId]) return;
+
+        this.activeTimerStep = stepIndex;
+
+        this.timerIntervals[timerId] = setInterval(() => {
+            this.timerSeconds[timerId]++;
+            this.updateTimerDisplay(stepIndex);
+
+            // Verificar si superó el mínimo para auto-completar
+            const config = this.data.getWeeklyConfig();
+            const minSeconds = (config.minMinutesPerStep || 5) * 60;
+            if (!this.completedSteps[timerId] && this.timerSeconds[timerId] >= minSeconds) {
+                this.autoCompleteStep(stepIndex);
+            }
+
+            // Persistir cada 30 segundos para no perder datos si se cierra el browser
+            if (this.timerSeconds[timerId] % 30 === 0) {
+                this.savePracticeProgress();
+            }
+        }, 1000);
+
+        // Actualizar UI del botón
         const btn = document.getElementById(`btn-timer-start-${stepIndex}`);
-        
+        if (btn) btn.textContent = this.lang === "es" ? "⏸ Pausar" : "⏸ Pause";
+    }
+
+    /**
+     * Pausa el timer de un paso específico.
+     */
+    pauseStepTimer(stepIndex) {
+        const timerId = stepIndex - 1;
         if (this.timerIntervals[timerId]) {
-            // Pausar
             clearInterval(this.timerIntervals[timerId]);
             this.timerIntervals[timerId] = null;
-            btn.textContent = this.lang === "es" ? "Iniciar Reloj" : "Start Clock";
+        }
+        if (this.activeTimerStep === stepIndex) {
+            this.activeTimerStep = null;
+        }
+
+        const btn = document.getElementById(`btn-timer-start-${stepIndex}`);
+        if (btn) btn.textContent = this.lang === "es" ? "▶ Continuar" : "▶ Resume";
+
+        // Guardar progreso al pausar
+        this.savePracticeProgress();
+    }
+
+    /**
+     * Toggle timer: inicia si está pausado, pausa si está corriendo.
+     */
+    toggleTimer(stepIndex) {
+        const timerId = stepIndex - 1;
+        if (this.timerIntervals[timerId]) {
+            this.pauseStepTimer(stepIndex);
         } else {
-            // Iniciar
-            this.timerIntervals[timerId] = setInterval(() => {
-                this.timerTimes[timerId]--;
-                this.updateTimerDisplay(stepIndex);
-                
-                if (this.timerTimes[timerId] <= 0) {
-                    clearInterval(this.timerIntervals[timerId]);
-                    this.timerIntervals[timerId] = null;
-                    btn.textContent = this.lang === "es" ? "Completado" : "Completed";
-                    this.playTimerAlert();
-                }
-            }, 1000);
-            
-            btn.textContent = this.lang === "es" ? "Pausar" : "Pause";
+            this.startStepTimer(stepIndex);
         }
     }
 
     resetTimer(stepIndex) {
         const timerId = stepIndex - 1;
-        if (this.timerIntervals[timerId]) {
-            clearInterval(this.timerIntervals[timerId]);
-            this.timerIntervals[timerId] = null;
-        }
-        this.timerTimes[timerId] = 300; // Reset a 5 minutos
+        this.pauseStepTimer(stepIndex);
+        this.timerSeconds[timerId] = 0;
         this.updateTimerDisplay(stepIndex);
         
         const btn = document.getElementById(`btn-timer-start-${stepIndex}`);
-        btn.textContent = this.lang === "es" ? "Iniciar Reloj" : "Start Clock";
+        if (btn) btn.textContent = this.lang === "es" ? "▶ Iniciar" : "▶ Start";
     }
 
     updateTimerDisplay(stepIndex) {
         const timerId = stepIndex - 1;
-        const minutes = Math.floor(this.timerTimes[timerId] / 60);
-        const seconds = this.timerTimes[timerId] % 60;
+        const totalSecs = this.timerSeconds[timerId];
+        const minutes = Math.floor(totalSecs / 60);
+        const seconds = totalSecs % 60;
         
         const displayStr = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-        document.getElementById(`timer-display-${stepIndex}`).textContent = displayStr;
+        const el = document.getElementById(`timer-display-${stepIndex}`);
+        if (el) el.textContent = displayStr;
+
+        // Actualizar indicador de progreso hacia el mínimo
+        const config = this.data.getWeeklyConfig();
+        const minSeconds = (config.minMinutesPerStep || 5) * 60;
+        const progressEl = document.getElementById(`timer-progress-${stepIndex}`);
+        if (progressEl) {
+            const pct = Math.min(100, Math.round((totalSecs / minSeconds) * 100));
+            progressEl.style.width = `${pct}%`;
+            if (pct >= 100) {
+                progressEl.classList.add('complete');
+            }
+        }
+    }
+
+    /**
+     * Marca un paso como completado automáticamente al superar el mínimo de tiempo.
+     */
+    autoCompleteStep(stepIndex) {
+        this.completedSteps[stepIndex - 1] = true;
+        this.data.setCompletedSteps(this.completedSteps);
+        this.updateProgressUI();
+        this.playTimerAlert();
+
+        // Feedback visual
+        const stepHeader = document.querySelector(`.header-step-item[data-step="${stepIndex}"]`);
+        if (stepHeader) stepHeader.classList.add('completed');
+    }
+
+    /**
+     * Guarda el progreso de práctica del día actual en IndexedDB.
+     */
+    async savePracticeProgress() {
+        const todayStr = this.getTodayString();
+        const entries = [];
+        let totalSeconds = 0;
+
+        for (let i = 0; i < 4; i++) {
+            if (this.timerSeconds[i] > 0) {
+                const exerciseNames = [
+                    this.activeLeftHandEx ? (this.lang === 'es' ? this.activeLeftHandEx.nameEs : this.activeLeftHandEx.nameEn) : 'Default',
+                    this.activeRightHandEx ? (this.lang === 'es' ? this.activeRightHandEx.nameEs : this.activeRightHandEx.nameEn) : 'Default',
+                    this.activeReadingEx ? (this.lang === 'es' ? this.activeReadingEx.nameEs : this.activeReadingEx.nameEn) : 'Default',
+                    'Repertorio / Guitar Pro'
+                ];
+                entries.push({
+                    step: i + 1,
+                    category: this.stepCategories[i],
+                    seconds: this.timerSeconds[i],
+                    exercise: exerciseNames[i]
+                });
+                totalSeconds += this.timerSeconds[i];
+            }
+        }
+
+        if (entries.length > 0) {
+            try {
+                await this.data.savePracticeLog(todayStr, { entries, totalSeconds });
+            } catch (e) {
+                console.warn('Error saving practice log:', e);
+            }
+        }
+    }
+
+    /**
+     * Devuelve el tiempo total practicado hoy en segundos.
+     */
+    getTodayTotalSeconds() {
+        return this.timerSeconds.reduce((sum, s) => sum + s, 0);
     }
 
     playTimerAlert() {
@@ -879,7 +1047,7 @@ class GuitarStudioApp {
     // ==========================================================================
     completeStep(stepNum) {
         this.completedSteps[stepNum - 1] = true;
-        localStorage.setItem("completed-steps", JSON.stringify(this.completedSteps));
+        this.data.setCompletedSteps(this.completedSteps);
         this.updateProgressUI();
 
         // Si se han completado los 4 pasos, finalizar práctica del día
@@ -895,6 +1063,12 @@ class GuitarStudioApp {
 
     finalizeDailyPractice() {
         const todayStr = this.getTodayString();
+
+        // Pausar todos los timers y guardar progreso final
+        for (let i = 1; i <= 4; i++) {
+            this.pauseStepTimer(i);
+        }
+        this.savePracticeProgress();
         
         if (this.lastPracticedDate !== todayStr) {
             this.streak++;
@@ -960,7 +1134,7 @@ class GuitarStudioApp {
         const corrections = document.getElementById("notes-corrections").value;
         
         const notesObj = { teacher: name, focus: focus, corrections: corrections };
-        localStorage.setItem("studio-teacher-notes", JSON.stringify(notesObj));
+        this.data.setTeacherNotes(notesObj);
         
         // Actualizar UI
         this.loadTeacherNotesUI();
@@ -973,11 +1147,10 @@ class GuitarStudioApp {
     }
 
     loadTeacherNotesUI() {
-        const notesRaw = localStorage.getItem("studio-teacher-notes");
+        const notes = this.data.getTeacherNotes();
         const container = document.getElementById("teacher-notes-preview");
         
-        if (notesRaw) {
-            const notes = JSON.parse(notesRaw);
+        if (notes) {
             
             // Poblar campos del formulario por si edita
             document.getElementById("notes-teacher-name").value = notes.teacher || "";
@@ -1022,7 +1195,7 @@ class GuitarStudioApp {
                 const arrayBuffer = e.target.result;
                 
                 // Guardar en la IndexedDB local
-                await this.db.saveScore(file.name, arrayBuffer);
+                await this.data.saveScore(file.name, arrayBuffer);
                 
                 // Actualizar interfaz
                 this.loadWeeklyGPFile();
@@ -1039,23 +1212,26 @@ class GuitarStudioApp {
     }
 
     async loadWeeklyGPFile() {
-        const score = await this.db.getScore();
+        const score = await this.data.getScore();
         const fileLoadedName = document.getElementById("file-loaded-name");
         const btnDelete = document.getElementById("btn-delete-gp-file");
         const fileExportRow = document.getElementById("file-export-row");
+        const wrapper = document.querySelector(".at-wrap");
+        const placeholder = document.getElementById("alphatab-placeholder");
         
         if (score) {
-            fileLoadedName.textContent = score.name;
-            fileLoadedName.style.color = "var(--tb-text-primary)";
-            btnDelete.style.display = "block";
+            if (fileLoadedName) {
+                fileLoadedName.textContent = score.name;
+                fileLoadedName.style.color = "var(--tb-text-primary)";
+            }
+            if (btnDelete) btnDelete.style.display = "block";
             if (fileExportRow) {
                 fileExportRow.style.display = "block";
             }
             
-            // Ocultar placeholder del visor en Modo Práctica
-            document.getElementById("alphatab-placeholder").style.display = "none";
-            document.getElementById("alphaTab").style.display = "block";
-            document.getElementById("alphatab-controls").style.display = "flex";
+            // Ocultar placeholder y mostrar visor
+            if (placeholder) placeholder.style.display = "none";
+            if (wrapper) wrapper.style.display = "flex";
             
             // Si estamos en la vista de práctica y el paso 4 está activo, inicializar/cargar
             const practiceViewActive = document.getElementById("view-practice").classList.contains("active");
@@ -1065,16 +1241,17 @@ class GuitarStudioApp {
                 this.initAlphaTabPlayerIfNeeded();
             }
         } else {
-            fileLoadedName.textContent = TRANSLATIONS[this.lang]["no-file-loaded"];
-            fileLoadedName.style.color = "var(--tb-text-muted)";
-            btnDelete.style.display = "none";
+            if (fileLoadedName) {
+                fileLoadedName.textContent = TRANSLATIONS[this.lang]["no-file-loaded"];
+                fileLoadedName.style.color = "var(--tb-text-muted)";
+            }
+            if (btnDelete) btnDelete.style.display = "none";
             if (fileExportRow) {
                 fileExportRow.style.display = "none";
             }
             
-            document.getElementById("alphatab-placeholder").style.display = "flex";
-            document.getElementById("alphaTab").style.display = "none";
-            document.getElementById("alphatab-controls").style.display = "none";
+            if (placeholder) placeholder.style.display = "flex";
+            if (wrapper) wrapper.style.display = "none";
             
             // Destruir reproductor si existe
             if (this.atApi) {
@@ -1082,21 +1259,89 @@ class GuitarStudioApp {
                 this.atApi = null;
             }
         }
+        this.updateHeaderCompleteButtonVisibility();
+    }
+
+    updateHeaderCompleteButtonVisibility() {
+        const btn = document.getElementById("btn-complete-practice-header");
+        if (!btn) return;
+        
+        const practiceViewActive = document.getElementById("view-practice").classList.contains("active");
+        const step4El = document.querySelector(".header-step-item[data-step='4']");
+        const step4Active = step4El ? step4El.classList.contains("active") : false;
+        
+        this.data.getScore().then(score => {
+            if (practiceViewActive && step4Active && score) {
+                btn.style.display = "inline-flex";
+            } else {
+                btn.style.display = "none";
+            }
+        }).catch(() => {
+            btn.style.display = "none";
+        });
     }
 
     async deleteGPFile() {
         if (confirm(this.lang === "es" ? "¿Seguro que quieres eliminar la partitura?" : "Are you sure you want to delete the score?")) {
-            await this.db.deleteScore();
+            await this.data.deleteScore();
             this.loadWeeklyGPFile();
         }
     }
 
     async initAlphaTabPlayerIfNeeded() {
-        const score = await this.db.getScore();
+        const score = await this.data.getScore();
         if (!score) return;
         
         // Si ya está inicializado, no hacer nada
         if (this.atApi) return;
+
+        const getSectionName = (mb) => {
+            const sObj = mb.section || mb.marker;
+            if (!sObj) return null;
+            if (typeof sObj === 'string') return sObj;
+            const marker = sObj.marker !== undefined ? sObj.marker : '';
+            const text = sObj.text !== undefined ? sObj.text : '';
+            const parts = [];
+            if (marker) parts.push(marker);
+            if (text) parts.push(text);
+            return parts.join(' - ');
+        };
+
+        const getBarEndTick = (s, barIndex) => {
+            if (barIndex + 1 < s.masterBars.length) {
+                return s.masterBars[barIndex + 1].start;
+            }
+            let maxTick = s.masterBars[barIndex].start;
+            s.tracks.forEach(track => {
+                track.staves.forEach(staff => {
+                    if (staff.bars && staff.bars[barIndex]) {
+                        const bar = staff.bars[barIndex];
+                        bar.voices.forEach(voice => {
+                            if (voice.beats && voice.beats.length > 0) {
+                                const lastBeat = voice.beats[voice.beats.length - 1];
+                                const beatEnd = lastBeat.absolutePosition + lastBeat.duration;
+                                if (beatEnd > maxTick) {
+                                    maxTick = beatEnd;
+                                }
+                            }
+                        });
+                    }
+                });
+            });
+            return maxTick;
+        };
+
+        const getCurrentBarIndex = (score, tick) => {
+            let activeIndex = 0;
+            for (let i = 0; i < score.masterBars.length; i++) {
+                if (score.masterBars[i].start <= tick) {
+                    activeIndex = i;
+                } else {
+                    break;
+                }
+            }
+            return activeIndex;
+        };
 
         // Comprobar si la librería de AlphaTab está cargada
         if (typeof alphaTab === 'undefined') {
@@ -1104,135 +1349,825 @@ class GuitarStudioApp {
             return;
         }
 
-        const element = document.getElementById("alphaTab");
+        const wrapper = document.querySelector(".at-wrap");
+        if (!wrapper) return;
+        const main = wrapper.querySelector(".at-main");
+        if (!main) return;
+        const placeholder = document.getElementById("alphatab-placeholder");
         
         // Asegurar visibilidad del elemento antes de inicializar
-        element.style.display = "block";
-        document.getElementById("alphatab-placeholder").style.display = "none";
-        document.getElementById("alphatab-controls").style.display = "flex";
+        if (placeholder) placeholder.style.display = "none";
+        wrapper.style.display = "flex";
 
-        // Mostrar spinner de carga
-        this.showAlphaTabLoading(true);
-        
         try {
-            // Inicializar AlphaTab API v1.8.1
-            this.atApi = new alphaTab.AlphaTabApi(element, {
+            // Inicializar AlphaTab API v1.8.1 según el tutorial
+            const settings = {
                 core: {
                     fontDirectory: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/font/',
                     enableLazyLoading: true
                 },
                 player: {
                     enablePlayer: true,
-                    enableCursor: true,
-                    enableAnimatedBeatCursor: true,
                     soundFont: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/soundfont/sonivox.sf2',
-                    scrollElement: document.querySelector('.alphatab-wrapper')
+                    scrollElement: wrapper.querySelector('.at-viewport')
                 },
                 display: {
                     layoutMode: alphaTab.LayoutMode.Page,
-                    padding: [20, 20, 20, 20]
+                    padding: [10, 10, 10, 10]
                 },
                 notation: {
                     elements: {
-                        scoreTitle: true,
-                        scoreArtist: true,
+                        scoreTitle: false,
+                        scoreArtist: false,
                         trackNames: true
                     }
                 }
+            };
+            this.atApi = new alphaTab.AlphaTabApi(main, settings);
+
+            // Overlay Logic
+            const overlay = wrapper.querySelector(".at-overlay");
+            this.atApi.renderStarted.on(() => {
+                if (overlay) overlay.style.display = "flex";
+            });
+            this.atApi.renderFinished.on(() => {
+                if (overlay) overlay.style.display = "none";
             });
 
-            // Evento: partitura cargada → poblar selector de pistas
-            this.atApi.scoreLoaded.on((s) => {
-                const trackSelect = document.getElementById("gp-track-select");
-                trackSelect.innerHTML = "";
+            // Track Selector Logic
+            const createTrackItem = (track) => {
+                const trackItem = document
+                    .querySelector("#at-track-template")
+                    .content.cloneNode(true).firstElementChild;
+                trackItem.querySelector(".at-track-name").innerText = track.name || `Pista ${track.index + 1}`;
+                trackItem.track = track;
                 
-                s.tracks.forEach((track, index) => {
-                    const option = document.createElement("option");
-                    option.value = index;
-                    option.textContent = track.name || `Track ${index + 1}`;
-                    trackSelect.appendChild(option);
+                // Main track click selection
+                trackItem.addEventListener('click', (e) => {
+                    // Only select track if we didn't click inside control buttons or volume slider
+                    if (e.target.closest('.at-track-controls') || e.target.closest('.at-track-volume-wrapper')) {
+                        return;
+                    }
+                    console.log("Track selected: " + (track.name || `Pista ${track.index + 1}`) + " [Index: " + track.index + "]");
+                    e.stopPropagation();
+                    this.atApi.renderTracks([track]);
                 });
+
+                // Mute button logic
+                const muteBtn = trackItem.querySelector('.btn-track-mute');
+                if (muteBtn) {
+                    muteBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        muteBtn.classList.toggle('active');
+                        const isMuted = muteBtn.classList.contains('active');
+                        this.atApi.changeTrackMute([track], isMuted);
+                    });
+                }
+
+                // Solo button logic
+                const soloBtn = trackItem.querySelector('.btn-track-solo');
+                if (soloBtn) {
+                    soloBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        soloBtn.classList.toggle('active');
+                        const isSolo = soloBtn.classList.contains('active');
+                        this.atApi.changeTrackSolo([track], isSolo);
+                    });
+                }
+
+                // Volume slider logic
+                const volumeSlider = trackItem.querySelector('.at-track-volume-slider');
+                if (volumeSlider) {
+                    volumeSlider.addEventListener('input', (e) => {
+                        const vol = parseFloat(e.target.value);
+                        this.atApi.changeTrackVolume([track], vol);
+                    });
+                    volumeSlider.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                    });
+                }
+
+                return trackItem;
+            };
+
+            const trackList = wrapper.querySelector(".at-track-list");
+            this.atApi.scoreLoaded.on((s) => {
+                if (trackList) {
+                    // Clear items
+                    trackList.innerHTML = "";
+                    // Generate a track item for all tracks of the score
+                    s.tracks.forEach((track) => {
+                        trackList.appendChild(createTrackItem(track));
+                    });
+                }
                 
-                // Renderizar la primera pista por defecto
-                if (s.tracks.length > 0) {
-                    this.atApi.renderTracks([s.tracks[0]]);
+                // Song Info in Controls
+                const titleEl = wrapper.querySelector(".at-song-title");
+                const artistEl = wrapper.querySelector(".at-song-artist");
+                if (titleEl) titleEl.innerText = s.title || "Sin Título";
+                if (artistEl) artistEl.innerText = s.artist || "Desconocido";
+
+                // Update total measures and inputs
+                const barTotal = wrapper.querySelector(".at-bar-total");
+                if (barTotal) barTotal.innerText = `/ ${s.masterBars.length}`;
+                const barInput = wrapper.querySelector(".at-bar-input");
+                if (barInput) {
+                    barInput.max = s.masterBars.length;
+                    barInput.value = 1;
+                }
+                const loopStartInput = wrapper.querySelector(".at-loop-start-bar");
+                if (loopStartInput) {
+                    loopStartInput.max = s.masterBars.length;
+                    loopStartInput.value = 1;
+                }
+                const loopEndInput = wrapper.querySelector(".at-loop-end-bar");
+                if (loopEndInput) {
+                    loopEndInput.max = s.masterBars.length;
+                    loopEndInput.value = s.masterBars.length;
+                }
+                
+                // Initialize BPM input value and badge to score tempo
+                const bpmInput = wrapper.querySelector(".at-speed-bpm-input");
+                const bpmBadgeInit = wrapper.querySelector(".at-bpm-badge");
+                if (bpmInput) {
+                    bpmInput.value = s.tempo || 120;
+                }
+                if (bpmBadgeInit) {
+                    bpmBadgeInit.textContent = s.tempo || 120;
+                }
+
+                // Initialize Auto BPM target to score tempo
+                const autoBpmTargetInit = wrapper.querySelector(".at-autobpm-target");
+                if (autoBpmTargetInit) {
+                    autoBpmTargetInit.value = s.tempo || 120;
+                    this.bpmAutoIncrTarget = s.tempo || 120;
+                }
+
+                // Populate section dropdown
+                const sectionSelect = wrapper.querySelector(".at-loop-section-select");
+                if (sectionSelect) {
+                    sectionSelect.innerHTML = "";
+                    const noneOpt = document.createElement("option");
+                    noneOpt.value = "";
+                    noneOpt.setAttribute("data-i18n", "gp-loop-section-select-opt");
+                    noneOpt.textContent = this.lang === "es" ? "- Ninguna -" : "- None -";
+                    sectionSelect.appendChild(noneOpt);
+
+                    const uniqueSections = [];
+                    s.masterBars.forEach((mb) => {
+                        const sName = getSectionName(mb);
+                        if (sName) {
+                            uniqueSections.push({
+                                name: sName,
+                                startBarIndex: mb.index,
+                                endBarIndex: s.masterBars.length - 1
+                            });
+                        }
+                    });
+
+                    // Adjust endBarIndex for each section based on the next one
+                    for (let i = 0; i < uniqueSections.length - 1; i++) {
+                        uniqueSections[i].endBarIndex = uniqueSections[i+1].startBarIndex - 1;
+                    }
+
+                    uniqueSections.forEach((sec, idx) => {
+                        const opt = document.createElement("option");
+                        opt.value = idx;
+                        opt.textContent = sec.name;
+                        sectionSelect.appendChild(opt);
+                    });
+
+                    this.uniqueSections = uniqueSections;
+                }
+
+                // Dynamically update speed options based on song tempo
+                const tempo = s.tempo || 120;
+                const speedSelect = wrapper.querySelector("#at-speed-select");
+                if (speedSelect) {
+                    Array.from(speedSelect.options).forEach((option) => {
+                        const pct = parseFloat(option.value);
+                        const calculatedBpm = Math.round(tempo * pct);
+                        option.text = `${Math.round(pct * 100)}% (${calculatedBpm} BPM)`;
+                    });
                 }
             });
 
-            // Evento: renderizado finalizado → ocultar spinner
-            this.atApi.renderFinished.on(() => {
-                this.showAlphaTabLoading(false);
-                console.log("AlphaTab render finished.");
+            this.atApi.renderStarted.on(() => {
+                if (!trackList) return;
+                // Collect tracks being rendered
+                const tracks = new Map();
+                this.atApi.tracks.forEach((t) => {
+                    tracks.set(t.index, t);
+                });
+                // Mark the item as active or not
+                const trackItems = trackList.querySelectorAll(".at-track");
+                trackItems.forEach((trackItem) => {
+                    if (tracks.has(trackItem.track.index)) {
+                        trackItem.classList.add("active");
+                    } else {
+                        trackItem.classList.remove("active");
+                    }
+                });
             });
 
-            // Evento: reproductor listo
-            this.atApi.playerReady.on(() => {
-                console.log("AlphaTab Player is ready.");
-            });
+            // Controls Bindings
+            const loop = wrapper.querySelector(".at-loop");
+            const countIn = wrapper.querySelector('.at-count-in');
+            const metroContainer = wrapper.querySelector(".at-metronome-container");
+            const metroSlider = metroContainer ? metroContainer.querySelector(".at-metronome-volume-slider") : null;
+            
+            let currentMetroVolume = 0.8;
+            
+            // Initialize countInVolume based on whether the button is active initially
+            if (countIn) {
+                const countInActive = countIn.classList.contains('active');
+                this.atApi.countInVolume = countInActive ? currentMetroVolume : 0.0;
+                
+                countIn.onclick = (e) => {
+                    e.stopPropagation();
+                    countIn.classList.toggle('active');
+                    const countInActive = countIn.classList.contains('active');
+                    if (countInActive) {
+                        this.atApi.countInVolume = currentMetroVolume;
+                    } else {
+                        this.atApi.countInVolume = 0.0;
+                    }
+                    
+                    // If loop is active, update alphaTab's isLooping state
+                    // (disabled when count-in or auto BPM is active — manual looping takes over)
+                    const loopActive = loop && loop.classList.contains("active");
+                    this.atApi.isLooping = loopActive && !countInActive && !this.bpmAutoIncrEnabled;
+                };
+            }
+            
+            if (metroSlider) {
+                metroSlider.value = currentMetroVolume;
+                
+                metroSlider.addEventListener("input", (e) => {
+                    currentMetroVolume = parseFloat(e.target.value);
+                    if (metroContainer && metroContainer.classList.contains("active")) {
+                        this.atApi.metronomeVolume = currentMetroVolume;
+                    }
+                    if (countIn && countIn.classList.contains("active")) {
+                        this.atApi.countInVolume = currentMetroVolume;
+                    }
+                });
+                
+                metroSlider.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                });
+            }
 
-            // Evento: cambio de estado del reproductor → actualizar botón play/pause
-            this.atApi.playerStateChanged.on((e) => {
-                const btnPlay = document.getElementById("btn-gp-play");
-                if (e.state === alphaTab.synth.PlayerState.Playing) {
-                    btnPlay.querySelector("span").textContent = this.lang === "es" ? "Pausar" : "Pause";
-                    this.atIsPlaying = true;
+            if (metroContainer) {
+                metroContainer.onclick = (e) => {
+                    if (e.target.closest('.at-metronome-volume-wrapper') || e.target.closest('.at-metronome-volume-slider')) {
+                        return;
+                    }
+                    e.stopPropagation();
+                    metroContainer.classList.toggle("active");
+                    if (metroContainer.classList.contains("active")) {
+                        this.atApi.metronomeVolume = currentMetroVolume;
+                    } else {
+                        this.atApi.metronomeVolume = 0.0;
+                    }
+                };
+            }
+
+            // Bar Input navigation
+            const barInput = wrapper.querySelector(".at-bar-input");
+            if (barInput) {
+                barInput.onkeydown = (e) => {
+                    if (e.key === "Enter") {
+                        let val = parseInt(barInput.value, 10);
+                        if (isNaN(val) || val < 1) val = 1;
+                        if (this.atApi.score && val > this.atApi.score.masterBars.length) {
+                            val = this.atApi.score.masterBars.length;
+                        }
+                        barInput.value = val;
+                        
+                        if (this.atApi.score && this.atApi.score.masterBars[val - 1]) {
+                            this.atApi.tickPosition = this.atApi.score.masterBars[val - 1].start;
+                        }
+                        barInput.blur();
+                    }
+                };
+            }
+
+            // Loop control button binding
+            if (loop) {
+                loop.onclick = (e) => {
+                    e.stopPropagation();
+                    loop.classList.toggle("active");
+                    const active = loop.classList.contains("active");
+                    
+                    const countInActive = countIn && countIn.classList.contains("active");
+                    this.atApi.isLooping = active && !countInActive && !this.bpmAutoIncrEnabled;
+
+                    if (!active) {
+                        this.atApi.playbackRange = null;
+                        const sectionSelect = wrapper.querySelector(".at-loop-section-select");
+                        if (sectionSelect) sectionSelect.value = "";
+                        const startInput = wrapper.querySelector(".at-loop-start-bar");
+                        const endInput = wrapper.querySelector(".at-loop-end-bar");
+                        if (startInput) startInput.value = 1;
+                        if (endInput && this.atApi.score) endInput.value = this.atApi.score.masterBars.length;
+                    }
+                };
+            }
+
+            // Section dropdown loop binding
+            const sectionSelect = wrapper.querySelector(".at-loop-section-select");
+            if (sectionSelect) {
+                sectionSelect.onchange = () => {
+                    const val = sectionSelect.value;
+                    if (val === "") {
+                        this.atApi.playbackRange = null;
+                        const startInput = wrapper.querySelector(".at-loop-start-bar");
+                        const endInput = wrapper.querySelector(".at-loop-end-bar");
+                        if (startInput) startInput.value = 1;
+                        if (endInput && this.atApi.score) endInput.value = this.atApi.score.masterBars.length;
+                        return;
+                    }
+                    
+                    const sec = this.uniqueSections[parseInt(val, 10)];
+                    if (sec && this.atApi.score) {
+                        const startBar = sec.startBarIndex;
+                        const endBar = sec.endBarIndex;
+                        
+                        const startTick = this.atApi.score.masterBars[startBar].start;
+                        const endTick = getBarEndTick(this.atApi.score, endBar);
+                        
+                        this.atApi.playbackRange = {
+                            startTick: startTick,
+                            endTick: endTick
+                        };
+                        
+                        const startInput = wrapper.querySelector(".at-loop-start-bar");
+                        const endInput = wrapper.querySelector(".at-loop-end-bar");
+                        if (startInput) startInput.value = startBar + 1;
+                        if (endInput) endInput.value = endBar + 1;
+                        
+                        this.atApi.tickPosition = startTick;
+                        
+                        if (loop && !loop.classList.contains("active")) {
+                            loop.classList.add("active");
+                        }
+                        const countInActive = countIn && countIn.classList.contains("active");
+                        this.atApi.isLooping = !countInActive && !this.bpmAutoIncrEnabled;
+                    }
+                };
+            }
+
+            // Range apply button loop binding
+            const rangeApplyBtn = wrapper.querySelector(".at-loop-range-apply");
+            if (rangeApplyBtn) {
+                rangeApplyBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    const startInput = wrapper.querySelector(".at-loop-start-bar");
+                    const endInput = wrapper.querySelector(".at-loop-end-bar");
+                    if (!startInput || !endInput || !this.atApi.score) return;
+                    
+                    let startBar = parseInt(startInput.value, 10) - 1;
+                    let endBar = parseInt(endInput.value, 10) - 1;
+                    const totalBars = this.atApi.score.masterBars.length;
+                    
+                    if (isNaN(startBar) || startBar < 0) startBar = 0;
+                    if (startBar >= totalBars) startBar = totalBars - 1;
+                    if (isNaN(endBar) || endBar < 0) endBar = 0;
+                    if (endBar >= totalBars) endBar = totalBars - 1;
+                    
+                    if (startBar > endBar) {
+                        const temp = startBar;
+                        startBar = endBar;
+                        endBar = temp;
+                    }
+                    
+                    startInput.value = startBar + 1;
+                    endInput.value = endBar + 1;
+                    
+                    const startTick = this.atApi.score.masterBars[startBar].start;
+                    const endTick = getBarEndTick(this.atApi.score, endBar);
+                    
+                    this.atApi.playbackRange = {
+                        startTick: startTick,
+                        endTick: endTick
+                    };
+                    
+                    if (sectionSelect) sectionSelect.value = "";
+                    this.atApi.tickPosition = startTick;
+                    
+                    if (loop && !loop.classList.contains("active")) {
+                        loop.classList.add("active");
+                    }
+                    const countInActive = countIn && countIn.classList.contains("active");
+                    this.atApi.isLooping = !countInActive && !this.bpmAutoIncrEnabled;
+                };
+            }
+
+            // --- Auto BPM Increment Controls ---
+            const autoBpmToggle = wrapper.querySelector(".at-autobpm-toggle");
+            const autoBpmStep  = wrapper.querySelector(".at-autobpm-step");
+            const autoBpmTarget = wrapper.querySelector(".at-autobpm-target");
+
+            if (autoBpmStep) {
+                autoBpmStep.onchange = () => {
+                    let val = parseInt(autoBpmStep.value, 10);
+                    if (isNaN(val) || val < 1) val = 1;
+                    if (val > 50) val = 50;
+                    autoBpmStep.value = val;
+                    this.bpmAutoIncrStep = val;
+                };
+            }
+
+            if (autoBpmTarget) {
+                autoBpmTarget.onchange = () => {
+                    let val = parseInt(autoBpmTarget.value, 10);
+                    if (isNaN(val) || val < 20) val = 20;
+                    if (val > 300) val = 300;
+                    autoBpmTarget.value = val;
+                    this.bpmAutoIncrTarget = val;
+                };
+            }
+
+            if (autoBpmToggle) {
+                autoBpmToggle.onclick = () => {
+                    this.bpmAutoIncrEnabled = !this.bpmAutoIncrEnabled;
+
+                    // Sync step and target values at the moment of activation
+                    if (autoBpmStep) {
+                        let val = parseInt(autoBpmStep.value, 10);
+                        if (isNaN(val) || val < 1) val = 1;
+                        this.bpmAutoIncrStep = val;
+                    }
+                    if (autoBpmTarget) {
+                        let val = parseInt(autoBpmTarget.value, 10);
+                        if (isNaN(val) || val < 20) val = 20;
+                        this.bpmAutoIncrTarget = val;
+                    }
+
+                    autoBpmToggle.classList.toggle("active", this.bpmAutoIncrEnabled);
+                    autoBpmToggle.textContent = this.bpmAutoIncrEnabled ? "ON" : "OFF";
+
+                    // Update isLooping to disable native looping when auto-BPM is active
+                    if (this.atApi) {
+                        const loopActive    = loop && loop.classList.contains("active");
+                        const countInActive = countIn && countIn.classList.contains("active");
+                        this.atApi.isLooping = loopActive && !countInActive && !this.bpmAutoIncrEnabled;
+                    }
+                };
+            }
+
+            const printBtn = wrapper.querySelector(".at-print");
+            if (printBtn) {
+                printBtn.onclick = () => {
+                    this.atApi.print();
+                };
+            }
+
+            const zoom = wrapper.querySelector(".at-zoom select");
+            if (zoom) {
+                zoom.onchange = () => {
+                    const zoomLevel = parseInt(zoom.value) / 100;
+                    this.atApi.settings.display.scale = zoomLevel;
+                    this.atApi.updateSettings();
+                    this.atApi.render();
+                };
+            }
+
+            const speedSelect = wrapper.querySelector("#at-speed-select");
+            const bpmInput = wrapper.querySelector(".at-speed-bpm-input");
+            const bpmBadge = wrapper.querySelector(".at-bpm-badge");
+
+            // Helper: keep the always-visible BPM badge in sync
+            const updateBpmBadge = (bpm) => {
+                if (bpmBadge) bpmBadge.textContent = bpm;
+            };
+
+            if (speedSelect) {
+                speedSelect.onchange = () => {
+                    const speed = parseFloat(speedSelect.value);
+                    this.atApi.playbackSpeed = speed;
+
+                    if (this.atApi.score && bpmInput) {
+                        const tempo = this.atApi.score.tempo || 120;
+                        const newBpm = Math.round(tempo * speed);
+                        bpmInput.value = newBpm;
+                        updateBpmBadge(newBpm);
+                    }
+                };
+            }
+
+            if (bpmInput) {
+                const applyBpm = () => {
+                    let bpm = parseInt(bpmInput.value, 10);
+                    if (isNaN(bpm) || bpm < 20) bpm = 20;
+                    if (bpm > 300) bpm = 300;
+                    bpmInput.value = bpm;
+                    updateBpmBadge(bpm);
+
+                    if (this.atApi.score) {
+                        const tempo = this.atApi.score.tempo || 120;
+                        const speed = bpm / tempo;
+                        this.atApi.playbackSpeed = speed;
+
+                        // Set select option to closest value if available
+                        if (speedSelect) {
+                            const closest = [0.25, 0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 2].find(v => Math.abs(v - speed) < 0.02);
+                            if (closest) {
+                                speedSelect.value = closest;
+                            } else {
+                                speedSelect.value = "";
+                            }
+                        }
+                    }
+                };
+
+                bpmInput.onkeydown = (e) => {
+                    if (e.key === "Enter") {
+                        applyBpm();
+                        bpmInput.blur();
+                    }
+                };
+
+                bpmInput.onblur = () => {
+                    applyBpm();
+                };
+            }
+
+            const layout = wrapper.querySelector(".at-layout select");
+            if (layout) {
+                layout.onchange = () => {
+                    switch (layout.value) {
+                        case "horizontal":
+                            this.atApi.settings.display.layoutMode = alphaTab.LayoutMode.Horizontal;
+                            break;
+                        case "page":
+                            this.atApi.settings.display.layoutMode = alphaTab.LayoutMode.Page;
+                            break;
+                    }
+                    this.atApi.updateSettings();
+                    this.atApi.render();
+                };
+            }
+
+            const btnStaveScore = wrapper.querySelector(".at-stave-score");
+            const btnStaveTab = wrapper.querySelector(".at-stave-tab");
+            
+            const updateStaveProfile = () => {
+                const scoreActive = btnStaveScore.classList.contains("active");
+                const tabActive = btnStaveTab.classList.contains("active");
+                
+                if (scoreActive && tabActive) {
+                    this.atApi.settings.display.staveProfile = alphaTab.StaveProfile.ScoreTab;
+                } else if (scoreActive) {
+                    this.atApi.settings.display.staveProfile = alphaTab.StaveProfile.Score;
+                } else if (tabActive) {
+                    this.atApi.settings.display.staveProfile = alphaTab.StaveProfile.Tab;
+                }
+                
+                this.atApi.updateSettings();
+                this.atApi.render();
+            };
+
+            if (btnStaveScore && btnStaveTab) {
+                btnStaveScore.onclick = () => {
+                    if (btnStaveScore.classList.contains("active") && !btnStaveTab.classList.contains("active")) {
+                        return; // Prevent hiding both
+                    }
+                    btnStaveScore.classList.toggle("active");
+                    updateStaveProfile();
+                };
+                
+                btnStaveTab.onclick = () => {
+                    if (btnStaveTab.classList.contains("active") && !btnStaveScore.classList.contains("active")) {
+                        return; // Prevent hiding both
+                    }
+                    btnStaveTab.classList.toggle("active");
+                    updateStaveProfile();
+                };
+            }
+
+            // Night Mode Toggle (Inverts score colors and updates icon between moon and sun)
+            const nightModeBtn = wrapper.querySelector(".at-night-mode");
+            if (nightModeBtn) {
+                const icon = nightModeBtn.querySelector("i");
+                const isNightMode = this.data.getNightMode();
+                if (isNightMode) {
+                    nightModeBtn.classList.add("active");
+                    wrapper.classList.add("at-dark-mode");
+                    if (icon) icon.className = "fas fa-sun";
                 } else {
-                    btnPlay.querySelector("span").textContent = this.lang === "es" ? "Reproducir" : "Play";
-                    this.atIsPlaying = false;
+                    if (icon) icon.className = "fas fa-moon";
+                }
+                nightModeBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    nightModeBtn.classList.toggle("active");
+                    const active = nightModeBtn.classList.contains("active");
+                    if (active) {
+                        wrapper.classList.add("at-dark-mode");
+                        if (icon) icon.className = "fas fa-sun";
+                    } else {
+                        wrapper.classList.remove("at-dark-mode");
+                        if (icon) icon.className = "fas fa-moon";
+                    }
+                    this.data.setNightMode(active);
+                };
+            }
+
+            // SoundFont Loading Progress
+            const playerIndicator = wrapper.querySelector(".at-player-progress");
+            this.atApi.soundFontLoad.on((e) => {
+                const percentage = Math.floor((e.loaded / e.total) * 100);
+                if (playerIndicator) {
+                    playerIndicator.style.display = "inline";
+                    playerIndicator.innerText = percentage + "%";
+                }
+            });
+            this.atApi.playerReady.on(() => {
+                if (playerIndicator) playerIndicator.style.display = 'none';
+            });
+
+            // Play / Pause / Stop State Controls
+            const playPause = wrapper.querySelector(".at-player-play-pause");
+            const stop = wrapper.querySelector(".at-player-stop");
+
+            if (playPause) {
+                playPause.onclick = (e) => {
+                    if (playPause.classList.contains("disabled")) {
+                        return;
+                    }
+                    this.userInterrupted = true; // User manually toggled play/pause
+                    this.isResettingLoop = false;
+                    // Resume contexts to comply with browser audio policies
+                    if (this.atApi.player && this.atApi.player.audioContext) this.atApi.player.audioContext.resume();
+                    if (this.atApi.player && this.atApi.player.synth && this.atApi.player.synth.audioContext) this.atApi.player.synth.audioContext.resume();
+                    this.atApi.playPause();
+                };
+            }
+
+            if (stop) {
+                stop.onclick = (e) => {
+                    if (stop.classList.contains("disabled")) {
+                        return;
+                    }
+                    this.userInterrupted = true; // User manually stopped
+                    this.isResettingLoop = false;
+                    this.atApi.stop();
+                };
+            }
+
+            this.atApi.playerReady.on(() => {
+                if (playPause) playPause.classList.remove("disabled");
+                if (stop) stop.classList.remove("disabled");
+            });
+
+            let lastTick = 0;
+            this.atApi.playerStateChanged.on((e) => {
+                if (!playPause) return;
+                const icon = playPause.querySelector("i.fas");
+                if (icon) {
+                    if (e.state === alphaTab.synth.PlayerState.Playing) {
+                        icon.classList.remove("fa-play");
+                        icon.classList.add("fa-pause");
+                        this.atIsPlaying = true;
+                        this.userInterrupted = false; // Reset it now that we are playing!
+                    } else {
+                        icon.classList.remove("fa-pause");
+                        icon.classList.add("fa-play");
+                        this.atIsPlaying = false;
+                        
+                        // Custom looping when count-in is active is now handled in playerFinished
+                        
+                        // Reset user interruption flag after state transition is handled
+                        this.userInterrupted = false;
+                    }
+                }
+            });
+            
+            this.atApi.playerFinished.on(() => {
+                const loopActive = loop && loop.classList.contains("active");
+                const countInActive = countIn && countIn.classList.contains("active");
+
+                // Manual loop is needed when count-in is active, OR auto BPM increment is active
+                const needsManualLoop = loopActive && !this.userInterrupted && this.atApi.score &&
+                    (countInActive || this.bpmAutoIncrEnabled);
+
+                if (needsManualLoop) {
+                    // --- Auto BPM Increment logic ---
+                    if (this.bpmAutoIncrEnabled) {
+                        const tempo = this.atApi.score.tempo || 120;
+                        const currentBpm = Math.round(this.atApi.playbackSpeed * tempo);
+                        const nextBpm = currentBpm + this.bpmAutoIncrStep;
+
+                        if (nextBpm > this.bpmAutoIncrTarget) {
+                            // Target reached: reset BPM to 100% and stop
+                            this.userInterrupted = true;
+                            this.atApi.playbackSpeed = 1;
+                            updateBpmBadge(tempo);
+                            if (bpmInput) {
+                                bpmInput.value = tempo;
+                                // Flash green to signal completion
+                                bpmInput.style.transition = "background-color 0.3s ease";
+                                bpmInput.style.backgroundColor = "var(--tb-accent, #4ade80)";
+                                bpmInput.style.color = "#fff";
+                                setTimeout(() => {
+                                    bpmInput.style.backgroundColor = "";
+                                    bpmInput.style.color = "";
+                                }, 1500);
+                            }
+                            if (speedSelect) speedSelect.value = "1";
+                            return; // Don't restart loop
+                        }
+
+                        // Apply incremented BPM
+                        const newSpeed = nextBpm / tempo;
+                        this.atApi.playbackSpeed = newSpeed;
+                        if (bpmInput) bpmInput.value = nextBpm;
+                        updateBpmBadge(nextBpm);
+                        if (speedSelect) {
+                            const closest = [0.25, 0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 2].find(v => Math.abs(v - newSpeed) < 0.02);
+                            speedSelect.value = closest !== undefined ? closest : "";
+                        }
+                    }
+
+                    // Restart loop from startTick
+                    const startTick = this.atApi.playbackRange ? this.atApi.playbackRange.startTick : 0;
+                    this.isResettingLoop = true;
+
+                    // Allow audio context to fully settle before restarting
+                    setTimeout(() => {
+                        this.atApi.tickPosition = startTick;
+                        this.isResettingLoop = false;
+                        this.atApi.play();
+                    }, 150);
+                }
+            });
+
+            // Formatting duration for position counter
+            const formatDuration = (milliseconds) => {
+                let seconds = milliseconds / 1000;
+                const minutes = (seconds / 60) | 0;
+                seconds = (seconds - minutes * 60) | 0;
+                return (
+                    String(minutes).padStart(2, "0") +
+                    ":" +
+                    String(seconds).padStart(2, "0")
+                );
+            };
+
+            const songPosition = wrapper.querySelector(".at-song-position");
+            let previousTime = -1;
+            this.atApi.playerPositionChanged.on((e) => {
+                lastTick = e.tickPosition !== undefined ? e.tickPosition : (e.currentTick !== undefined ? e.currentTick : 0);
+                
+                const currentSeconds = (e.currentTime / 1000) | 0;
+                if (currentSeconds == previousTime) {
+                    return;
+                }
+                previousTime = currentSeconds;
+                if (songPosition) {
+                    songPosition.innerText =
+                        formatDuration(e.currentTime) + " / " + formatDuration(e.endTime);
+                }
+
+                // Update current measure input and section badge
+                if (this.atApi.score) {
+                    const currentTick = e.tickPosition !== undefined ? e.tickPosition : (e.currentTick !== undefined ? e.currentTick : 0);
+                    const barIdx = getCurrentBarIndex(this.atApi.score, currentTick);
+                    const currentBar1Based = barIdx + 1;
+                    
+                    const barInput = wrapper.querySelector(".at-bar-input");
+                    if (barInput && document.activeElement !== barInput) {
+                        barInput.value = currentBar1Based;
+                    }
+                    
+                    const sectionBadge = wrapper.querySelector(".at-section-badge");
+                    if (sectionBadge) {
+                        let activeSec = null;
+                        for (let i = barIdx; i >= 0; i--) {
+                            const mb = this.atApi.score.masterBars[i];
+                            const sName = getSectionName(mb);
+                            if (sName) {
+                                activeSec = sName;
+                                break;
+                            }
+                        }
+                        if (activeSec) {
+                            sectionBadge.innerText = activeSec;
+                            sectionBadge.style.display = "inline-block";
+                        } else {
+                            sectionBadge.style.display = "none";
+                        }
+                    }
                 }
             });
 
             // Cargar los bytes guardados en la BD
             this.atApi.load(new Uint8Array(score.bytes));
-            
+
         } catch (error) {
             console.error("AlphaTab error during initialization:", error);
-            this.showAlphaTabLoading(false);
         }
-    }
-
-    showAlphaTabLoading(show) {
-        let loader = document.getElementById("alphatab-loading");
-        if (show) {
-            if (!loader) {
-                loader = document.createElement("div");
-                loader.id = "alphatab-loading";
-                loader.innerHTML = `
-                    <div class="at-loading-spinner"></div>
-                    <p>${this.lang === "es" ? "Cargando partitura..." : "Loading score..."}</p>
-                `;
-                document.querySelector(".alphatab-wrapper").appendChild(loader);
-            }
-            loader.style.display = "flex";
-        } else {
-            if (loader) loader.style.display = "none";
-        }
-    }
-
-    toggleGPPlayer() {
-        if (!this.atApi) return;
-        
-        // Resume all potential AudioContexts to bypass browser autoplay policies
-        if (this.atApi.player && this.atApi.player.audioContext) {
-            this.atApi.player.audioContext.resume();
-        }
-        if (this.atApi.player && this.atApi.player.synth && this.atApi.player.synth.audioContext) {
-            this.atApi.player.synth.audioContext.resume();
-        }
-        if (this.metronome.audioContext) {
-            this.metronome.audioContext.resume();
-        }
-
-        if (this.atIsPlaying) {
-            this.atApi.pause();
-        } else {
-            this.atApi.play();
-        }
-    }
-
-    stopGPPlayer() {
-        if (!this.atApi) return;
-        this.atApi.stop();
     }
 
     // ==========================================================================
@@ -1299,19 +2234,19 @@ class GuitarStudioApp {
 
         if (ex.category === "left") {
             this.activeLeftHandEx = ex;
-            localStorage.setItem("studio-active-left", JSON.stringify(ex));
+            this.data.setActiveExercise('left', ex);
             alert(this.lang === "es" 
                 ? "Ejercicio cargado en tu rutina de Mano Izquierda." 
                 : "Exercise loaded into your Left Hand routine.");
         } else if (ex.category === "right") {
             this.activeRightHandEx = ex;
-            localStorage.setItem("studio-active-right", JSON.stringify(ex));
+            this.data.setActiveExercise('right', ex);
             alert(this.lang === "es" 
                 ? "Ejercicio cargado en tu rutina de Mano Derecha." 
                 : "Exercise loaded into your Right Hand routine.");
         } else if (ex.category === "reading") {
             this.activeReadingEx = ex;
-            localStorage.setItem("studio-active-reading", JSON.stringify(ex));
+            this.data.setActiveExercise('reading', ex);
             alert(this.lang === "es" 
                 ? "Ejercicio cargado en tu rutina de Lectura." 
                 : "Exercise loaded into your Sight Reading routine.");
@@ -1333,18 +2268,6 @@ class GuitarStudioApp {
             if (leftDescEl) leftDescEl.textContent = TRANSLATIONS[this.lang]["left-hand-default-desc"];
         }
 
-        const el1 = document.getElementById("alphaTab-step-1");
-        if (el1 && typeof alphaTab !== 'undefined') {
-            if (!this.step1Api) {
-                this.step1Api = new alphaTab.AlphaTabApi(el1, {
-                    core: { fontDirectory: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/font/' },
-                    display: { layoutMode: alphaTab.LayoutMode.Page, padding: [10, 10, 10, 10] }
-                });
-            }
-            const leftTex = this.activeLeftHandEx ? this.activeLeftHandEx.alphaTex : "\\title \"La Araña\" . :g :8 5.6 6.6 7.6 8.6 7.6 6.6 5.6";
-            this.step1Api.tex(leftTex);
-        }
-
         // Mano Derecha
         const rightNameEl = document.getElementById("right-hand-ex-name");
         const rightDescEl = document.getElementById("right-hand-ex-desc");
@@ -1355,18 +2278,6 @@ class GuitarStudioApp {
         } else {
             if (rightNameEl) rightNameEl.textContent = TRANSLATIONS[this.lang]["right-hand-default-name"];
             if (rightDescEl) rightDescEl.textContent = TRANSLATIONS[this.lang]["right-hand-default-desc"];
-        }
-
-        const el2 = document.getElementById("alphaTab-step-2");
-        if (el2 && typeof alphaTab !== 'undefined') {
-            if (!this.step2Api) {
-                this.step2Api = new alphaTab.AlphaTabApi(el2, {
-                    core: { fontDirectory: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/font/' },
-                    display: { layoutMode: alphaTab.LayoutMode.Page, padding: [10, 10, 10, 10] }
-                });
-            }
-            const rightTex = this.activeRightHandEx ? this.activeRightHandEx.alphaTex : "\\title \"Arpegios\" . :g :8 0.6 0.3 0.2 0.1 0.2 0.3";
-            this.step2Api.tex(rightTex);
         }
 
         // Lectura
@@ -1383,16 +2294,27 @@ class GuitarStudioApp {
                 : "Open a random score in the library or from your books. Directly play the melodic line without practicing beforehand, focusing purely on pulse and flow.";
         }
 
-        const el3 = document.getElementById("alphaTab-step-3");
-        if (el3 && typeof alphaTab !== 'undefined') {
-            if (!this.step3Api) {
-                this.step3Api = new alphaTab.AlphaTabApi(el3, {
-                    core: { fontDirectory: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/font/' },
-                    display: { layoutMode: alphaTab.LayoutMode.Page, padding: [10, 10, 10, 10] }
-                });
+
+    }
+
+
+
+    adjustQuickToolsLocation() {
+        const quickTools = document.querySelector('.quick-tools-box');
+        if (!quickTools) return;
+        
+        const isMobile = window.innerWidth <= 768;
+        if (isMobile) {
+            const mobileContainer = document.getElementById('mobile-quick-tools-container');
+            if (mobileContainer && quickTools.parentElement !== mobileContainer) {
+                mobileContainer.appendChild(quickTools);
             }
-            const readingTex = this.activeReadingEx ? this.activeReadingEx.alphaTex : "\\title \"Lectura C\" . :g :4 3.5 0.4 2.4 3.4 0.3";
-            this.step3Api.tex(readingTex);
+        } else {
+            const sidebar = document.querySelector('.sidebar');
+            const sidebarFooter = document.querySelector('.sidebar-footer');
+            if (sidebar && sidebarFooter && quickTools.parentElement !== sidebar) {
+                sidebar.insertBefore(quickTools, sidebarFooter);
+            }
         }
     }
 }
@@ -1403,4 +2325,39 @@ document.addEventListener("DOMContentLoaded", () => {
     window.app.init().catch(err => {
         console.error("Error initializing app:", err);
     });
+
+    // Test automation query helper
+    if (window.location.search.includes("test=true")) {
+        console.log("TEST AUTOMATION STARTING");
+        setTimeout(() => {
+            try {
+                console.log("Navigating to Practice View...");
+                window.app.navigateToView('practice');
+                
+                // Test Step 1
+                console.log("Testing Step 1...");
+                window.app.showWizardStep(1);
+                
+                setTimeout(() => {
+                    // Test Step 2
+                    console.log("Testing Step 2...");
+                    window.app.showWizardStep(2);
+                    
+                    setTimeout(() => {
+                        // Test Step 3
+                        console.log("Testing Step 3...");
+                        window.app.showWizardStep(3);
+                        
+                        setTimeout(() => {
+                            // Test Step 4
+                            console.log("Testing Step 4...");
+                            window.app.showWizardStep(4);
+                        }, 1000);
+                    }, 1000);
+                }, 1000);
+            } catch (e) {
+                console.error("Test automation crashed: " + e.message, e);
+            }
+        }, 1500);
+    }
 });

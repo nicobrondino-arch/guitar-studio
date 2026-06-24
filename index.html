@@ -1,6 +1,119 @@
 <!DOCTYPE html>
 <html lang="es" data-theme="dark">
 <head>
+    <script>
+    (function() {
+        window.consoleErrors = [];
+        
+        // Helper to check if a message is a ResizeObserver warning
+        const isResizeObserverError = (msg) => {
+            if (!msg) return false;
+            const str = typeof msg === 'object' ? JSON.stringify(msg) : String(msg);
+            return str.indexOf('ResizeObserver') !== -1 || 
+                   str.indexOf('Resize Observer') !== -1 || 
+                   str.indexOf('loop limit exceeded') !== -1 ||
+                   str.indexOf('loop completed with undelivered notifications') !== -1;
+        };
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const isDebugMode = urlParams.get('debug') === 'true' || urlParams.get('test') === 'true';
+
+        // Suppress ResizeObserver errors from console.error even in standard mode
+        const originalError = console.error;
+        console.error = function() {
+            // Build the string representation of all arguments
+            const msg = Array.from(arguments)
+                .map(arg => {
+                    if (arg instanceof Error) {
+                        return arg.message + " " + arg.stack;
+                    }
+                    return typeof arg === 'object' ? JSON.stringify(arg) : String(arg);
+                })
+                .join(' ');
+            
+            if (isResizeObserverError(msg)) {
+                return; // Suppress and swallow ResizeObserver warnings/errors completely BEFORE printing them
+            }
+
+            originalError.apply(console, arguments);
+
+            const errText = "CONSOLE ERROR: " + msg;
+            window.consoleErrors.push(errText);
+            
+            if (isDebugMode) {
+                showDebugIndicator(errText);
+            }
+            fetch('/log?err=' + encodeURIComponent(errText)).catch(function(){});
+        };
+
+        window.onerror = function(message, source, lineno, colno, error) {
+            const msgStr = error && error.message ? error.message : String(message);
+            if (isResizeObserverError(msgStr)) {
+                return true; // prevent default browser handling for ResizeObserver errors
+            }
+
+            const errText = "ERROR: " + message + " at " + source + ":" + lineno + ":" + colno;
+            window.consoleErrors.push(errText);
+            
+            if (isDebugMode) {
+                showDebugIndicator(errText);
+            }
+            fetch('/log?err=' + encodeURIComponent(errText)).catch(function(){});
+            return false;
+        };
+
+        window.addEventListener('unhandledrejection', function(e) {
+            const msg = e.reason ? (e.reason.message || String(e.reason)) : '';
+            if (isResizeObserverError(msg)) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+            }
+        }, true);
+
+        function showDebugIndicator(msg) {
+            let devDiv = document.getElementById('debug-console-log');
+            if (!devDiv) {
+                devDiv = document.createElement('div');
+                devDiv.id = 'debug-console-log';
+                devDiv.style.position = 'fixed';
+                devDiv.style.bottom = '10px';
+                devDiv.style.right = '10px';
+                devDiv.style.backgroundColor = 'rgba(0,0,0,0.85)';
+                devDiv.style.color = '#ff6b6b';
+                devDiv.style.padding = '10px';
+                devDiv.style.borderRadius = '5px';
+                devDiv.style.fontSize = '12px';
+                devDiv.style.fontFamily = 'monospace';
+                devDiv.style.maxHeight = '200px';
+                devDiv.style.overflowY = 'auto';
+                devDiv.style.zIndex = '99999';
+                devDiv.style.border = '1px solid #ff6b6b';
+                
+                // Add a small close button to the debug indicator for usability
+                const closeBtn = document.createElement('span');
+                closeBtn.textContent = '✖';
+                closeBtn.style.position = 'absolute';
+                closeBtn.style.top = '5px';
+                closeBtn.style.right = '5px';
+                closeBtn.style.cursor = 'pointer';
+                closeBtn.style.color = '#fff';
+                closeBtn.onclick = () => devDiv.style.display = 'none';
+                devDiv.appendChild(closeBtn);
+                
+                // Add padding top to not overlap close button
+                devDiv.style.paddingTop = '20px';
+                
+                document.body.appendChild(devDiv);
+            }
+            devDiv.style.display = 'block'; // Make sure it's visible if hidden previously
+            
+            const p = document.createElement('p');
+            p.style.margin = '0 0 5px 0';
+            p.textContent = msg;
+            devDiv.appendChild(p);
+        }
+    })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-i18n="app-title">Guitar Studio - Racha y Rutina de Práctica</title>
@@ -10,6 +123,20 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- styles.css link -->
     <link rel="stylesheet" href="styles.css">
+    <!-- FontAwesome icons for alphaTab tutorial player -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Suppress ResizeObserver errors globally BEFORE alphaTab loads so its internal error overlay doesn't catch them -->
+    <script>
+        const suppressResizeObserverError = (e) => {
+            if (e.message && e.message.includes('ResizeObserver')) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+            }
+        };
+        window.addEventListener('error', suppressResizeObserverError, true);
+    </script>
+
     <!-- AlphaTab CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/alphaTab.min.js"></script>
 </head>
@@ -65,6 +192,41 @@
                     </a>
                 </li>
             </ul>
+
+            <!-- Quick Tools (Metronome & Volume) -->
+            <div class="quick-tools-box">
+                <h4 class="quick-tools-title" data-i18n="quick-tools-title">Herramientas Rápidas</h4>
+                
+                <!-- Metronome -->
+                <div class="quick-metronome">
+                    <div class="metro-header">
+                        <span data-i18n="metro-title">Metrónomo</span>
+                        <span class="metro-bpm-val"><span id="metro-bpm-text">120</span> BPM</span>
+                    </div>
+                    <input type="range" class="slider" id="metro-bpm-slider" min="40" max="250" value="120">
+                    <div class="metro-controls">
+                        <button class="btn btn-outline btn-sm" id="btn-metro-decrement">-4</button>
+                        <button class="btn btn-primary btn-sm btn-metro-toggle" id="btn-metro-toggle">
+                            <span data-i18n="btn-play">Iniciar</span>
+                        </button>
+                        <button class="btn btn-outline btn-sm" id="btn-metro-increment">+4</button>
+                    </div>
+                    <div class="metro-visual">
+                        <span class="beat-indicator"></span>
+                        <span class="beat-indicator"></span>
+                        <span class="beat-indicator"></span>
+                        <span class="beat-indicator"></span>
+                    </div>
+                    <!-- Volume Control -->
+                    <div class="metro-volume-box" style="margin-top: 10px; display: flex; align-items: center; gap: 8px;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px; color: var(--tb-text-secondary); flex-shrink: 0;">
+                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                        </svg>
+                        <input type="range" class="slider" id="metro-volume-slider" min="0" max="100" value="80" style="margin: 0; flex: 1;">
+                    </div>
+                </div>
+            </div>
             
             <!-- Language Selector at the Bottom -->
             <div class="sidebar-footer">
@@ -75,6 +237,13 @@
                 </div>
             </div>
         </nav>
+
+        <!-- Sidebar toggle button -->
+        <button class="sidebar-toggle-btn" id="btn-sidebar-toggle" aria-label="Toggle Sidebar">
+            <svg class="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+        </button>
 
         <!-- Main Content Area -->
         <main class="main-content">
@@ -102,13 +271,17 @@
                     </ul>
                 </div>
                 
-                <!-- Streak Badge -->
-                <div class="streak-badge-container">
-                    <div class="streak-badge" id="streak-badge">
-                        <div class="streak-fire">🔥</div>
-                        <div class="streak-details">
-                            <span class="streak-count" id="streak-count">0</span>
-                            <span class="streak-label" data-i18n="streak-label">Días</span>
+                <!-- Streak Badge and Practice Completion Button -->
+                <div class="header-right" style="display: flex; align-items: center; gap: 16px;">
+                    <button class="btn btn-primary" id="btn-complete-practice-header" onclick="app.completeStep(4)" data-i18n="btn-complete-session" style="background-color: var(--tb-success); color: var(--tb-bg-primary); border: none; font-weight: 700; height: 38px; padding: 0 16px; border-radius: 50px; display: none; align-items: center; justify-content: center; font-size: 13px; box-shadow: 0 4px 12px rgba(52, 199, 89, 0.2);">Finalizar Práctica Diaria</button>
+                    
+                    <div class="streak-badge-container">
+                        <div class="streak-badge" id="streak-badge">
+                            <div class="streak-fire">🔥</div>
+                            <div class="streak-details">
+                                <span class="streak-count" id="streak-count">0</span>
+                                <span class="streak-label" data-i18n="streak-label">Días</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -199,58 +372,16 @@
                 <!-- VIEW 2: MODO PRÁCTICA (INTERACTIVE WIZARD) -->
                 <section id="view-practice" class="app-view">
                     <div class="practice-wizard-container">
-                        
-                        <!-- Left Panel: Quick Metronome Tools -->
-                        <div class="wizard-steps-sidebar">
-                            
-                            <!-- Timer & Metronome shortcuts (Float / Sticky) -->
-                            <div class="quick-tools-box">
-                                <h4 class="quick-tools-title" data-i18n="quick-tools-title">Herramientas Rápidas</h4>
-                                
-                                <!-- Metronome -->
-                                <div class="quick-metronome">
-                                    <div class="metro-header">
-                                        <span data-i18n="metro-title">Metrónomo</span>
-                                        <span class="metro-bpm-val"><span id="metro-bpm-text">120</span> BPM</span>
-                                    </div>
-                                    <input type="range" class="slider" id="metro-bpm-slider" min="40" max="250" value="120">
-                                    <div class="metro-controls">
-                                        <button class="btn btn-outline btn-sm" id="btn-metro-decrement">-4</button>
-                                        <button class="btn btn-primary btn-sm btn-metro-toggle" id="btn-metro-toggle">
-                                            <span data-i18n="btn-play">Iniciar</span>
-                                        </button>
-                                        <button class="btn btn-outline btn-sm" id="btn-metro-increment">+4</button>
-                                    </div>
-                                    <div class="metro-visual">
-                                        <span class="beat-indicator"></span>
-                                        <span class="beat-indicator"></span>
-                                        <span class="beat-indicator"></span>
-                                        <span class="beat-indicator"></span>
-                                    </div>
-                                    <!-- Volume Control -->
-                                    <div class="metro-volume-box" style="margin-top: 10px; display: flex; align-items: center; gap: 8px;">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px; color: var(--tb-text-secondary); flex-shrink: 0;">
-                                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                                        </svg>
-                                        <input type="range" class="slider" id="metro-volume-slider" min="0" max="100" value="80" style="margin: 0; flex: 1;">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
                         <!-- Right Panel: Step Content Area -->
                         <div class="wizard-content-area">
                             <div class="wizard-step-view active" id="step-view-1">
                                 <div class="step-view-header">
                                     <h2 class="step-view-title" data-i18n="left-hand-routine-title">Rutina de Mano Izquierda</h2>
                                     <div class="routine-duration">5-10 min</div>
-                                                       <div class="exercise-card">
+                                </div>
+                                <div class="exercise-card">
                                     <h4 class="exercise-name" id="left-hand-ex-name">1. La Araña Dinámica (Ejercicios de Digitación)</h4>
                                     <p class="exercise-desc" id="left-hand-ex-desc">Toca en el traste 5 en adelante, cuerda por cuerda, alternando dedos 1-2-3-4. Mantén la mano relajada y el pulgar alineado en el centro del mástil.</p>
-                                    <div class="alphatab-wrapper-step">
-                                        <div id="alphaTab-step-1"></div>
-                                    </div>
                                 </div>
                                 
                                 <div class="practice-controls-block">
@@ -273,9 +404,6 @@
                                 <div class="exercise-card">
                                     <h4 class="exercise-name" id="right-hand-ex-name">1. Patrón de Arpegios Giulani (P-I-M-A)</h4>
                                     <p class="exercise-desc" id="right-hand-ex-desc">Toca cuerdas al aire en patrón de arpegio: Pulgar en los bajos (6ª, 5ª o 4ª), Índice en 3ª, Medio en 2ª y Anular en 1ª cuerda. Concentra tu atención en la uniformidad del volumen.</p>
-                                    <div class="alphatab-wrapper-step">
-                                        <div id="alphaTab-step-2"></div>
-                                    </div>
                                 </div>
                                 
                                 <div class="practice-controls-block">
@@ -298,9 +426,6 @@
                                 <div class="exercise-card">
                                     <h4 class="exercise-name" id="reading-ex-name" data-i18n="sight-reading-ex-title">Descifrado Rápido de Notas</h4>
                                     <p class="exercise-desc" id="reading-ex-desc" data-i18n="sight-reading-ex-desc">Abre una partitura al azar en la biblioteca o de tus libros de estudio. Toca directamente la línea melódica sin ensayar antes, prestando atención exclusiva al ritmo y la fluidez del pulso, no importa si erras algunas notas.</p>
-                                    <div class="alphatab-wrapper-step">
-                                        <div id="alphaTab-step-3"></div>
-                                    </div>
                                 </div>
                                 
                                 <div class="practice-controls-block">
@@ -314,78 +439,211 @@
                                     <button class="btn btn-primary btn-lg" onclick="app.completeStep(3)" data-i18n="btn-complete-step">Marcar como Completado</button>
                                 </div>
                             </div>
-
+ 
                             <!-- GUITAR PRO STEP -->
                             <div class="wizard-step-view" id="step-view-4">
-                                <div class="step-view-header">
-                                    <h2 class="step-view-title" data-i18n="guitar-pro-viewer-title">Visor de Guitar Pro (Enfoque Semanal)</h2>
-                                    <div class="routine-duration" id="gp-routine-duration">15 min</div>
+                                
+                                <div class="alphatab-placeholder" id="alphatab-placeholder">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 48px; height: 48px; margin-bottom: 12px; color: var(--tb-text-muted);">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                        <polyline points="14 2 14 8 20 8"></polyline>
+                                        <line x1="9" y1="15" x2="15" y2="15"></line>
+                                        <line x1="9" y1="11" x2="15" y2="11"></line>
+                                    </svg>
+                                    <p data-i18n="gp-no-file">No hay ninguna partitura de Guitar Pro guardada para esta semana.</p>
+                                    <button class="btn btn-outline btn-sm" style="margin-top: 10px;" onclick="app.navigateToView('notebook')" data-i18n="btn-go-upload">Subir archivo GP</button>
                                 </div>
                                 
-                                <div class="gp-viewer-layout">
-                                    <!-- AlphaTab Render Container -->
-                                    <div class="alphatab-wrapper">
-                                        <!-- Loader/Empty screen -->
-                                        <div class="alphatab-placeholder" id="alphatab-placeholder">
-                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 48px; height: 48px; margin-bottom: 12px; color: var(--tb-text-muted);">
-                                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                                <polyline points="14 2 14 8 20 8"></polyline>
-                                                <line x1="9" y1="15" x2="15" y2="15"></line>
-                                                <line x1="9" y1="11" x2="15" y2="11"></line>
-                                            </svg>
-                                            <p data-i18n="gp-no-file">No hay ninguna partitura de Guitar Pro guardada para esta semana.</p>
-                                            <button class="btn btn-outline btn-sm" style="margin-top: 10px;" onclick="app.navigateToView('notebook')" data-i18n="btn-go-upload">Subir archivo GP</button>
-                                        </div>
-                                        
-                                        <!-- AlphaTab Viewport -->
-                                        <div id="alphaTab" style="display: none;"></div>
+                                <div class="at-wrap" style="display: none;">
+                                  <div class="at-overlay">
+                                    <div class="at-overlay-content">
+                                      <i class="fas fa-circle-notch fa-spin"></i> <span data-i18n="loading-sheet">Cargando partitura...</span>
                                     </div>
-                                    
-                                    <!-- Tab Player Toolbar Controls -->
-                                    <div class="alphatab-controls" id="alphatab-controls" style="display: none;">
-                                        <div class="control-row">
-                                            <button class="btn btn-primary" id="btn-gp-play">
-                                                <span data-i18n="btn-play">Reproducir</span>
-                                            </button>
-                                            <button class="btn btn-outline" id="btn-gp-stop">
-                                                <span data-i18n="btn-stop">Detener</span>
-                                            </button>
-                                            <div class="gp-tempo-control">
-                                                <span class="gp-control-label" data-i18n="gp-speed">Velocidad:</span>
-                                                <input type="range" class="slider" id="gp-speed-slider" min="25" max="150" value="100">
-                                                <span id="gp-speed-text">100%</span>
-                                            </div>
-                                            <!-- Zoom control -->
-                                            <div class="gp-zoom-control" style="display: flex; align-items: center; gap: 8px;">
-                                                <span class="gp-control-label">Zoom:</span>
-                                                <button class="btn btn-outline btn-sm" id="btn-gp-zoom-out" style="padding: 4px 8px; font-weight: 700; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">-</button>
-                                                <span id="gp-zoom-text" style="font-size: 13px; font-weight: 600; min-width: 35px; text-align: center;">100%</span>
-                                                <button class="btn btn-outline btn-sm" id="btn-gp-zoom-in" style="padding: 4px 8px; font-weight: 700; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">+</button>
-                                            </div>
-                                        </div>
-                                        <div class="control-row">
-                                            <div class="gp-track-control">
-                                                <span class="gp-control-label" data-i18n="gp-tracks">Pistas:</span>
-                                                <select id="gp-track-select" class="form-control">
-                                                    <!-- Llenado dinámico -->
-                                                </select>
-                                            </div>
-                                            
-                                            <!-- Metronome & loop buttons -->
-                                            <div class="gp-toggle-buttons" style="display: flex; align-items: center; gap: 8px;">
-                                                <button class="btn btn-outline btn-sm btn-toggle" id="btn-gp-loop">Loop</button>
-                                                <button class="btn btn-outline btn-sm btn-toggle" id="btn-gp-metro">Metrónomo</button>
-                                                <input type="range" class="slider" id="gp-metro-volume" min="0" max="100" value="80" style="width: 60px; margin: 0;">
-                                            </div>
-                                            
-                                            <!-- Complete step button moved here -->
-                                            <button class="btn btn-primary btn-sm" onclick="app.completeStep(4)" data-i18n="btn-complete-session" style="background-color: var(--tb-success); color: var(--tb-bg-primary); border: none; margin-left: 12px; font-weight: 700;">Finalizar Práctica</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                                  </div>
+                                  <div class="at-content">
+                                    <div class="at-sidebar">
+                                      <div class="at-sidebar-content">
+                                        <div class="at-track-list"></div>
+                                        <div class="at-sidebar-divider"></div>
+                                        <div class="at-sidebar-actions">
+                                           <!-- Metronome -->
+                                           <div class="at-sidebar-action at-metronome-container" title="Metronome">
+                                             <div class="at-track-icon-container">
+                                               <div class="at-track-icon at-metronome">
+                                                 <i class="fas fa-drum"></i>
+                                               </div>
+                                               <div class="at-metronome-volume-wrapper">
+                                                 <input type="range" class="at-metronome-volume-slider" min="0" max="1" step="0.05" value="0.8" title="Volumen Metrónomo">
+                                               </div>
+                                             </div>
+                                             <div class="at-track-details">
+                                               <span class="at-track-name" data-i18n="gp-metronome">Metrónomo</span>
+                                             </div>
+                                           </div>
 
+                                           <!-- Count-In -->
+                                           <div class="at-sidebar-action at-count-in" title="Count-In">
+                                             <div class="at-track-icon-container">
+                                               <div class="at-track-icon">
+                                                 <i class="fas fa-hourglass-half"></i>
+                                               </div>
+                                             </div>
+                                             <div class="at-track-details">
+                                               <span class="at-track-name" data-i18n="gp-count-in">Conteo Inicial</span>
+                                             </div>
+                                           </div>
+                                           
+                                           <!-- Loop -->
+                                           <div class="at-sidebar-action at-loop" title="Loop">
+                                             <div class="at-track-icon-container">
+                                               <div class="at-track-icon">
+                                                 <i class="fas fa-retweet"></i>
+                                               </div>
+                                             </div>
+                                             <div class="at-track-details">
+                                               <span class="at-track-name" data-i18n="gp-loop">Bucle (Loop)</span>
+                                             </div>
+                                           </div>
+                                           
+                                           <!-- Loop Settings Panel -->
+                                           <div class="at-loop-settings">
+                                             <div class="at-loop-setting-row">
+                                               <label data-i18n="gp-loop-section-lbl">Repetir Sección</label>
+                                               <select class="at-loop-section-select">
+                                                 <option value="" data-i18n="gp-loop-section-select-opt">- Ninguna -</option>
+                                               </select>
+                                             </div>
+                                             <div class="at-loop-setting-row range-row">
+                                               <div class="range-input-group">
+                                                 <span data-i18n="gp-loop-from-lbl">De:</span>
+                                                 <input type="number" class="at-loop-start-bar" min="1" value="1">
+                                               </div>
+                                               <div class="range-input-group">
+                                                 <span data-i18n="gp-loop-to-lbl">A:</span>
+                                                 <input type="number" class="at-loop-end-bar" min="1" value="1">
+                                               </div>
+                                               <button class="btn btn-outline btn-sm at-loop-range-apply" data-i18n="gp-loop-apply-btn">OK</button>
+                                             </div>
+                                             <!-- Auto BPM Increment Row -->
+                                             <div class="at-loop-setting-row at-autobpm-row">
+                                               <label data-i18n="gp-autobpm-lbl">Auto BPM</label>
+                                               <div class="at-autobpm-controls">
+                                                 <div class="at-autobpm-field">
+                                                   <span data-i18n="gp-autobpm-step-lbl">+BPM/rep</span>
+                                                   <input type="number" class="at-autobpm-step" min="1" max="50" value="1">
+                                                 </div>
+                                                 <div class="at-autobpm-field">
+                                                   <span data-i18n="gp-autobpm-target-lbl">Meta</span>
+                                                   <input type="number" class="at-autobpm-target" min="20" max="300" value="120">
+                                                 </div>
+                                                 <button class="btn btn-outline btn-sm at-autobpm-toggle" data-i18n="gp-autobpm-off">OFF</button>
+                                               </div>
+                                             </div>
+                                           </div>
+
+                                           <!-- Speed Selector (Moved from controls) -->
+                                           <div class="at-sidebar-action at-speed-action" title="Speed">
+                                             <div class="at-track-icon-container">
+                                               <div class="at-track-icon at-speed-icon">
+                                                 <i class="fas fa-tachometer-alt"></i>
+                                                 <span class="at-bpm-badge">120</span>
+                                               </div>
+                                             </div>
+                                             <div class="at-track-details">
+                                               <span class="at-track-name" data-i18n="gp-speed">Velocidad</span>
+                                             </div>
+                                           </div>
+                                           
+                                           <!-- Speed Settings Panel -->
+                                           <div class="at-speed-settings">
+                                             <div class="at-speed-setting-row">
+                                               <div class="at-speed-controls-group">
+                                                 <div class="at-bpm-input-wrapper">
+                                                   <span class="at-bpm-input-label">BPM</span>
+                                                   <input type="number" class="at-speed-bpm-input" min="20" max="300" value="120">
+                                                 </div>
+                                                 <select id="at-speed-select">
+                                                   <option value="0.25">25%</option>
+                                                   <option value="0.5">50%</option>
+                                                   <option value="0.75">75%</option>
+                                                   <option value="0.9">90%</option>
+                                                   <option value="1" selected>100%</option>
+                                                   <option value="1.1">110%</option>
+                                                   <option value="1.25">125%</option>
+                                                   <option value="1.5">150%</option>
+                                                   <option value="2">200%</option>
+                                                 </select>
+                                               </div>
+                                             </div>
+                                           </div>
+                                         </div>
+                                      </div>
+                                    </div>
+                                    <div class="at-viewport">
+                                      <div class="at-main"></div>
+                                    </div>
+                                  </div>
+                                  <div class="at-controls">
+                                    <div class="at-controls-left">
+                                      <a class="btn at-player-stop disabled" title="Stop">
+                                        <i class="fas fa-step-backward"></i>
+                                      </a>
+                                      <a class="btn at-player-play-pause disabled" title="Play/Pause">
+                                        <i class="fas fa-play"></i>
+                                      </a>
+                                      <span class="at-player-progress">0%</span>
+                                      <div class="at-song-info">
+                                        <span class="at-song-title"></span> -
+                                        <span class="at-song-artist"></span>
+                                      </div>
+                                      <div class="at-song-position">00:00 / 00:00</div>
+                                      <div class="at-bar-counter">
+                                          <span class="at-bar-label" data-i18n="gp-bar-label">Compás</span>
+                                          <input type="number" class="at-bar-input" min="1" value="1">
+                                          <span class="at-bar-total">/ 1</span>
+                                      </div>
+                                      <div class="at-section-badge" style="display: none;"></div>
+                                    </div>
+                                    <div class="at-controls-right">
+                                      <a class="btn at-print" title="Print">
+                                        <i class="fas fa-print"></i>
+                                      </a>
+                                      <div class="at-zoom">
+                                        <i class="fas fa-search"></i>
+                                        <select>
+                                          <option value="25">25%</option>
+                                          <option value="50">50%</option>
+                                          <option value="75">75%</option>
+                                          <option value="90">90%</option>
+                                          <option value="100" selected>100%</option>
+                                          <option value="110">110%</option>
+                                          <option value="125">125%</option>
+                                          <option value="150">150%</option>
+                                          <option value="200">200%</option>
+                                        </select>
+                                      </div>
+                                      <div class="at-layout">
+                                         <select>
+                                           <option value="horizontal">Horizontal</option>
+                                           <option value="page" selected>Página</option>
+                                         </select>
+                                       </div>
+                                       <a class="btn at-stave-score active" title="Notación Estándar" data-i18n-title="sp-score-title">
+                                         <i class="fas fa-music"></i>
+                                       </a>
+                                       <a class="btn at-stave-tab active" title="Tablatura" data-i18n-title="sp-tab-title">
+                                         <span style="font-weight: 800; font-size: 11px; letter-spacing: 0.5px; font-family: var(--font-primary, sans-serif);">TAB</span>
+                                       </a>
+                                       <a class="btn at-night-mode" title="Modo Nocturno">
+                                         <i class="fas fa-moon"></i>
+                                      </a>
+                                    </div>
+                                  </div>
+                             </div>
                         </div>
+                        
+                        <!-- Mobile container for quick tools -->
+                        <div id="mobile-quick-tools-container" class="mobile-only-container"></div>
                     </div>
                 </section>
 
@@ -485,8 +743,29 @@
     <!-- Metronome Sound Effect (Beeps fallback if Web Audio is blocked initially) -->
     <audio id="audio-tick" src="https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav" preload="auto"></audio>
     
+    <template id="at-track-template">
+      <div class="at-track">
+        <div class="at-track-icon-container">
+          <div class="at-track-icon">
+            <i class="fas fa-guitar"></i>
+          </div>
+          <div class="at-track-volume-wrapper">
+            <input type="range" class="at-track-volume-slider" min="0" max="1.5" step="0.05" value="1" title="Volumen">
+          </div>
+        </div>
+        <div class="at-track-details">
+          <div class="at-track-name"></div>
+        </div>
+        <div class="at-track-controls">
+          <button class="btn-track-mute" title="Mute">M</button>
+          <button class="btn-track-solo" title="Solo">S</button>
+        </div>
+      </div>
+    </template>
+
     <!-- JavaScript Application Scripts -->
     <script src="metronome.js"></script>
+    <script src="dataService.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
