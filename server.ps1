@@ -21,7 +21,23 @@ try {
             $request = $context.Request
             $response = $context.Response
             
+            # Log incoming request
+            Write-Host "Incoming Request: $($request.HttpMethod) $($request.Url.PathAndQuery)"
+            
             $rawPath = $request.Url.LocalPath
+            if ($rawPath -eq "/log") {
+                $err = $request.QueryString["err"]
+                if ($err) {
+                    Write-Host "CLIENT LOG/ERROR: $err" -ForegroundColor Red
+                }
+                $response.StatusCode = 200
+                $response.ContentType = "text/plain"
+                $okBytes = [System.Text.Encoding]::UTF8.GetBytes("OK")
+                $response.OutputStream.Write($okBytes, 0, $okBytes.Length)
+                $response.Close()
+                continue
+            }
+            
             if ($rawPath -eq "/" -or $rawPath -eq "") {
                 $rawPath = "/index.html"
             }
