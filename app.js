@@ -1631,9 +1631,6 @@ class GuitarStudioApp {
 
         document.getElementById('pdf-iframe').src = this._pdfBlobUrl;
         document.getElementById('pdf-viewer-title').textContent = item.title || 'Documento';
-        const dl = document.getElementById('btn-pdf-download');
-        dl.href = this._pdfBlobUrl;
-        dl.download = `${item.title || 'documento'}.pdf`;
         document.getElementById('pdf-viewer-panel').style.display = 'flex';
     }
 
