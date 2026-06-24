@@ -1652,9 +1652,6 @@ class GuitarStudioApp {
         const item = await this.data.getLibraryItem(libraryItemId);
         if (!item || !item.url) return;
 
-        const videoId = this._extractYouTubeId(item.url);
-        if (!videoId) { window.open(item.url, '_blank'); return; }
-
         const embedSrc = this._buildYouTubeEmbedUrl(item.url);
         if (!embedSrc) { window.open(item.url, '_blank'); return; }
 
