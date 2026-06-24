@@ -1623,45 +1623,20 @@ class GuitarStudioApp {
         const item = await this.data.getLibraryItem(libraryItemId);
         if (!item || !item.bytes) return;
 
-        // Revocar blob anterior si existe
-        if (this._pdfBlobUrl) {
-            URL.revokeObjectURL(this._pdfBlobUrl);
-            this._pdfBlobUrl = null;
-        }
+        if (this._pdfBlobUrl) URL.revokeObjectURL(this._pdfBlobUrl);
+        this._pdfBlobUrl = URL.createObjectURL(new Blob([item.bytes], { type: 'application/pdf' }));
 
-        const blob = new Blob([item.bytes], { type: 'application/pdf' });
-        this._pdfBlobUrl = URL.createObjectURL(blob);
-
-        // Ocultar contenido de práctica, mostrar visor
-        const practiceContainer = document.querySelector('.practice-wizard-container');
-        const pdfPanel = document.getElementById('pdf-viewer-panel');
-        const iframe = document.getElementById('pdf-iframe');
-        const titleEl = document.getElementById('pdf-viewer-title');
-        const downloadBtn = document.getElementById('btn-pdf-download');
-        const catTabs = document.getElementById('practice-cat-tabs');
-
-        if (practiceContainer) practiceContainer.style.display = 'none';
-        if (catTabs) catTabs.style.display = 'none';
-        if (pdfPanel) pdfPanel.style.display = 'flex';
-        if (iframe) iframe.src = this._pdfBlobUrl;
-        if (titleEl) titleEl.textContent = item.title || 'Documento';
-        if (downloadBtn) {
-            downloadBtn.href = this._pdfBlobUrl;
-            downloadBtn.download = item.title ? `${item.title}.pdf` : 'documento.pdf';
-        }
+        document.getElementById('pdf-iframe').src = this._pdfBlobUrl;
+        document.getElementById('pdf-viewer-title').textContent = item.title || 'Documento';
+        const dl = document.getElementById('btn-pdf-download');
+        dl.href = this._pdfBlobUrl;
+        dl.download = `${item.title || 'documento'}.pdf`;
+        document.getElementById('pdf-viewer-panel').style.display = 'flex';
     }
 
     closePDFViewer() {
-        const practiceContainer = document.querySelector('.practice-wizard-container');
-        const pdfPanel = document.getElementById('pdf-viewer-panel');
-        const iframe = document.getElementById('pdf-iframe');
-        const catTabs = document.getElementById('practice-cat-tabs');
-
-        if (pdfPanel) pdfPanel.style.display = 'none';
-        if (iframe) iframe.src = '';
-        if (practiceContainer) practiceContainer.style.display = '';
-        if (catTabs) catTabs.style.display = 'flex';
-
+        document.getElementById('pdf-viewer-panel').style.display = 'none';
+        document.getElementById('pdf-iframe').src = '';
         if (this._pdfBlobUrl) {
             URL.revokeObjectURL(this._pdfBlobUrl);
             this._pdfBlobUrl = null;
