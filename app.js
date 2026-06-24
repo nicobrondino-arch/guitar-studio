@@ -1655,54 +1655,45 @@ class GuitarStudioApp {
         const videoId = this._extractYouTubeId(item.url);
         if (!videoId) { window.open(item.url, '_blank'); return; }
 
-        const origin = encodeURIComponent(location.origin);
-        const iframe = document.getElementById('yt-iframe');
-        const errorDiv = document.getElementById('yt-embed-error');
-        const externalBtn = document.getElementById('btn-yt-open-external');
+        const embedSrc = this._buildYouTubeEmbedUrl(item.url);
+        if (!embedSrc) { window.open(item.url, '_blank'); return; }
 
-        // Resetear estado anterior
-        iframe.style.display = 'block';
-        errorDiv.style.display = 'none';
-        iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&origin=${origin}`;
-
-        // Detectar error del iframe (YouTube manda postMessage cuando falla)
-        const onYTMessage = (e) => {
-            if (e.origin !== 'https://www.youtube.com') return;
-            try {
-                const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
-                if (data?.event === 'onError' || data?.info === 153 || data?.info === 150 || data?.info === 101) {
-                    iframe.style.display = 'none';
-                    errorDiv.style.display = 'flex';
-                    externalBtn.href = item.url;
-                }
-            } catch {}
-        };
-        window.removeEventListener('message', this._ytMessageHandler);
-        this._ytMessageHandler = onYTMessage;
-        window.addEventListener('message', this._ytMessageHandler);
-
-        externalBtn.href = item.url;
+        document.getElementById('yt-iframe').src = embedSrc;
         document.getElementById('yt-viewer-title').textContent = item.title || 'Video';
+        document.getElementById('btn-yt-open-external').href = item.url;
         document.getElementById('yt-viewer-panel').style.display = 'flex';
     }
 
-    _extractYouTubeId(url) {
-        const patterns = [
-            /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([A-Za-z0-9_-]{11})/
-        ];
-        for (const p of patterns) {
-            const m = url.match(p);
-            if (m) return m[1];
+    _buildYouTubeEmbedUrl(url) {
+        try {
+            const u = new URL(url);
+            const origin = encodeURIComponent(location.origin);
+
+            // Playlist sin video específico
+            const listId = u.searchParams.get('list');
+            const videoId = u.searchParams.get('v')
+                || url.match(/youtu\.be\/([A-Za-z0-9_-]{11})/)?.[1]
+                || url.match(/\/shorts\/([A-Za-z0-9_-]{11})/)?.[1]
+                || url.match(/\/embed\/([A-Za-z0-9_-]{11})/)?.[1];
+
+            if (videoId && listId) {
+                return `https://www.youtube.com/embed/${videoId}?list=${listId}&autoplay=1&origin=${origin}`;
+            }
+            if (videoId) {
+                return `https://www.youtube.com/embed/${videoId}?autoplay=1&origin=${origin}`;
+            }
+            if (listId) {
+                return `https://www.youtube.com/embed/videoseries?list=${listId}&autoplay=1&origin=${origin}`;
+            }
+            return null;
+        } catch {
+            return null;
         }
-        return null;
     }
 
     closeYouTubeViewer() {
         document.getElementById('yt-viewer-panel').style.display = 'none';
         document.getElementById('yt-iframe').src = '';
-        document.getElementById('yt-embed-error').style.display = 'none';
-        window.removeEventListener('message', this._ytMessageHandler);
-        this._ytMessageHandler = null;
     }
 
     // Abre Spotify en nueva pestaña

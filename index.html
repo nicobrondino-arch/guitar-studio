@@ -809,17 +809,14 @@
     <div id="yt-viewer-panel" style="display:none">
         <div class="pdf-viewer-bar">
             <span class="pdf-viewer-title" id="yt-viewer-title"></span>
+            <a id="btn-yt-open-external" href="#" target="_blank" rel="noopener" class="btn btn-outline btn-sm">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;margin-right:4px"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                Abrir en YouTube
+            </a>
             <button class="btn btn-outline btn-sm" id="btn-yt-close">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;margin-right:4px"><polyline points="15 18 9 12 15 6"></polyline></svg>
                 Volver
             </button>
-        </div>
-        <div id="yt-embed-error" style="display:none" class="yt-embed-error">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;opacity:.4"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            <p>Este video no permite reproducción embebida.</p>
-            <a id="btn-yt-open-external" href="#" target="_blank" rel="noopener" class="btn btn-primary btn-sm">
-                Abrir en YouTube
-            </a>
         </div>
         <iframe id="yt-iframe" class="yt-iframe" src="" title="Video YouTube"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
