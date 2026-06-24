@@ -1655,7 +1655,33 @@ class GuitarStudioApp {
         const videoId = this._extractYouTubeId(item.url);
         if (!videoId) { window.open(item.url, '_blank'); return; }
 
-        document.getElementById('yt-iframe').src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+        const origin = encodeURIComponent(location.origin);
+        const iframe = document.getElementById('yt-iframe');
+        const errorDiv = document.getElementById('yt-embed-error');
+        const externalBtn = document.getElementById('btn-yt-open-external');
+
+        // Resetear estado anterior
+        iframe.style.display = 'block';
+        errorDiv.style.display = 'none';
+        iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&origin=${origin}`;
+
+        // Detectar error del iframe (YouTube manda postMessage cuando falla)
+        const onYTMessage = (e) => {
+            if (e.origin !== 'https://www.youtube.com') return;
+            try {
+                const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+                if (data?.event === 'onError' || data?.info === 153 || data?.info === 150 || data?.info === 101) {
+                    iframe.style.display = 'none';
+                    errorDiv.style.display = 'flex';
+                    externalBtn.href = item.url;
+                }
+            } catch {}
+        };
+        window.removeEventListener('message', this._ytMessageHandler);
+        this._ytMessageHandler = onYTMessage;
+        window.addEventListener('message', this._ytMessageHandler);
+
+        externalBtn.href = item.url;
         document.getElementById('yt-viewer-title').textContent = item.title || 'Video';
         document.getElementById('yt-viewer-panel').style.display = 'flex';
     }
@@ -1674,6 +1700,9 @@ class GuitarStudioApp {
     closeYouTubeViewer() {
         document.getElementById('yt-viewer-panel').style.display = 'none';
         document.getElementById('yt-iframe').src = '';
+        document.getElementById('yt-embed-error').style.display = 'none';
+        window.removeEventListener('message', this._ytMessageHandler);
+        this._ytMessageHandler = null;
     }
 
     // Abre Spotify en nueva pestaña
