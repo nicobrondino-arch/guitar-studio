@@ -1647,18 +1647,70 @@ class GuitarStudioApp {
         }
     }
 
-    // Abre YouTube embebido o en nueva pestaña
     async openYouTube(libraryItemId) {
         const item = await this.data.getLibraryItem(libraryItemId);
         if (!item || !item.url) return;
 
-        const embedSrc = this._buildYouTubeEmbedUrl(item.url);
-        if (!embedSrc) { window.open(item.url, '_blank'); return; }
+        const params = this._parseYouTubeUrl(item.url);
+        if (!params) { window.open(item.url, '_blank'); return; }
 
-        document.getElementById('yt-iframe').src = embedSrc;
         document.getElementById('yt-viewer-title').textContent = item.title || 'Video';
         document.getElementById('btn-yt-open-external').href = item.url;
+        document.getElementById('btn-yt-error-external').href = item.url;
+        document.getElementById('yt-embed-error').style.display = 'none';
+        document.getElementById('yt-player-wrap').innerHTML = '';
         document.getElementById('yt-viewer-panel').style.display = 'flex';
+
+        this._loadYouTubeAPI(() => {
+            const wrap = document.getElementById('yt-player-wrap');
+            const div = document.createElement('div');
+            wrap.appendChild(div);
+
+            new YT.Player(div, {
+                width: '100%',
+                height: '100%',
+                videoId: params.videoId || undefined,
+                playerVars: {
+                    autoplay: 1,
+                    listType: params.listId && !params.videoId ? 'playlist' : undefined,
+                    list: params.listId || undefined,
+                },
+                events: {
+                    onError: (e) => {
+                        // 100=not found, 101/150=embed blocked, 5=HTML5 error
+                        document.getElementById('yt-player-wrap').innerHTML = '';
+                        document.getElementById('yt-embed-error').style.display = 'flex';
+                    }
+                }
+            });
+        });
+    }
+
+    _loadYouTubeAPI(callback) {
+        if (window.YT && window.YT.Player) { callback(); return; }
+        window._ytCallbacks = window._ytCallbacks || [];
+        window._ytCallbacks.push(callback);
+        if (document.getElementById('yt-api-script')) return;
+        window.onYouTubeIframeAPIReady = () => {
+            (window._ytCallbacks || []).forEach(fn => fn());
+            window._ytCallbacks = [];
+        };
+        const s = document.createElement('script');
+        s.id = 'yt-api-script';
+        s.src = 'https://www.youtube.com/iframe_api';
+        document.head.appendChild(s);
+    }
+
+    _parseYouTubeUrl(url) {
+        try {
+            const u = new URL(url);
+            const videoId = u.searchParams.get('v')
+                || url.match(/youtu\.be\/([A-Za-z0-9_-]{11})/)?.[1]
+                || url.match(/\/shorts\/([A-Za-z0-9_-]{11})/)?.[1];
+            const listId = u.searchParams.get('list');
+            if (!videoId && !listId) return null;
+            return { videoId, listId };
+        } catch { return null; }
     }
 
     _buildYouTubeEmbedUrl(url) {
@@ -1690,7 +1742,8 @@ class GuitarStudioApp {
 
     closeYouTubeViewer() {
         document.getElementById('yt-viewer-panel').style.display = 'none';
-        document.getElementById('yt-iframe').src = '';
+        document.getElementById('yt-player-wrap').innerHTML = '';
+        document.getElementById('yt-embed-error').style.display = 'none';
     }
 
     // Abre Spotify en nueva pestaña
