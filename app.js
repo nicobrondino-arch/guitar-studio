@@ -1303,6 +1303,9 @@ class GuitarStudioApp {
     }
 
     navigateToView(viewId) {
+        // Cerrar visor PDF si está abierto
+        if (this._pdfBlobUrl) this.closePDFViewer();
+
         // Pausar metrónomo si cambiamos de vista
         if (this.metronome.isPlaying && viewId !== 'practice') {
             document.getElementById("btn-metro-toggle").click();

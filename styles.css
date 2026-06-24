@@ -3696,7 +3696,10 @@ textarea.form-control {
    ========================================================================== */
 #pdf-viewer-panel {
     position: fixed;
-    inset: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: var(--sidebar-width);
     background: var(--tb-bg-primary);
     z-index: 900;
     display: flex;
