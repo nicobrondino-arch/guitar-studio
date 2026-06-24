@@ -1366,18 +1366,21 @@ class GuitarStudioApp {
 
     // Selecciona una categoría de práctica
     selectCategory(cat) {
-        if (!this.categoryIds.includes(cat)) return;
+        const allCats = [...this.categoryIds, 'supplementary'];
+        if (!allCats.includes(cat)) return;
         this.currentCategory = cat;
 
         // Actualizar tabs dentro de la vista práctica
-        this.categoryIds.forEach(c => {
+        allCats.forEach(c => {
             const tab = document.getElementById(`pcat-${c}`);
             if (tab) tab.classList.toggle("active", c === cat);
         });
 
-        // Auto-iniciar timer de esta categoría
-        const catIdx = this.categoryIds.indexOf(cat) + 1;
-        this.startStepTimer(catIdx);
+        // Solo arrancar el timer para categorías que cuentan
+        if (cat !== 'supplementary') {
+            const catIdx = this.categoryIds.indexOf(cat) + 1;
+            this.startStepTimer(catIdx);
+        }
         this.renderPracticeView();
     }
 
@@ -1397,34 +1400,47 @@ class GuitarStudioApp {
         area.style.display = "block";
         if (playerView) playerView.style.display = "none";
 
-        // Sincronizar tabs de categoría
-        this.categoryIds.forEach(c => {
+        // Sincronizar tabs de categoría (incluye supplementary)
+        [...this.categoryIds, 'supplementary'].forEach(c => {
             const tab = document.getElementById(`pcat-${c}`);
             if (tab) tab.classList.toggle("active", c === this.currentCategory);
         });
 
         const cat = this.currentCategory;
+        const isSupplementary = cat === 'supplementary';
         const catIdx = this.categoryIds.indexOf(cat);
         const t = (key) => TRANSLATIONS[this.lang][key] || key;
 
-        // Timer y botón completar para la categoría activa
-        const timerSecs = this.timerSeconds[catIdx] || 0;
-        const mm = String(Math.floor(timerSecs / 60)).padStart(2, '0');
-        const ss = String(timerSecs % 60).padStart(2, '0');
-        const isCompleted = this.completedSteps[catIdx];
-        const isTimerRunning = !!this.timerIntervals[catIdx];
+        let html = '';
 
-        let html = `<div class="practice-category-header">
-            <div class="practice-timer-block">
-                <span class="practice-timer-display" id="practice-timer-display">${mm}:${ss}</span>
-                <button class="btn btn-outline btn-sm" id="btn-cat-timer-toggle">
-                    ${isTimerRunning ? (this.lang === 'es' ? '⏸ Pausar' : '⏸ Pause') : (timerSecs > 0 ? (this.lang === 'es' ? '▶ Continuar' : '▶ Resume') : (this.lang === 'es' ? '▶ Iniciar' : '▶ Start'))}
+        if (isSupplementary) {
+            // Cabecera sin timer ni botón de completar
+            html = `<div class="practice-category-header practice-supplementary-header">
+                <div class="supplementary-badge">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    Material opcional — no cuenta en tus estadísticas
+                </div>
+            </div>`;
+        } else {
+            // Timer y botón completar para la categoría activa
+            const timerSecs = this.timerSeconds[catIdx] || 0;
+            const mm = String(Math.floor(timerSecs / 60)).padStart(2, '0');
+            const ss = String(timerSecs % 60).padStart(2, '0');
+            const isCompleted = this.completedSteps[catIdx];
+            const isTimerRunning = !!this.timerIntervals[catIdx];
+
+            html = `<div class="practice-category-header">
+                <div class="practice-timer-block">
+                    <span class="practice-timer-display" id="practice-timer-display">${mm}:${ss}</span>
+                    <button class="btn btn-outline btn-sm" id="btn-cat-timer-toggle">
+                        ${isTimerRunning ? (this.lang === 'es' ? '⏸ Pausar' : '⏸ Pause') : (timerSecs > 0 ? (this.lang === 'es' ? '▶ Continuar' : '▶ Resume') : (this.lang === 'es' ? '▶ Iniciar' : '▶ Start'))}
+                    </button>
+                </div>
+                <button class="btn ${isCompleted ? 'btn-outline' : 'btn-primary'} btn-sm" id="btn-complete-cat" ${isCompleted ? 'disabled' : ''}>
+                    ${isCompleted ? '✓ ' : ''}${t('btn-complete-category')}
                 </button>
-            </div>
-            <button class="btn ${isCompleted ? 'btn-outline' : 'btn-primary'} btn-sm" id="btn-complete-cat" ${isCompleted ? 'disabled' : ''}>
-                ${isCompleted ? '✓ ' : ''}${t('btn-complete-category')}
-            </button>
-        </div>`;
+            </div>`;
+        }
 
         // Cargar semanas y sus ítems para esta categoría
         let weeks = [], allWeekItems = [];
@@ -1433,19 +1449,34 @@ class GuitarStudioApp {
             allWeekItems = await this.data.getAllWeekItems();
         } catch(e) { console.warn(e); }
 
-        // Filtrar weekItems de esta categoría
-        const catItems = allWeekItems.filter(wi => wi.category === cat);
+        // Filtrar weekItems: para supplementary mostramos todos los que no tienen categoría
+        // asignada a technique/reading/repertoire, o la categoría específica
+        const catItems = isSupplementary
+            ? allWeekItems.filter(wi => wi.category === 'supplementary')
+            : allWeekItems.filter(wi => wi.category === cat);
+
+        // Filtrar por semanas del perfil activo si es alumno
+        let allowedWeekIds = null;
+        if (this.activeProfile && !this.isProfessorMode) {
+            const pws = await this.data.getProfileWeeks(this.activeProfile.id);
+            allowedWeekIds = new Set(pws.map(pw => pw.weekId));
+        }
 
         // Agrupar por semana
         const weeksWithItems = weeks.map(w => ({
             week: w,
             items: catItems.filter(wi => wi.weekId === w.id)
-        })).filter(({ items }) => items.length > 0);
+        })).filter(({ week, items }) => items.length > 0 && (!allowedWeekIds || allowedWeekIds.has(week.id)));
 
         if (weeksWithItems.length === 0) {
+            const emptyMsg = isSupplementary
+                ? (this.lang === 'es'
+                    ? 'No hay material complementario asignado todavía. El profesor puede agregar ítems como "Complementario" desde el Cuaderno.'
+                    : 'No supplementary material assigned yet.')
+                : t('practice-empty-state');
             html += `<div class="practice-empty-state">
-                <p class="text-muted">${t('practice-empty-state')}</p>
-                <button class="btn btn-outline btn-sm" onclick="app.navigateToView('notebook')">${t('practice-empty-go-notebook')}</button>
+                <p class="text-muted">${emptyMsg}</p>
+                ${!isSupplementary ? `<button class="btn btn-outline btn-sm" onclick="app.navigateToView('notebook')">${t('practice-empty-go-notebook')}</button>` : ''}
             </div>`;
         } else {
             // Cargar todos los library items necesarios
@@ -1516,6 +1547,9 @@ class GuitarStudioApp {
 
         area.innerHTML = html;
 
+        // Supplementary: sin timer ni complete button
+        if (isSupplementary) return;
+
         // Bind timer toggle
         const timerBtn = document.getElementById("btn-cat-timer-toggle");
         if (timerBtn) {
@@ -1523,6 +1557,7 @@ class GuitarStudioApp {
         }
 
         // Bind complete button
+        const isCompleted = this.completedSteps[catIdx];
         const completeBtn = document.getElementById("btn-complete-cat");
         if (completeBtn && !isCompleted) {
             completeBtn.addEventListener("click", () => this.completeCategory(catIdx));
@@ -1728,9 +1763,13 @@ class GuitarStudioApp {
                 return `<option value="${w.id}" ${assigned ? 'selected' : ''}>${this._escapeHtml(w.title)}</option>`;
             }).join('');
 
-            const catOptions = this.categoryIds.map(cat => {
-                const wi = allWeekItems.find(wi => wi.libraryItemId === item.id);
-                return `<option value="${cat}" ${wi && wi.category === cat ? 'selected' : ''}>${t('cat-' + cat)}</option>`;
+            const catLabels = {
+                technique: t('cat-technique'), reading: t('cat-reading'),
+                repertoire: t('cat-repertoire'), supplementary: 'Complementario'
+            };
+            const wi = allWeekItems.find(wi => wi.libraryItemId === item.id);
+            const catOptions = [...this.categoryIds, 'supplementary'].map(cat => {
+                return `<option value="${cat}" ${wi && wi.category === cat ? 'selected' : ''}>${catLabels[cat] || cat}</option>`;
             }).join('');
 
             return `<div class="library-item-row" data-item-id="${item.id}">
@@ -3219,7 +3258,7 @@ class GuitarStudioApp {
         const isProfessor = this.isProfessorMode;
         const typeIcon = { score: 'fa-guitar', pdf: 'fa-file-pdf', youtube: 'fa-youtube', spotify: 'fa-spotify' };
         const typeColor = { score: 'var(--tb-accent)', pdf: '#e53e3e', youtube: '#FF0000', spotify: '#1DB954' };
-        const catLabel = { technique: 'Técnica', reading: 'Lectura', repertoire: 'Repertorio' };
+        const catLabel = { technique: 'Técnica', reading: 'Lectura', repertoire: 'Repertorio', supplementary: 'Complementario' };
 
         let filtered = items.filter(item => {
             const matchSearch = !searchQuery || item.title.toLowerCase().includes(searchQuery.toLowerCase());

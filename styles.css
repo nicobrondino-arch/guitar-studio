@@ -3105,6 +3105,34 @@ textarea.form-control {
     border-color: var(--tb-success, #00b894);
     color: #fff;
 }
+/* Tab "Complementario" — estilo diferenciado, separado visualmente */
+.pcat-tab-supplementary {
+    margin-left: auto;
+    border-style: dashed;
+    color: var(--tb-text-muted);
+}
+.pcat-tab-supplementary:hover { border-color: #a29bfe; color: var(--tb-text-primary); border-style: dashed; }
+.pcat-tab-supplementary.active { background: #3d3580; border-color: #6c63ff; border-style: solid; color: #d0ccff; }
+
+/* Cabecera práctica sin timer (supplementary) */
+.practice-supplementary-header {
+    padding: 10px 0;
+}
+.supplementary-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 14px;
+    background: rgba(108,99,255,.12);
+    border: 1px dashed #6c63ff;
+    border-radius: 20px;
+    font-size: 12px;
+    color: #a29bfe;
+}
+
+/* Badge de categoría complementario en la biblioteca */
+.lib-cat-supplementary { background: rgba(108,99,255,.12); color: #a29bfe; }
+
 .pcat-back-btn {
     display: flex;
     align-items: center;
