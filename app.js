@@ -624,8 +624,8 @@ class GuitarStudioApp {
         const lastReset = this.data.getLastResetCheck();
         if (lastReset !== todayStr) {
             // Es un nuevo día, resetear los pasos completados y timers
-            this.completedSteps = [false, false, false, false];
-            this.timerSeconds = [0, 0, 0, 0];
+            this.completedSteps = [false, false, false];
+            this.timerSeconds = [0, 0, 0];
             this.data.setCompletedSteps(this.completedSteps);
             this.data.setLastResetCheck(todayStr);
         } else {
