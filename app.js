@@ -752,7 +752,6 @@ class GuitarStudioApp {
         this.updateProgressUI();
         this.renderHeatmap();
         this.loadTeacherNotesUI();
-        this.renderLibraryExercises();
         await this.renderPracticeView();
         await this.renderStudioPendingWeeks();
         this.renderMotivationalPhrase();
@@ -1357,8 +1356,11 @@ class GuitarStudioApp {
             }
             this.renderWeeksInNotebook();
             this.renderLibraryInNotebook();
+            this.renderAssignMatrix();
         } else if (viewId === 'studio') {
             this.renderStudioPendingWeeks();
+        } else if (viewId === 'library') {
+            this.renderLibraryView();
         }
     }
 
@@ -3117,7 +3119,12 @@ class GuitarStudioApp {
     // 10. Biblioteca de Ejercicios (Visualización y Asignación)
     // ==========================================================================
     renderLibraryExercises() {
-        const grid = document.getElementById("library-exercises-grid");
+        // Vista Biblioteca ahora se renderiza por renderLibraryView
+        this.renderLibraryView();
+    }
+
+    _renderLibraryExercisesLegacy() {
+        const grid = document.getElementById("library-exercises-grid-REMOVED");
         if (!grid) return;
         grid.innerHTML = "";
         
@@ -3172,6 +3179,256 @@ class GuitarStudioApp {
                         card.style.display = "none";
                     }
                 });
+            });
+        });
+    }
+
+    async renderLibraryView() {
+        const content = document.getElementById("lib-view-content");
+        if (!content) return;
+
+        const [allItems, weeks, allWeekItems] = await Promise.all([
+            this.data.getLibraryItems(),
+            this.data.getWeeks(),
+            this.data.getAllWeekItems()
+        ]);
+
+        let visibleItems = allItems;
+        if (this.activeProfile && !this.isProfessorMode) {
+            const profileWeeks = await this.data.getProfileWeeks(this.activeProfile.id);
+            const assignedWeekIds = new Set(profileWeeks.map(pw => pw.weekId));
+            const assignedItemIds = new Set(
+                allWeekItems.filter(wi => assignedWeekIds.has(wi.weekId)).map(wi => wi.libraryItemId)
+            );
+            visibleItems = allItems.filter(it => assignedItemIds.has(it.id));
+        }
+
+        this._libAllItems = visibleItems;
+        this._libWeeks = weeks;
+        this._libAllWeekItems = allWeekItems;
+
+        this._renderLibraryContent(visibleItems, weeks, allWeekItems);
+        this._bindLibrarySearch();
+        this._bindLibraryFilters();
+    }
+
+    _renderLibraryContent(items, weeks, allWeekItems, searchQuery = '', activeFilter = 'all') {
+        const content = document.getElementById("lib-view-content");
+        if (!content) return;
+
+        const isProfessor = this.isProfessorMode;
+        const typeIcon = { score: 'fa-guitar', pdf: 'fa-file-pdf', youtube: 'fa-youtube', spotify: 'fa-spotify' };
+        const typeColor = { score: 'var(--tb-accent)', pdf: '#e53e3e', youtube: '#FF0000', spotify: '#1DB954' };
+        const catLabel = { technique: 'Técnica', reading: 'Lectura', repertoire: 'Repertorio' };
+
+        let filtered = items.filter(item => {
+            const matchSearch = !searchQuery || item.title.toLowerCase().includes(searchQuery.toLowerCase());
+            const wi = allWeekItems.find(w => w.libraryItemId === item.id);
+            const itemCat = wi ? wi.category : null;
+            const matchFilter = activeFilter === 'all' || itemCat === activeFilter;
+            return matchSearch && matchFilter;
+        });
+
+        if (filtered.length === 0) {
+            content.innerHTML = `<div class="lib-empty-state">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;opacity:.3"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                <p>${searchQuery ? 'Sin resultados para "' + this._escapeHtml(searchQuery) + '"' : isProfessor ? 'No hay ítems todavía. Subí contenido desde el Cuaderno.' : 'El profesor no te ha asignado contenido todavía.'}</p>
+            </div>`;
+            return;
+        }
+
+        let html = '';
+
+        if (isProfessor) {
+            const byWeek = new Map();
+            const unassigned = [];
+            filtered.forEach(item => {
+                const wi = allWeekItems.find(w => w.libraryItemId === item.id);
+                if (wi) {
+                    if (!byWeek.has(wi.weekId)) byWeek.set(wi.weekId, []);
+                    byWeek.get(wi.weekId).push({ item, wi });
+                } else {
+                    unassigned.push(item);
+                }
+            });
+
+            weeks.forEach(week => {
+                const group = byWeek.get(week.id);
+                if (!group) return;
+                html += `<div class="lib-week-group">
+                    <div class="lib-week-group-header">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        <span>${this._escapeHtml(week.title)}</span>
+                        <span class="lib-week-count">${group.length} ítem${group.length !== 1 ? 's' : ''}</span>
+                    </div>
+                    <div class="lib-items-list">
+                        ${group.map(({ item, wi }) => this._libItemRowHtml(item, wi, typeIcon, typeColor, catLabel, true)).join('')}
+                    </div>
+                </div>`;
+            });
+
+            if (unassigned.length > 0) {
+                html += `<div class="lib-week-group lib-week-unassigned">
+                    <div class="lib-week-group-header">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;flex-shrink:0;opacity:.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        <span style="opacity:.7">Sin asignar a semana</span>
+                        <span class="lib-week-count">${unassigned.length}</span>
+                    </div>
+                    <div class="lib-items-list">
+                        ${unassigned.map(item => this._libItemRowHtml(item, null, typeIcon, typeColor, catLabel, true)).join('')}
+                    </div>
+                </div>`;
+            }
+        } else {
+            const profileWeekMap = new Map();
+            filtered.forEach(item => {
+                const wi = allWeekItems.find(w => w.libraryItemId === item.id);
+                if (!wi) return;
+                const week = weeks.find(w => w.id === wi.weekId);
+                const weekTitle = week ? week.title : 'Semana';
+                if (!profileWeekMap.has(wi.weekId)) profileWeekMap.set(wi.weekId, { weekTitle, items: [] });
+                profileWeekMap.get(wi.weekId).items.push({ item, wi });
+            });
+            profileWeekMap.forEach(({ weekTitle, items: group }) => {
+                html += `<div class="lib-week-group">
+                    <div class="lib-week-group-header">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        <span>${this._escapeHtml(weekTitle)}</span>
+                    </div>
+                    <div class="lib-items-list">
+                        ${group.map(({ item, wi }) => this._libItemRowHtml(item, wi, typeIcon, typeColor, catLabel, false)).join('')}
+                    </div>
+                </div>`;
+            });
+        }
+
+        content.innerHTML = html || '<div class="lib-empty-state"><p>Sin resultados.</p></div>';
+
+        content.querySelectorAll('[data-open-item]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.getAttribute('data-open-item');
+                const type = btn.getAttribute('data-type');
+                if (type === 'score') this.openPlayerForItem(id);
+                else if (type === 'pdf') this.openPDF(id);
+                else if (type === 'youtube') this.openYouTube(id);
+                else if (type === 'spotify') this.openSpotify(id);
+            });
+        });
+    }
+
+    _libItemRowHtml(item, wi, typeIcon, typeColor, catLabel, showDelete) {
+        const catBadge = wi && wi.category
+            ? `<span class="lib-cat-badge lib-cat-${wi.category}">${catLabel[wi.category] || wi.category}</span>`
+            : '';
+        const deleteBtn = showDelete
+            ? `<button class="lib-action-btn lib-delete-btn" onclick="app.deleteLibraryItem('${item.id}')" title="Eliminar"><i class="fas fa-trash"></i></button>`
+            : '';
+        const iconClass = typeIcon[item.type] || 'fa-file';
+        const color = typeColor[item.type] || 'var(--tb-text-secondary)';
+        return `<div class="lib-item-row" data-item-id="${item.id}">
+            <div class="lib-item-icon" style="color:${color}"><i class="fas ${iconClass}"></i></div>
+            <div class="lib-item-info">
+                <span class="lib-item-title">${this._escapeHtml(item.title)}</span>
+                <div class="lib-item-meta">${catBadge}<span class="lib-item-type">${item.type.toUpperCase()}</span></div>
+            </div>
+            <div class="lib-item-actions">
+                <button class="lib-action-btn lib-open-btn" data-open-item="${item.id}" data-type="${item.type}" title="Abrir">
+                    <i class="fas fa-play"></i>
+                </button>
+                ${deleteBtn}
+            </div>
+        </div>`;
+    }
+
+    _bindLibrarySearch() {
+        const input = document.getElementById("lib-search-input");
+        if (!input) return;
+        if (this._libSearchHandler) input.removeEventListener('input', this._libSearchHandler);
+        this._libSearchHandler = () => {
+            const q = input.value;
+            const active = document.querySelector('.lib-chip.active')?.getAttribute('data-filter') || 'all';
+            this._renderLibraryContent(this._libAllItems, this._libWeeks, this._libAllWeekItems, q, active);
+        };
+        input.addEventListener('input', this._libSearchHandler);
+    }
+
+    _bindLibraryFilters() {
+        document.querySelectorAll('.lib-chip').forEach(chip => {
+            chip.onclick = () => {
+                document.querySelectorAll('.lib-chip').forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
+                const filter = chip.getAttribute('data-filter');
+                const q = document.getElementById("lib-search-input")?.value || '';
+                this._renderLibraryContent(this._libAllItems, this._libWeeks, this._libAllWeekItems, q, filter);
+            };
+        });
+    }
+
+    async renderAssignMatrix() {
+        const container = document.getElementById("assign-matrix-container");
+        if (!container) return;
+
+        const [weeks, profiles, allProfileWeeks] = await Promise.all([
+            this.data.getWeeks(),
+            this.data.getProfiles(),
+            this.data.getAllProfileWeeks()
+        ]);
+
+        if (weeks.length === 0 || profiles.length === 0) {
+            container.innerHTML = `<p class="text-muted" style="font-size:13px">${
+                weeks.length === 0 ? 'Creá al menos una semana para asignar.' :
+                'No hay alumnos creados todavía. Agregá perfiles desde el selector de inicio.'
+            }</p>`;
+            return;
+        }
+
+        const profileHeaders = profiles.map(p =>
+            `<th class="assign-matrix-th">
+                <span class="assign-matrix-avatar" style="background:${p.color}">${p.name.charAt(0).toUpperCase()}</span>
+                <span class="assign-matrix-pname">${this._escapeHtml(p.name)}</span>
+            </th>`
+        ).join('');
+
+        const rows = weeks.map(week => {
+            const cells = profiles.map(profile => {
+                const isAssigned = allProfileWeeks.some(pw => pw.weekId === week.id && pw.profileId === profile.id);
+                return `<td class="assign-matrix-cell">
+                    <input type="checkbox" class="assign-checkbox"
+                        data-week-id="${week.id}" data-profile-id="${profile.id}"
+                        ${isAssigned ? 'checked' : ''}>
+                </td>`;
+            }).join('');
+            return `<tr><td class="assign-matrix-week">${this._escapeHtml(week.title)}</td>${cells}</tr>`;
+        }).join('');
+
+        container.innerHTML = `
+            <div class="assign-matrix-wrap">
+                <table class="assign-matrix">
+                    <thead><tr>
+                        <th class="assign-matrix-th assign-matrix-th-first">Semana</th>
+                        ${profileHeaders}
+                    </tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+            <p class="assign-save-hint">Los cambios se guardan automáticamente al tildar.</p>
+        `;
+
+        container.querySelectorAll('.assign-checkbox').forEach(cb => {
+            cb.addEventListener('change', async () => {
+                const weekId = cb.getAttribute('data-week-id');
+                const profileId = cb.getAttribute('data-profile-id');
+                if (cb.checked) {
+                    await this.data.saveProfileWeek({
+                        id: this.data.generateId('pw'),
+                        profileId, weekId,
+                        assignedAt: new Date().toISOString()
+                    });
+                } else {
+                    const all = await this.data.getAllProfileWeeks();
+                    const match = all.find(pw => pw.weekId === weekId && pw.profileId === profileId);
+                    if (match) await this.data.deleteProfileWeek(match.id);
+                }
             });
         });
     }

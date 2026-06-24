@@ -674,29 +674,38 @@
                             <p class="text-muted" data-i18n="no-library-items">La biblioteca está vacía. Sube archivos o agrega URLs arriba.</p>
                         </div>
                     </div>
+
+                    <!-- Sección: Asignar semanas a alumnos -->
+                    <div class="notebook-section" id="notebook-assign-section">
+                        <h3 class="notebook-section-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            Asignar Semanas a Alumnos
+                        </h3>
+                        <p class="text-muted" style="font-size:13px;margin-bottom:16px">Marcá qué semanas ve cada alumno en su práctica y biblioteca.</p>
+                        <div id="assign-matrix-container">
+                            <p class="text-muted">Cargando...</p>
+                        </div>
+                    </div>
                 </section>
 
                 <!-- VIEW 4: BIBLIOTECA -->
                 <section id="view-library" class="app-view">
-                    <div class="view-header-flex">
-                        <div>
-                            <h2 class="view-section-title" data-i18n="library-title">Biblioteca de Estudio</h2>
-                            <p class="view-section-subtitle" data-i18n="library-subtitle">Selecciona ejercicios de guitarra estructurados para enriquecer tus rutinas</p>
+                    <!-- Toolbar: búsqueda + filtros -->
+                    <div class="lib-toolbar">
+                        <div class="lib-search-wrap">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lib-search-icon"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            <input type="text" class="lib-search-input" id="lib-search-input" placeholder="Buscar por nombre...">
+                        </div>
+                        <div class="lib-filter-chips" id="lib-filter-chips">
+                            <button class="lib-chip active" data-filter="all">Todos</button>
+                            <button class="lib-chip" data-filter="technique">Técnica</button>
+                            <button class="lib-chip" data-filter="reading">Lectura</button>
+                            <button class="lib-chip" data-filter="repertoire">Repertorio</button>
                         </div>
                     </div>
-                    
-                    <!-- Filter bar tabs -->
-                    <div class="library-filter-bar">
-                        <button class="filter-tab active" data-filter="all" data-i18n="filter-all">Todos</button>
-                        <button class="filter-tab" data-filter="left" data-i18n="filter-left">Mano Izquierda</button>
-                        <button class="filter-tab" data-filter="right" data-i18n="filter-right">Mano Derecha</button>
-                        <button class="filter-tab" data-filter="reading" data-i18n="filter-reading">Lectura</button>
-                    </div>
 
-                    <!-- Exercises Grid -->
-                    <div class="exercises-grid" id="library-exercises-grid">
-                        <!-- Llenado dinámico por JS -->
-                    </div>
+                    <!-- Contenido dinámico (generado por JS según rol) -->
+                    <div id="lib-view-content"></div>
                 </section>
 
 

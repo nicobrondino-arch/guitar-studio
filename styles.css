@@ -3417,6 +3417,252 @@ textarea.form-control {
 }
 .btn-danger:hover { background: #c0392b; }
 
+/* ==========================================================================
+   BIBLIOTECA — nueva vista
+   ========================================================================== */
+.lib-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 24px 0;
+    flex-wrap: wrap;
+}
+.lib-search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 180px;
+    max-width: 320px;
+}
+.lib-search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 15px;
+    height: 15px;
+    color: var(--tb-text-muted);
+    pointer-events: none;
+}
+.lib-search-input {
+    width: 100%;
+    padding: 8px 12px 8px 32px;
+    background: var(--tb-bg-secondary);
+    border: 1px solid var(--tb-border);
+    border-radius: 20px;
+    color: var(--tb-text-primary);
+    font-size: 13px;
+    outline: none;
+    transition: border-color .2s;
+    box-sizing: border-box;
+}
+.lib-search-input:focus { border-color: var(--tb-accent); }
+.lib-search-input::placeholder { color: var(--tb-text-muted); }
+.lib-filter-chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.lib-chip {
+    padding: 6px 14px;
+    border-radius: 20px;
+    background: var(--tb-bg-secondary);
+    border: 1px solid var(--tb-border);
+    color: var(--tb-text-secondary);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all .2s;
+}
+.lib-chip:hover { border-color: var(--tb-accent); color: var(--tb-text-primary); }
+.lib-chip.active { background: var(--tb-accent); border-color: var(--tb-accent); color: #fff; }
+
+#lib-view-content {
+    padding: 16px 24px 24px;
+}
+.lib-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 48px 24px;
+    color: var(--tb-text-muted);
+    text-align: center;
+    font-size: 14px;
+}
+.lib-week-group {
+    margin-bottom: 20px;
+}
+.lib-week-group-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--tb-text-primary);
+    border-bottom: 1px solid var(--tb-border);
+    margin-bottom: 6px;
+}
+.lib-week-count {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--tb-text-muted);
+    font-weight: 400;
+}
+.lib-week-unassigned .lib-week-group-header {
+    border-bottom-style: dashed;
+}
+.lib-items-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.lib-item-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    transition: background .15s;
+}
+.lib-item-row:hover { background: var(--tb-bg-secondary); }
+.lib-item-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: var(--tb-bg-tertiary, #2a2a2a);
+    font-size: 13px;
+    flex-shrink: 0;
+}
+.lib-item-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.lib-item-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--tb-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.lib-item-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.lib-item-type {
+    font-size: 10px;
+    color: var(--tb-text-muted);
+    letter-spacing: .05em;
+}
+.lib-cat-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+.lib-cat-technique  { background: rgba(108,99,255,.18); color: #a29bfe; }
+.lib-cat-reading    { background: rgba(0,184,148,.15);  color: #55efc4; }
+.lib-cat-repertoire { background: rgba(253,203,110,.15); color: #fdcb6e; }
+.lib-item-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity .15s;
+}
+.lib-item-row:hover .lib-item-actions { opacity: 1; }
+.lib-action-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    border: 1px solid var(--tb-border);
+    background: transparent;
+    cursor: pointer;
+    transition: all .15s;
+    color: var(--tb-text-secondary);
+}
+.lib-open-btn:hover   { background: var(--tb-accent); border-color: var(--tb-accent); color: #fff; }
+.lib-delete-btn:hover { background: #e17055; border-color: #e17055; color: #fff; }
+
+/* ==========================================================================
+   CUADERNO — Sección Asignación
+   ========================================================================== */
+.notebook-section {
+    padding: 24px;
+    border-top: 1px solid var(--tb-border);
+    margin-top: 8px;
+}
+.notebook-section-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--tb-text-primary);
+    margin: 0 0 8px;
+}
+.assign-matrix-wrap {
+    overflow-x: auto;
+}
+.assign-matrix {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 13px;
+}
+.assign-matrix th,
+.assign-matrix td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--tb-border);
+    text-align: center;
+}
+.assign-matrix-th-first { text-align: left; }
+.assign-matrix-week { text-align: left; color: var(--tb-text-primary); font-weight: 500; }
+.assign-matrix-th {
+    color: var(--tb-text-secondary);
+    font-weight: 500;
+    white-space: nowrap;
+}
+.assign-matrix-th > * { display: block; }
+.assign-matrix-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 4px;
+}
+.assign-matrix-pname { font-size: 11px; }
+.assign-matrix-cell { text-align: center; }
+.assign-checkbox {
+    width: 17px;
+    height: 17px;
+    accent-color: var(--tb-accent);
+    cursor: pointer;
+}
+.assign-save-hint {
+    font-size: 11px;
+    color: var(--tb-text-muted);
+    margin-top: 10px;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .studio-hub { grid-template-columns: 1fr; padding: 12px 16px; }
