@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Populate DB</title>
+</head>
+<body>
+    <script>
+        const request = indexedDB.open("GuitarStudioDB", 1);
+        request.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains("scores")) {
+                db.createObjectStore("scores", { keyPath: "id" });
+            }
+        };
+        request.onsuccess = (e) => {
+            const db = e.target.result;
+            const tx = db.transaction(["scores"], "readwrite");
+            const store = tx.objectStore("scores");
+            store.put({
+                id: "weekly-score",
+                name: "test.gp",
+                bytes: new Uint8Array([1, 2, 3, 4]).buffer,
+                uploadedAt: Date.now()
+            });
+            tx.oncomplete = () => {
+                console.log("SUCCESSFULLY POPULATED DB");
+                // Redirect to the main app
+                window.location.href = "http://localhost:8080/";
+            };
+        };
+    </script>
+</body>
+</html>

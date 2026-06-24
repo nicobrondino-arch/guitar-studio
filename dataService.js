@@ -263,7 +263,103 @@ class DataService {
         this.setHistory(history);
     }
 
+    // ==========================================================================
+    // Perfiles de alumno
+    // ==========================================================================
+    async getProfiles() {
+        return this._tabDb.getAllProfiles();
+    }
+
+    async saveProfile(profile) {
+        return this._tabDb.saveProfile(profile);
+    }
+
+    async deleteProfile(id) {
+        return this._tabDb.deleteProfile(id);
+    }
+
+    // ==========================================================================
+    // Asignación de semanas a perfiles
+    // ==========================================================================
+    async getProfileWeeks(profileId) {
+        return this._tabDb.getProfileWeeksForProfile(profileId);
+    }
+
+    async getAllProfileWeeks() {
+        return this._tabDb.getAllProfileWeeks();
+    }
+
+    async saveProfileWeek(pw) {
+        return this._tabDb.saveProfileWeek(pw);
+    }
+
+    async deleteProfileWeek(id) {
+        return this._tabDb.deleteProfileWeek(id);
+    }
+
+    // ==========================================================================
+    // Datos por perfil (localStorage con namespace)
+    // ==========================================================================
+    _profileKey(profileId, key) {
+        return `${key}-${profileId}`;
+    }
+
+    getProfileStreak(profileId) {
+        return parseInt(localStorage.getItem(this._profileKey(profileId, 'studio-streak')) || '0', 10);
+    }
+    setProfileStreak(profileId, val) {
+        localStorage.setItem(this._profileKey(profileId, 'studio-streak'), String(val));
+    }
+
+    getProfileLastPracticed(profileId) {
+        return localStorage.getItem(this._profileKey(profileId, 'studio-last-practiced')) || '';
+    }
+    setProfileLastPracticed(profileId, dateStr) {
+        localStorage.setItem(this._profileKey(profileId, 'studio-last-practiced'), dateStr);
+    }
+
+    getProfileHistory(profileId) {
+        return JSON.parse(localStorage.getItem(this._profileKey(profileId, 'studio-history')) || '[]');
+    }
+    setProfileHistory(profileId, arr) {
+        localStorage.setItem(this._profileKey(profileId, 'studio-history'), JSON.stringify(arr));
+    }
+
+    getProfileCompletedSteps(profileId) {
+        return JSON.parse(localStorage.getItem(this._profileKey(profileId, 'completed-steps')) || '[false,false,false]');
+    }
+    setProfileCompletedSteps(profileId, arr) {
+        localStorage.setItem(this._profileKey(profileId, 'completed-steps'), JSON.stringify(arr));
+    }
+
+    getProfileLastResetCheck(profileId) {
+        return localStorage.getItem(this._profileKey(profileId, 'studio-last-reset-check')) || '';
+    }
+    setProfileLastResetCheck(profileId, dateStr) {
+        localStorage.setItem(this._profileKey(profileId, 'studio-last-reset-check'), dateStr);
+    }
+
+    // Perfil activo
+    getActiveProfileId() {
+        return localStorage.getItem('studio-active-profile') || null;
+    }
+    setActiveProfileId(id) {
+        if (id) localStorage.setItem('studio-active-profile', id);
+        else localStorage.removeItem('studio-active-profile');
+    }
+
+    // PIN del profesor
+    getProfessorPin() {
+        return localStorage.getItem('studio-professor-pin') || null;
+    }
+    setProfessorPin(pin) {
+        if (pin) localStorage.setItem('studio-professor-pin', pin);
+        else localStorage.removeItem('studio-professor-pin');
+    }
+
+    // ==========================================================================
     // Helper para generar IDs únicos
+    // ==========================================================================
     generateId(prefix = 'id') {
         return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     }

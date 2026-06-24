@@ -309,7 +309,7 @@ const TRANSLATIONS = {
 class TabDatabase {
     constructor() {
         this.dbName = "GuitarStudioDB";
-        this.dbVersion = 3; // v3: library, weeks, weekItems stores
+        this.dbVersion = 4; // v4: profiles, profileWeeks stores
         this.db = null;
     }
 
@@ -336,6 +336,12 @@ class TabDatabase {
                 }
                 if (!db.objectStoreNames.contains("weekItems")) {
                     db.createObjectStore("weekItems", { keyPath: "id" });
+                }
+                if (!db.objectStoreNames.contains("profiles")) {
+                    db.createObjectStore("profiles", { keyPath: "id" });
+                }
+                if (!db.objectStoreNames.contains("profileWeeks")) {
+                    db.createObjectStore("profileWeeks", { keyPath: "id" });
                 }
 
                 // Migration: convert existing "weekly-score" → library + week + weekItem
@@ -512,6 +518,76 @@ class TabDatabase {
             req.onerror = (e) => reject(e);
         });
     }
+
+    // Profiles CRUD
+    getAllProfiles() {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction("profiles", "readonly");
+            const req = tx.objectStore("profiles").getAll();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = (e) => reject(e);
+        });
+    }
+
+    saveProfile(profile) {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction("profiles", "readwrite");
+            const req = tx.objectStore("profiles").put(profile);
+            req.onsuccess = () => resolve();
+            req.onerror = (e) => reject(e);
+        });
+    }
+
+    deleteProfile(id) {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction(["profiles", "profileWeeks"], "readwrite");
+            tx.objectStore("profiles").delete(id);
+            const allReq = tx.objectStore("profileWeeks").getAll();
+            allReq.onsuccess = () => {
+                (allReq.result || []).filter(pw => pw.profileId === id)
+                    .forEach(pw => tx.objectStore("profileWeeks").delete(pw.id));
+            };
+            tx.oncomplete = () => resolve();
+            tx.onerror = (e) => reject(e);
+        });
+    }
+
+    // ProfileWeeks CRUD
+    getProfileWeeksForProfile(profileId) {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction("profileWeeks", "readonly");
+            const req = tx.objectStore("profileWeeks").getAll();
+            req.onsuccess = () => resolve((req.result || []).filter(pw => pw.profileId === profileId));
+            req.onerror = (e) => reject(e);
+        });
+    }
+
+    getAllProfileWeeks() {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction("profileWeeks", "readonly");
+            const req = tx.objectStore("profileWeeks").getAll();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = (e) => reject(e);
+        });
+    }
+
+    saveProfileWeek(pw) {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction("profileWeeks", "readwrite");
+            const req = tx.objectStore("profileWeeks").put(pw);
+            req.onsuccess = () => resolve();
+            req.onerror = (e) => reject(e);
+        });
+    }
+
+    deleteProfileWeek(id) {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction("profileWeeks", "readwrite");
+            const req = tx.objectStore("profileWeeks").delete(id);
+            req.onsuccess = () => resolve();
+            req.onerror = (e) => reject(e);
+        });
+    }
 }
 
 // ==========================================================================
@@ -587,6 +663,10 @@ class GuitarStudioApp {
         this.data = new DataService();
         this.metronome = new Metronome();
 
+        // Perfil activo (alumno o null = modo profesor)
+        this.activeProfile = null; // { id, name, color } o null
+        this.isProfessorMode = false;
+
         // Estado de práctica: categoría activa y player
         this.currentCategory = 'technique';
         this.playerActiveItemId = null; // ID del ítem de biblioteca activo en el player
@@ -613,46 +693,70 @@ class GuitarStudioApp {
         // Inicializar DataService (IndexedDB)
         await this.data.init();
 
-        // Cargar configuración guardada via DataService
+        // Cargar idioma
         this.lang = this.data.getLang();
-        this.streak = this.data.getStreak();
-        this.lastPracticedDate = this.data.getLastPracticedDate();
-        this.history = this.data.getHistory();
-        
-        // Cargar estado de compleción diaria
-        const todayStr = this.getTodayString();
-        const lastReset = this.data.getLastResetCheck();
-        if (lastReset !== todayStr) {
-            // Es un nuevo día, resetear los pasos completados y timers
-            this.completedSteps = [false, false, false];
-            this.timerSeconds = [0, 0, 0];
-            this.data.setCompletedSteps(this.completedSteps);
-            this.data.setLastResetCheck(todayStr);
-        } else {
-            this.completedSteps = this.data.getCompletedSteps();
-            // Restaurar tiempos acumulados del día si existen
-            await this.restoreTodayTimers();
-        }
 
         // Enlazar eventos de la UI
         this.bindEvents();
-        
+
         // Reubicar metrónomo según resolución
         this.adjustQuickToolsLocation();
         window.addEventListener("resize", () => this.adjustQuickToolsLocation());
-        
-        // Inicializar vistas, traducción e idioma
+
+        // Inicializar traducción
         this.updateLanguageUI();
+
+        // Mostrar selector de perfiles al inicio
+        await this.showProfileSelector();
+    }
+
+    // Carga datos del perfil activo y renderiza la UI completa
+    async loadProfileData() {
+        const pid = this.activeProfile ? this.activeProfile.id : null;
+
+        if (pid) {
+            this.streak = this.data.getProfileStreak(pid);
+            this.lastPracticedDate = this.data.getProfileLastPracticed(pid);
+            this.history = this.data.getProfileHistory(pid);
+
+            const todayStr = this.getTodayString();
+            const lastReset = this.data.getProfileLastResetCheck(pid);
+            if (lastReset !== todayStr) {
+                this.completedSteps = [false, false, false];
+                this.timerSeconds = [0, 0, 0];
+                this.data.setProfileCompletedSteps(pid, this.completedSteps);
+                this.data.setProfileLastResetCheck(pid, todayStr);
+            } else {
+                this.completedSteps = this.data.getProfileCompletedSteps(pid);
+                await this.restoreTodayTimers();
+            }
+        } else {
+            // Modo profesor — usar datos globales legacy
+            this.streak = this.data.getStreak();
+            this.lastPracticedDate = this.data.getLastPracticedDate();
+            this.history = this.data.getHistory();
+            const todayStr = this.getTodayString();
+            const lastReset = this.data.getLastResetCheck();
+            if (lastReset !== todayStr) {
+                this.completedSteps = [false, false, false];
+                this.timerSeconds = [0, 0, 0];
+                this.data.setCompletedSteps(this.completedSteps);
+                this.data.setLastResetCheck(todayStr);
+            } else {
+                this.completedSteps = this.data.getCompletedSteps();
+                await this.restoreTodayTimers();
+            }
+        }
+
         this.updateStreakUI();
         this.updateProgressUI();
         this.renderHeatmap();
         this.loadTeacherNotesUI();
         this.renderLibraryExercises();
-
-        // Renderizar vista de práctica con el nuevo modelo
         await this.renderPracticeView();
-
-        // Comprobar la racha diaria en base a las fechas
+        await this.renderStudioPendingWeeks();
+        this.renderMotivationalPhrase();
+        this.updateProfileChip();
         this.checkStreakValidity();
     }
 
@@ -692,58 +796,272 @@ class GuitarStudioApp {
 
         const today = new Date(this.getTodayString());
         const lastPracticed = new Date(this.lastPracticedDate);
-        
-        // Diferencia en días
+
         const diffTime = Math.abs(today - lastPracticed);
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
         if (diffDays > 1) {
-            // Pasó más de un día sin practicar, la racha se rompe
             this.streak = 0;
             this.saveStreak();
         }
     }
 
+    // ==========================================================================
+    // Sistema de Perfiles
+    // ==========================================================================
+
+    async showProfileSelector() {
+        const overlay = document.getElementById("profile-selector-overlay");
+        if (!overlay) return;
+        overlay.style.display = "flex";
+
+        const grid = document.getElementById("profile-selector-grid");
+        const profiles = await this.data.getProfiles();
+        grid.innerHTML = "";
+
+        profiles.forEach(p => {
+            const card = document.createElement("button");
+            card.className = "profile-card";
+            card.style.setProperty("--pcolor", p.color || "#6c63ff");
+            card.innerHTML = `
+                <div class="profile-card-avatar">${p.name.charAt(0).toUpperCase()}</div>
+                <span class="profile-card-name">${p.name}</span>
+            `;
+            card.addEventListener("click", () => this.selectProfile(p));
+            grid.appendChild(card);
+        });
+
+        if (profiles.length === 0) {
+            grid.innerHTML = `<p class="text-muted" style="grid-column:1/-1;text-align:center">No hay alumnos creados aún.<br>El profesor puede agregar perfiles abajo.</p>`;
+        }
+    }
+
+    async selectProfile(profile) {
+        this.activeProfile = profile;
+        this.isProfessorMode = false;
+        this.data.setActiveProfileId(profile.id);
+
+        const overlay = document.getElementById("profile-selector-overlay");
+        if (overlay) overlay.style.display = "none";
+
+        await this.loadProfileData();
+        this.navigateToView('studio');
+    }
+
+    updateProfileChip() {
+        const avatar = document.getElementById("profile-chip-avatar");
+        const name = document.getElementById("profile-chip-name");
+        if (this.isProfessorMode) {
+            if (avatar) avatar.textContent = "P";
+            if (name) name.textContent = "Profesor";
+            document.getElementById("btn-profile-chip").style.setProperty("--pcolor", "#e84393");
+        } else if (this.activeProfile) {
+            if (avatar) avatar.textContent = this.activeProfile.name.charAt(0).toUpperCase();
+            if (name) name.textContent = this.activeProfile.name;
+            document.getElementById("btn-profile-chip").style.setProperty("--pcolor", this.activeProfile.color || "#6c63ff");
+        } else {
+            if (avatar) avatar.textContent = "?";
+            if (name) name.textContent = "Sin perfil";
+        }
+    }
+
+    handleProfessorModeClick() {
+        const pin = this.data.getProfessorPin();
+        if (!pin) {
+            // Primera vez — setup del PIN
+            this._pinCallback = (enteredPin) => {
+                this.data.setProfessorPin(enteredPin);
+                this.enterProfessorMode();
+            };
+            this._pinSetup = true;
+            document.getElementById("pin-modal-desc").textContent = "Creá un PIN para el modo profesor (mínimo 4 dígitos).";
+            this.openPinModal();
+        } else {
+            this._pinCallback = (enteredPin) => {
+                if (enteredPin === pin) {
+                    this.enterProfessorMode();
+                } else {
+                    alert("PIN incorrecto.");
+                }
+            };
+            this._pinSetup = false;
+            document.getElementById("pin-modal-desc").textContent = "Ingresá el PIN para acceder al modo profesor.";
+            this.openPinModal();
+        }
+    }
+
+    enterProfessorMode() {
+        this.activeProfile = null;
+        this.isProfessorMode = true;
+        this.data.setActiveProfileId(null);
+
+        const overlay = document.getElementById("profile-selector-overlay");
+        if (overlay) overlay.style.display = "none";
+
+        this.loadProfileData();
+        this.updateProfileChip();
+        this.navigateToView('studio');
+    }
+
+    openPinModal() {
+        document.getElementById("pin-input").value = "";
+        document.getElementById("pin-modal-overlay").style.display = "flex";
+        setTimeout(() => document.getElementById("pin-input").focus(), 100);
+    }
+
+    closePinModal() {
+        document.getElementById("pin-modal-overlay").style.display = "none";
+        this._pinCallback = null;
+    }
+
+    confirmPin() {
+        const val = document.getElementById("pin-input").value.trim();
+        if (val.length < 4) { alert("El PIN debe tener al menos 4 dígitos."); return; }
+        this.closePinModal();
+        if (this._pinCallback) this._pinCallback(val);
+    }
+
+    requestProfessorPin(callback) {
+        const pin = this.data.getProfessorPin();
+        if (!pin) { callback(); return; } // Sin PIN configurado, acceso libre
+        this._pinCallback = (entered) => {
+            if (entered === pin) { callback(); }
+            else { alert("PIN incorrecto. Acceso denegado."); this.navigateToView('studio'); }
+        };
+        this._pinSetup = false;
+        document.getElementById("pin-modal-desc").textContent = "Ingresá el PIN del profesor para acceder al Cuaderno.";
+        this.openPinModal();
+    }
+
+    openProfilesModal() {
+        document.getElementById("profiles-modal-overlay").style.display = "flex";
+        this.renderProfilesModalList();
+    }
+
+    closeProfilesModal() {
+        document.getElementById("profiles-modal-overlay").style.display = "none";
+        // Refrescar el selector
+        this.showProfileSelector();
+    }
+
+    async renderProfilesModalList() {
+        const profiles = await this.data.getProfiles();
+        const container = document.getElementById("profiles-modal-list");
+        container.innerHTML = "";
+        if (profiles.length === 0) {
+            container.innerHTML = `<p class="text-muted">No hay perfiles creados.</p>`;
+            return;
+        }
+        profiles.forEach(p => {
+            const row = document.createElement("div");
+            row.className = "profiles-modal-row";
+            row.innerHTML = `
+                <span class="profiles-modal-avatar" style="background:${p.color}">${p.name.charAt(0).toUpperCase()}</span>
+                <span class="profiles-modal-name">${p.name}</span>
+                <button class="btn btn-danger btn-sm" onclick="app.deleteProfile('${p.id}')">Eliminar</button>
+            `;
+            container.appendChild(row);
+        });
+    }
+
+    async addNewProfile() {
+        const nameInput = document.getElementById("new-profile-name");
+        const colorInput = document.getElementById("new-profile-color");
+        const name = nameInput.value.trim();
+        if (!name) { nameInput.focus(); return; }
+        const profile = {
+            id: this.data.generateId("profile"),
+            name,
+            color: colorInput.value,
+            createdAt: new Date().toISOString()
+        };
+        await this.data.saveProfile(profile);
+        nameInput.value = "";
+        this.renderProfilesModalList();
+    }
+
+    async deleteProfile(id) {
+        if (!confirm("¿Eliminar este perfil? Se borrarán todos sus datos.")) return;
+        await this.data.deleteProfile(id);
+        // Borrar profileWeeks de este perfil
+        const allPw = await this.data.getAllProfileWeeks();
+        for (const pw of allPw.filter(pw => pw.profileId === id)) {
+            await this.data.deleteProfileWeek(pw.id);
+        }
+        this.renderProfilesModalList();
+    }
+
+    async renderStudioPendingWeeks() {
+        const container = document.getElementById("studio-pending-weeks");
+        if (!container) return;
+
+        let weeks = [];
+        if (this.activeProfile) {
+            const pws = await this.data.getProfileWeeks(this.activeProfile.id);
+            const weekIds = pws.map(pw => pw.weekId);
+            const allWeeks = await this.data.getWeeks();
+            weeks = allWeeks.filter(w => weekIds.includes(w.id));
+        } else if (this.isProfessorMode) {
+            weeks = await this.data.getWeeks();
+        }
+
+        if (weeks.length === 0) {
+            container.innerHTML = `<p class="text-muted">${this.isProfessorMode ? 'Asigná semanas a los alumnos desde el Cuaderno.' : 'El profesor no te ha asignado semanas todavía.'}</p>`;
+            return;
+        }
+
+        container.innerHTML = weeks.map(w => `
+            <div class="studio-week-pill" onclick="app.navigateToView('practice')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <span>${w.name}</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;margin-left:auto;opacity:.5"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+        `).join('');
+    }
+
+    renderMotivationalPhrase() {
+        const phrases = [
+            { text: "La práctica no hace la perfección. La práctica consciente hace la perfección.", author: "Vince Lombardi" },
+            { text: "Cada nota que tocas hoy es una nota que mañana saldrá sola.", author: "Anónimo" },
+            { text: "No practiques hasta que lo hagas bien. Practica hasta que no puedas hacerlo mal.", author: "Harold Craxton" },
+            { text: "La música es la aritmética de los sonidos, como la óptica es la geometría de la luz.", author: "Claude Debussy" },
+            { text: "Dime y lo olvido. Enséñame y lo recuerdo. Involúcrame y lo aprendo.", author: "Benjamin Franklin" },
+            { text: "El talento es más barato que la sal de mesa. Lo que separa al talentoso del exitoso es el trabajo duro.", author: "Stephen King" },
+            { text: "Un guitarrista sin disciplina es como una guitarra sin cuerdas.", author: "Anónimo" },
+            { text: "La perseverancia es la madre de la buena suerte.", author: "Benjamin Franklin" },
+        ];
+        const idx = Math.floor(Date.now() / 86400000) % phrases.length; // Cambia cada día
+        const p = phrases[idx];
+        const textEl = document.getElementById("studio-phrase-text");
+        const authorEl = document.getElementById("studio-phrase-author");
+        if (textEl) textEl.textContent = `"${p.text}"`;
+        if (authorEl) authorEl.textContent = `— ${p.author}`;
+    }
+
     saveStreak() {
-        this.data.saveStreakData(this.streak, this.lastPracticedDate, this.history);
+        const pid = this.activeProfile ? this.activeProfile.id : null;
+        if (pid) {
+            this.data.setProfileStreak(pid, this.streak);
+            this.data.setProfileLastPracticed(pid, this.lastPracticedDate);
+            this.data.setProfileHistory(pid, this.history);
+        } else {
+            this.data.saveStreakData(this.streak, this.lastPracticedDate, this.history);
+        }
         this.updateStreakUI();
     }
 
     updateStreakUI() {
         const countEls = document.querySelectorAll("#streak-count");
         countEls.forEach(el => el.textContent = this.streak);
-        
-        const badge = document.getElementById("streak-badge");
-        if (this.streak > 0) {
-            badge.classList.add("active");
-        } else {
-            badge.classList.remove("active");
-        }
 
-        // Título del Dashboard principal
-        const titleEl = document.getElementById("studio-streak-title");
-        const descEl = document.getElementById("studio-streak-desc");
-        
         const practicedToday = this.lastPracticedDate === this.getTodayString();
-
-        if (this.lang === "es") {
-            titleEl.textContent = practicedToday 
-                ? `¡Racha al día de ${this.streak} ${this.streak === 1 ? 'día' : 'días'}! 🔥`
-                : this.streak > 0 
-                    ? `¡Mantén tu racha de ${this.streak} ${this.streak === 1 ? 'día' : 'días'} activa!` 
-                    : "¡Inicia tu racha de hoy!";
+        const descEl = document.getElementById("studio-streak-desc");
+        if (descEl) {
             descEl.textContent = practicedToday
-                ? "¡Excelente trabajo! Has completado tu rutina técnica hoy. Nos vemos mañana."
-                : "Toca y completa tus 4 módulos diarios para encender el fuego de la constancia.";
-        } else {
-            titleEl.textContent = practicedToday 
-                ? `Streak active for ${this.streak} ${this.streak === 1 ? 'day' : 'days'}! 🔥`
-                : this.streak > 0 
-                    ? `Keep your ${this.streak}-${this.streak === 1 ? 'day' : 'days'} streak alive!` 
-                    : "Start your streak today!";
-            descEl.textContent = practicedToday
-                ? "Excellent job! You completed your technical routine today. See you tomorrow."
-                : "Play and complete your 4 daily modules to light the fire of consistency.";
+                ? "¡Excelente trabajo! Ya practicaste hoy. Nos vemos mañana. 🎸"
+                : this.streak > 0
+                    ? `Llevas ${this.streak} ${this.streak === 1 ? 'día' : 'días'} seguidos. ¡No pares!`
+                    : "Toca 15 minutos para encender el fuego de la constancia.";
         }
     }
 
@@ -751,23 +1069,18 @@ class GuitarStudioApp {
         const completedCount = this.completedSteps.filter(Boolean).length;
         const percentage = Math.round((completedCount / 3) * 100);
 
-        const circle = document.getElementById("progress-ring-circle");
-        if (circle) {
-            const circumference = 2 * Math.PI * circle.r.baseVal.value;
-            circle.style.strokeDashoffset = circumference - (percentage / 100) * circumference;
-        }
         const pctEl = document.getElementById("progress-percentage");
         if (pctEl) pctEl.textContent = `${percentage}%`;
 
+        const barEl = document.getElementById("studio-progress-bar");
+        if (barEl) barEl.style.width = `${percentage}%`;
+
         this.categoryIds.forEach((cat, i) => {
             const summaryEl = document.getElementById(`summary-cat-${cat}`);
-            const headerTab = document.getElementById(`cat-tab-${cat}`);
             if (this.completedSteps[i]) {
                 if (summaryEl) summaryEl.classList.add("completed");
-                if (headerTab) headerTab.classList.add("completed");
             } else {
                 if (summaryEl) summaryEl.classList.remove("completed");
-                if (headerTab) headerTab.classList.remove("completed");
             }
         });
     }
@@ -852,20 +1165,34 @@ class GuitarStudioApp {
             });
         });
 
-        // Category tabs en cabecera
+        // Tabs de categoría dentro de la vista práctica
         this.categoryIds.forEach(cat => {
-            const tab = document.getElementById(`cat-tab-${cat}`);
+            const tab = document.getElementById(`pcat-${cat}`);
             if (tab) {
-                tab.addEventListener("click", () => {
-                    this.navigateToView('practice');
-                    this.selectCategory(cat);
-                });
+                tab.addEventListener("click", () => this.selectCategory(cat));
             }
         });
 
         // Botón "← Ejercicios" (volver del player)
         const backBtn = document.getElementById("btn-back-to-exercises");
         if (backBtn) backBtn.addEventListener("click", () => this.exitPlayer());
+
+        // Chip de perfil (abrir selector)
+        const profileChip = document.getElementById("btn-profile-chip");
+        if (profileChip) profileChip.addEventListener("click", () => this.showProfileSelector());
+
+        // Overlay selector de perfiles
+        document.getElementById("btn-professor-mode")?.addEventListener("click", () => this.handleProfessorModeClick());
+        document.getElementById("btn-manage-profiles")?.addEventListener("click", () => this.openProfilesModal());
+
+        // Modal PIN
+        document.getElementById("btn-pin-cancel")?.addEventListener("click", () => this.closePinModal());
+        document.getElementById("btn-pin-confirm")?.addEventListener("click", () => this.confirmPin());
+        document.getElementById("pin-input")?.addEventListener("keydown", (e) => { if (e.key === "Enter") this.confirmPin(); });
+
+        // Modal gestión perfiles
+        document.getElementById("btn-profiles-modal-close")?.addEventListener("click", () => this.closeProfilesModal());
+        document.getElementById("btn-add-profile")?.addEventListener("click", () => this.addNewProfile());
 
         // Guardar anotaciones del cuaderno
         document.getElementById("btn-save-notes").addEventListener("click", () => this.saveTeacherNotes());
@@ -1001,11 +1328,37 @@ class GuitarStudioApp {
             targetLink.classList.add("active");
         }
 
+        // Actualizar label del header
+        const labels = { studio: 'Mi Estudio', practice: 'Modo Práctica', notebook: 'Cuaderno', library: 'Biblioteca' };
+        const labelEl = document.getElementById("header-view-label");
+        if (labelEl) labelEl.textContent = labels[viewId] || '';
+
+        // Mostrar/ocultar tabs de práctica
+        const practiceTabs = document.getElementById("practice-cat-tabs");
+        if (practiceTabs) practiceTabs.style.display = viewId === 'practice' ? 'flex' : 'none';
+
         if (viewId === 'practice') {
             this.renderPracticeView();
         } else if (viewId === 'notebook') {
+            if (!this.isProfessorMode) {
+                // Revertir la activación visual y pedir PIN
+                targetView?.classList.remove("active");
+                targetLink?.classList.remove("active");
+                const studioView = document.getElementById("view-studio");
+                const studioLink = document.querySelector('.nav-item[data-view="studio"]');
+                studioView?.classList.add("active");
+                studioLink?.classList.add("active");
+                if (labelEl) labelEl.textContent = 'Mi Estudio';
+                this.requestProfessorPin(() => {
+                    this.isProfessorMode = true;
+                    this.navigateToView('notebook');
+                });
+                return;
+            }
             this.renderWeeksInNotebook();
             this.renderLibraryInNotebook();
+        } else if (viewId === 'studio') {
+            this.renderStudioPendingWeeks();
         }
     }
 
@@ -1014,9 +1367,9 @@ class GuitarStudioApp {
         if (!this.categoryIds.includes(cat)) return;
         this.currentCategory = cat;
 
-        // Actualizar tabs del header
+        // Actualizar tabs dentro de la vista práctica
         this.categoryIds.forEach(c => {
-            const tab = document.getElementById(`cat-tab-${c}`);
+            const tab = document.getElementById(`pcat-${c}`);
             if (tab) tab.classList.toggle("active", c === cat);
         });
 
@@ -1041,6 +1394,12 @@ class GuitarStudioApp {
 
         area.style.display = "block";
         if (playerView) playerView.style.display = "none";
+
+        // Sincronizar tabs de categoría
+        this.categoryIds.forEach(c => {
+            const tab = document.getElementById(`pcat-${c}`);
+            if (tab) tab.classList.toggle("active", c === this.currentCategory);
+        });
 
         const cat = this.currentCategory;
         const catIdx = this.categoryIds.indexOf(cat);
@@ -1179,10 +1538,10 @@ class GuitarStudioApp {
 
         this.playerActiveItemId = libraryItemId;
 
-        // Mostrar back button, ocultar category tabs
-        const backItem = document.getElementById("header-back-item");
-        if (backItem) backItem.style.display = "flex";
-        document.querySelectorAll(".header-step-item").forEach(t => t.style.display = "none");
+        // Mostrar back button, ocultar category tabs de práctica
+        const backBtn = document.getElementById("btn-back-to-exercises");
+        if (backBtn) backBtn.style.display = "flex";
+        document.querySelectorAll(".pcat-tab").forEach(t => t.style.display = "none");
 
         // Cambiar a step-view-4
         const contentArea = document.getElementById("practice-content-area");
@@ -1207,9 +1566,9 @@ class GuitarStudioApp {
     exitPlayer() {
         this.playerActiveItemId = null;
 
-        const backItem = document.getElementById("header-back-item");
-        if (backItem) backItem.style.display = "none";
-        document.querySelectorAll(".header-step-item").forEach(t => t.style.display = "");
+        const backBtn = document.getElementById("btn-back-to-exercises");
+        if (backBtn) backBtn.style.display = "none";
+        document.querySelectorAll(".pcat-tab").forEach(t => t.style.display = "");
 
         const playerView = document.getElementById("step-view-4");
         if (playerView) playerView.style.display = "none";

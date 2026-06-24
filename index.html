@@ -249,113 +249,100 @@
         <main class="main-content">
             <!-- Header bar -->
             <header class="app-header">
-                <div class="header-left">
-                    <!-- Category tabs + back button (shown in practice view) -->
-                    <ul class="header-steps-list" id="header-steps-list">
-                        <li class="header-back-item" id="header-back-item" style="display:none">
-                            <button class="header-back-btn" id="btn-back-to-exercises">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;margin-right:4px;"><polyline points="15 18 9 12 15 6"></polyline></svg>
-                                <span data-i18n="btn-back-exercises">Ejercicios</span>
-                            </button>
-                        </li>
-                        <li class="header-step-item active" data-category="technique" id="cat-tab-technique">
-                            <span class="step-label" data-i18n="cat-technique">Técnica</span>
-                        </li>
-                        <li class="header-step-item" data-category="reading" id="cat-tab-reading">
-                            <span class="step-label" data-i18n="cat-reading">Lectura Musical</span>
-                        </li>
-                        <li class="header-step-item" data-category="repertoire" id="cat-tab-repertoire">
-                            <span class="step-label" data-i18n="cat-repertoire">Enfoque Semanal</span>
-                        </li>
-                    </ul>
+                <div class="header-left" id="header-page-title">
+                    <span class="header-page-name" id="header-view-label">Mi Estudio</span>
                 </div>
-
-                <!-- Streak Badge -->
-                <div class="header-right" style="display: flex; align-items: center; gap: 16px;">
-                    <div class="streak-badge-container">
-                        <div class="streak-badge" id="streak-badge">
-                            <div class="streak-fire">🔥</div>
-                            <div class="streak-details">
-                                <span class="streak-count" id="streak-count">0</span>
-                                <span class="streak-label" data-i18n="streak-label">Días</span>
-                            </div>
-                        </div>
-                    </div>
+                <div class="header-right">
+                    <!-- Perfil activo -->
+                    <button class="profile-chip" id="btn-profile-chip" title="Cambiar perfil">
+                        <span class="profile-chip-avatar" id="profile-chip-avatar">?</span>
+                        <span class="profile-chip-name" id="profile-chip-name">Sin perfil</span>
+                    </button>
                 </div>
             </header>
 
             <!-- Views Container -->
             <div class="view-wrapper">
                 
-                <!-- VIEW 1: MI ESTUDIO (DASHBOARD) -->
+                <!-- VIEW 1: MI ESTUDIO (HUB DEL ALUMNO) -->
                 <section id="view-studio" class="app-view active">
-                    <div class="grid-layout">
-                        
-                        <!-- Racha Card (Featured) -->
-                        <div class="card card-featured">
-                            <div class="card-featured-content">
-                                <div class="featured-badge" data-i18n="feat-badge-text">CONSTANCIA</div>
-                                <h2 class="featured-title" id="studio-streak-title" data-i18n="studio-streak-title">¡Inicia tu racha de hoy!</h2>
-                                <p class="featured-desc" id="studio-streak-desc" data-i18n="studio-streak-desc">Toca 15 minutos para mantener encendido tu fuego de práctica.</p>
-                                <button class="btn btn-primary" onclick="app.navigateToView('practice')">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px; margin-right: 8px;">
-                                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                                    </svg>
+                    <div class="studio-hub">
+
+                        <!-- Fila superior: Racha + Frase motivacional -->
+                        <div class="studio-top-row">
+                            <!-- Racha -->
+                            <div class="card studio-streak-card">
+                                <div class="studio-streak-inner">
+                                    <div class="studio-streak-fire">🔥</div>
+                                    <div class="studio-streak-info">
+                                        <span class="studio-streak-num" id="streak-count">0</span>
+                                        <span class="studio-streak-lbl" data-i18n="streak-label">Días</span>
+                                    </div>
+                                </div>
+                                <p class="studio-streak-desc" id="studio-streak-desc" data-i18n="studio-streak-desc">Toca 15 minutos para mantener encendido tu fuego de práctica.</p>
+                                <button class="btn btn-primary btn-sm" onclick="app.navigateToView('practice')">
                                     <span data-i18n="btn-start-practice">Comenzar Práctica</span>
                                 </button>
                             </div>
-                            <div class="card-featured-visual">
-                                <div class="flame-glow"></div>
+
+                            <!-- Frase motivacional -->
+                            <div class="card studio-phrase-card">
+                                <div class="studio-phrase-icon">💬</div>
+                                <p class="studio-phrase-text" id="studio-phrase-text">"La práctica no hace la perfección. La práctica perfecta hace la perfección."</p>
+                                <span class="studio-phrase-author" id="studio-phrase-author">— Vince Lombardi</span>
                             </div>
                         </div>
 
-                        <!-- Progreso Diario Card -->
-                        <div class="card">
-                            <h3 class="card-title" data-i18n="card-progress-title">Progreso de Hoy</h3>
-                            <div class="progress-grid">
-                                <div class="progress-ring-container">
-                                    <svg class="progress-ring" width="120" height="120">
-                                        <circle class="progress-ring-circle-bg" stroke="#222" stroke-width="8" fill="transparent" r="50" cx="60" cy="60"/>
-                                        <circle class="progress-ring-circle" id="progress-ring-circle" stroke="var(--tb-accent)" stroke-dasharray="314.16" stroke-dashoffset="314.16" stroke-width="8" fill="transparent" r="50" cx="60" cy="60"/>
-                                    </svg>
-                                    <div class="progress-ring-text" id="progress-percentage">0%</div>
+                        <!-- Progreso del día -->
+                        <div class="card studio-progress-card">
+                            <div class="card-header-flex">
+                                <h3 class="card-title" data-i18n="card-progress-title">Progreso de Hoy</h3>
+                                <span class="studio-progress-pct" id="progress-percentage">0%</span>
+                            </div>
+                            <div class="studio-progress-bar-wrap">
+                                <div class="studio-progress-bar" id="studio-progress-bar" style="width:0%"></div>
+                            </div>
+                            <div class="studio-cats-row">
+                                <div class="studio-cat-item" id="summary-cat-technique">
+                                    <div class="status-dot"></div>
+                                    <span data-i18n="cat-technique">Técnica</span>
                                 </div>
-                                <div class="progress-list-summary">
-                                    <div class="progress-list-item" id="summary-cat-technique">
-                                        <div class="status-dot"></div>
-                                        <span data-i18n="cat-technique">Técnica</span>
-                                    </div>
-                                    <div class="progress-list-item" id="summary-cat-reading">
-                                        <div class="status-dot"></div>
-                                        <span data-i18n="cat-reading">Lectura Musical</span>
-                                    </div>
-                                    <div class="progress-list-item" id="summary-cat-repertoire">
-                                        <div class="status-dot"></div>
-                                        <span data-i18n="cat-repertoire">Enfoque Semanal</span>
-                                    </div>
+                                <div class="studio-cat-item" id="summary-cat-reading">
+                                    <div class="status-dot"></div>
+                                    <span data-i18n="cat-reading">Lectura Musical</span>
+                                </div>
+                                <div class="studio-cat-item" id="summary-cat-repertoire">
+                                    <div class="status-dot"></div>
+                                    <span data-i18n="cat-repertoire">Enfoque Semanal</span>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Cuaderno Rápido Card -->
-                        <div class="card grid-span-2">
+                        <!-- Semanas pendientes -->
+                        <div class="card studio-pending-card">
+                            <h3 class="card-title">Mis Semanas Asignadas</h3>
+                            <div id="studio-pending-weeks">
+                                <p class="text-muted">Cargando semanas asignadas...</p>
+                            </div>
+                        </div>
+
+                        <!-- Heatmap + Stats -->
+                        <div class="card studio-heatmap-card">
+                            <h3 class="card-title" data-i18n="card-heatmap-title">Registro de Consistencia</h3>
+                            <p class="card-subtitle" data-i18n="card-heatmap-subtitle">Tus días practicados en el último mes</p>
+                            <div class="heatmap-wrapper">
+                                <div class="heatmap-grid" id="heatmap-grid"></div>
+                            </div>
+                        </div>
+
+                        <!-- Notas del profesor -->
+                        <div class="card studio-notes-card">
                             <div class="card-header-flex">
                                 <h3 class="card-title" data-i18n="card-teacher-title">Cuaderno del Profesor</h3>
                                 <button class="btn btn-text" onclick="app.navigateToView('notebook')" data-i18n="btn-edit">Ver Completo</button>
                             </div>
                             <div class="teacher-notes-preview" id="teacher-notes-preview">
-                                <p class="text-muted" data-i18n="no-notes-yet">No hay correcciones agregadas para esta semana. Ve a la sección Cuaderno para escribirlas.</p>
-                            </div>
-                        </div>
-
-                        <!-- Calendario de Actividad (Heatmap) -->
-                        <div class="card grid-span-full">
-                            <h3 class="card-title" data-i18n="card-heatmap-title">Registro de Consistencia</h3>
-                            <p class="card-subtitle" data-i18n="card-heatmap-subtitle">Tus días practicados en el último mes</p>
-                            <div class="heatmap-wrapper">
-                                <div class="heatmap-grid" id="heatmap-grid">
-                                    <!-- Generado por JS -->
-                                </div>
+                                <p class="text-muted" data-i18n="no-notes-yet">No hay anotaciones registradas para esta semana. Ve al Cuaderno.</p>
                             </div>
                         </div>
 
@@ -364,6 +351,27 @@
 
                 <!-- VIEW 2: MODO PRÁCTICA -->
                 <section id="view-practice" class="app-view">
+                    <!-- Tabs de categoría (dentro de la vista práctica, no en el header) -->
+                    <div class="practice-cat-tabs" id="practice-cat-tabs">
+                        <button class="pcat-tab active" data-category="technique" id="pcat-technique">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 12l2 2 4-4"/></svg>
+                            <span data-i18n="cat-technique">Técnica</span>
+                        </button>
+                        <button class="pcat-tab" data-category="reading" id="pcat-reading">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                            <span data-i18n="cat-reading">Lectura Musical</span>
+                        </button>
+                        <button class="pcat-tab" data-category="repertoire" id="pcat-repertoire">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            <span data-i18n="cat-repertoire">Enfoque Semanal</span>
+                        </button>
+                        <!-- Botón volver del player -->
+                        <button class="pcat-back-btn" id="btn-back-to-exercises" style="display:none">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                            <span data-i18n="btn-back-exercises">Ejercicios</span>
+                        </button>
+                    </div>
+
                     <div class="practice-wizard-container">
                         <div class="wizard-content-area">
                             <!-- Área dinámica: timer de categoría + semanas/ejercicios (ocultada cuando el player está activo) -->
@@ -719,6 +727,69 @@
         </div>
       </div>
     </template>
+
+    <!-- OVERLAY: Selector de Perfiles -->
+    <div class="profile-selector-overlay" id="profile-selector-overlay">
+        <div class="profile-selector-box">
+            <div class="profile-selector-logo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 18V5l12-2v13"></path>
+                    <circle cx="6" cy="18" r="3"></circle>
+                    <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+                <span>Guitar Studio</span>
+            </div>
+            <h2 class="profile-selector-title">¿Quién practica hoy?</h2>
+            <div class="profile-selector-grid" id="profile-selector-grid">
+                <!-- Tarjetas generadas por JS -->
+            </div>
+            <div class="profile-selector-actions">
+                <button class="btn btn-outline btn-sm" id="btn-manage-profiles">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;margin-right:5px"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 10-16 0"/></svg>
+                    Gestionar perfiles
+                </button>
+                <button class="btn btn-outline btn-sm" id="btn-professor-mode">
+                    🔒 Modo Profesor
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: PIN del Profesor -->
+    <div class="modal-overlay" id="pin-modal-overlay" style="display:none">
+        <div class="modal-box">
+            <h3 class="modal-title">🔒 Modo Profesor</h3>
+            <p class="modal-desc" id="pin-modal-desc">Ingresá el PIN para acceder al cuaderno.</p>
+            <input type="password" class="form-input" id="pin-input" maxlength="8" placeholder="PIN" style="text-align:center;letter-spacing:4px;font-size:1.4rem;">
+            <div class="modal-actions">
+                <button class="btn btn-outline" id="btn-pin-cancel">Cancelar</button>
+                <button class="btn btn-primary" id="btn-pin-confirm">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Gestión de Perfiles -->
+    <div class="modal-overlay" id="profiles-modal-overlay" style="display:none">
+        <div class="modal-box modal-wide">
+            <h3 class="modal-title">Gestionar Perfiles</h3>
+            <div id="profiles-modal-list"></div>
+            <div class="modal-form-row" style="margin-top:12px">
+                <input type="text" class="form-input" id="new-profile-name" placeholder="Nombre del alumno" maxlength="30">
+                <select class="form-select form-select-sm" id="new-profile-color">
+                    <option value="#6c63ff">Violeta</option>
+                    <option value="#e84393">Rosa</option>
+                    <option value="#00b894">Verde</option>
+                    <option value="#0984e3">Azul</option>
+                    <option value="#fdcb6e">Amarillo</option>
+                    <option value="#e17055">Rojo</option>
+                </select>
+                <button class="btn btn-primary btn-sm" id="btn-add-profile">Agregar</button>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-outline" id="btn-profiles-modal-close">Cerrar</button>
+            </div>
+        </div>
+    </div>
 
     <!-- JavaScript Application Scripts -->
     <script src="metronome.js"></script>

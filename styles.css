@@ -3020,3 +3020,408 @@ textarea.form-control {
     border-color: var(--tb-accent);
 }
 
+/* ==========================================================================
+   HEADER — nuevo diseño limpio
+   ========================================================================== */
+.header-page-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--tb-text-primary);
+    letter-spacing: 0.01em;
+}
+.profile-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--tb-bg-secondary);
+    border: 1px solid var(--tb-border);
+    border-radius: 20px;
+    padding: 5px 12px 5px 6px;
+    cursor: pointer;
+    transition: border-color .2s, box-shadow .2s;
+    color: var(--tb-text-primary);
+    font-size: 13px;
+}
+.profile-chip:hover {
+    border-color: var(--pcolor, var(--tb-accent));
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--pcolor, var(--tb-accent)) 20%, transparent);
+}
+.profile-chip-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--pcolor, var(--tb-accent));
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.profile-chip-name {
+    font-weight: 500;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ==========================================================================
+   TABS DE CATEGORÍA — dentro de la vista de práctica
+   ========================================================================== */
+.practice-cat-tabs {
+    display: none; /* mostrado por JS cuando estás en práctica */
+    align-items: center;
+    gap: 6px;
+    padding: 10px 24px 0;
+    flex-wrap: wrap;
+}
+.pcat-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 20px;
+    background: var(--tb-bg-secondary);
+    border: 1px solid var(--tb-border);
+    color: var(--tb-text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all .2s;
+}
+.pcat-tab:hover {
+    border-color: var(--tb-accent);
+    color: var(--tb-text-primary);
+}
+.pcat-tab.active {
+    background: var(--tb-accent);
+    border-color: var(--tb-accent);
+    color: #fff;
+}
+.pcat-tab.completed {
+    background: var(--tb-success, #00b894);
+    border-color: var(--tb-success, #00b894);
+    color: #fff;
+}
+.pcat-back-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 14px;
+    border-radius: 20px;
+    background: transparent;
+    border: 1px solid var(--tb-border);
+    color: var(--tb-text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+    margin-right: auto;
+    order: -1;
+    transition: all .2s;
+}
+.pcat-back-btn:hover { border-color: var(--tb-accent); color: var(--tb-text-primary); }
+
+/* ==========================================================================
+   MI ESTUDIO — hub del alumno
+   ========================================================================== */
+.studio-hub {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto auto auto;
+    gap: 16px;
+    padding: 20px 24px;
+    max-width: 1100px;
+}
+.studio-top-row {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 16px;
+}
+/* Racha card */
+.studio-streak-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+}
+.studio-streak-inner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.studio-streak-fire {
+    font-size: 2.2rem;
+    line-height: 1;
+}
+.studio-streak-info {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+}
+.studio-streak-num {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--tb-accent);
+}
+.studio-streak-lbl {
+    font-size: 11px;
+    color: var(--tb-text-muted);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+}
+.studio-streak-desc {
+    font-size: 13px;
+    color: var(--tb-text-secondary);
+    margin: 0;
+    line-height: 1.5;
+}
+/* Frase motivacional */
+.studio-phrase-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+}
+.studio-phrase-icon {
+    font-size: 1.5rem;
+}
+.studio-phrase-text {
+    font-size: 1rem;
+    font-style: italic;
+    color: var(--tb-text-primary);
+    line-height: 1.6;
+    margin: 0;
+}
+.studio-phrase-author {
+    font-size: 12px;
+    color: var(--tb-text-muted);
+}
+/* Progreso del día */
+.studio-progress-card {
+    grid-column: 1 / -1;
+}
+.studio-progress-bar-wrap {
+    height: 8px;
+    background: var(--tb-bg-tertiary, #333);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 10px 0;
+}
+.studio-progress-bar {
+    height: 100%;
+    background: var(--tb-accent);
+    border-radius: 4px;
+    transition: width .4s ease;
+}
+.studio-cats-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+.studio-cat-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+    color: var(--tb-text-secondary);
+}
+.studio-cat-item.completed { color: var(--tb-text-primary); }
+.studio-cat-item.completed .status-dot { background: var(--tb-success, #00b894); }
+/* Semanas pendientes */
+.studio-pending-card { grid-column: 1; }
+.studio-week-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--tb-bg-secondary);
+    border-radius: 8px;
+    border: 1px solid var(--tb-border);
+    cursor: pointer;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: var(--tb-text-primary);
+    transition: border-color .2s;
+}
+.studio-week-pill:hover { border-color: var(--tb-accent); }
+/* Heatmap */
+.studio-heatmap-card { grid-column: 2; }
+/* Notas */
+.studio-notes-card { grid-column: 1 / -1; }
+
+/* ==========================================================================
+   OVERLAY: Selector de Perfiles
+   ========================================================================== */
+.profile-selector-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.85);
+    backdrop-filter: blur(6px);
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+.profile-selector-box {
+    background: var(--tb-bg-card, var(--tb-bg-secondary));
+    border: 1px solid var(--tb-border);
+    border-radius: 16px;
+    padding: 36px 40px;
+    max-width: 520px;
+    width: 90vw;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+.profile-selector-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--tb-accent);
+}
+.profile-selector-logo svg { width: 28px; height: 28px; }
+.profile-selector-title {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--tb-text-primary);
+    text-align: center;
+    margin: 0;
+}
+.profile-selector-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 12px;
+    width: 100%;
+}
+.profile-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 10px;
+    background: var(--tb-bg-secondary);
+    border: 2px solid transparent;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: border-color .2s, transform .15s;
+}
+.profile-card:hover {
+    border-color: var(--pcolor, var(--tb-accent));
+    transform: translateY(-2px);
+}
+.profile-card-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--pcolor, var(--tb-accent));
+    color: #fff;
+    font-size: 1.3rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.profile-card-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--tb-text-primary);
+    text-align: center;
+    word-break: break-word;
+}
+.profile-selector-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+/* ==========================================================================
+   MODALES (PIN + Gestión de Perfiles)
+   ========================================================================== */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.75);
+    z-index: 1100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.modal-box {
+    background: var(--tb-bg-card, var(--tb-bg-secondary));
+    border: 1px solid var(--tb-border);
+    border-radius: 14px;
+    padding: 28px 32px;
+    max-width: 380px;
+    width: 92vw;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+.modal-wide { max-width: 520px; }
+.modal-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--tb-text-primary);
+    margin: 0;
+}
+.modal-desc {
+    font-size: 13px;
+    color: var(--tb-text-secondary);
+    margin: 0;
+}
+.modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 4px;
+}
+.modal-form-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.profiles-modal-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--tb-border);
+}
+.profiles-modal-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 700;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+.profiles-modal-name {
+    flex: 1;
+    font-size: 14px;
+    color: var(--tb-text-primary);
+}
+.btn-danger {
+    background: #e17055;
+    color: #fff;
+    border: none;
+}
+.btn-danger:hover { background: #c0392b; }
+
+/* Responsive */
+@media (max-width: 768px) {
+    .studio-hub { grid-template-columns: 1fr; padding: 12px 16px; }
+    .studio-top-row { grid-template-columns: 1fr; }
+    .studio-pending-card, .studio-heatmap-card { grid-column: 1; }
+    .practice-cat-tabs { padding: 10px 12px 0; }
+}
+
