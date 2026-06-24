@@ -1179,6 +1179,9 @@ class GuitarStudioApp {
         // Botón "Volver" del visor PDF
         document.getElementById("btn-pdf-close")?.addEventListener("click", () => this.closePDFViewer());
 
+        // Botón "Volver" del visor YouTube
+        document.getElementById("btn-yt-close")?.addEventListener("click", () => this.closeYouTubeViewer());
+
         // Chip de perfil (abrir selector)
         const profileChip = document.getElementById("btn-profile-chip");
         if (profileChip) profileChip.addEventListener("click", () => this.showProfileSelector());
@@ -1303,8 +1306,9 @@ class GuitarStudioApp {
     }
 
     navigateToView(viewId) {
-        // Cerrar visor PDF si está abierto
+        // Cerrar visores si están abiertos
         if (this._pdfBlobUrl) this.closePDFViewer();
+        if (document.getElementById('yt-viewer-panel')?.style.display === 'flex') this.closeYouTubeViewer();
 
         // Pausar metrónomo si cambiamos de vista
         if (this.metronome.isPlaying && viewId !== 'practice') {
@@ -1647,7 +1651,29 @@ class GuitarStudioApp {
     async openYouTube(libraryItemId) {
         const item = await this.data.getLibraryItem(libraryItemId);
         if (!item || !item.url) return;
-        window.open(item.url, '_blank');
+
+        const videoId = this._extractYouTubeId(item.url);
+        if (!videoId) { window.open(item.url, '_blank'); return; }
+
+        document.getElementById('yt-iframe').src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+        document.getElementById('yt-viewer-title').textContent = item.title || 'Video';
+        document.getElementById('yt-viewer-panel').style.display = 'flex';
+    }
+
+    _extractYouTubeId(url) {
+        const patterns = [
+            /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([A-Za-z0-9_-]{11})/
+        ];
+        for (const p of patterns) {
+            const m = url.match(p);
+            if (m) return m[1];
+        }
+        return null;
+    }
+
+    closeYouTubeViewer() {
+        document.getElementById('yt-viewer-panel').style.display = 'none';
+        document.getElementById('yt-iframe').src = '';
     }
 
     // Abre Spotify en nueva pestaña
