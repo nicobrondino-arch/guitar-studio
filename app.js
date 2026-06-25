@@ -667,6 +667,10 @@ class GuitarStudioApp {
         this.activeProfile = null; // { id, name, color } o null
         this.isProfessorMode = false;
 
+        // Estado de clases (Phase 6)
+        this._currentClaseId = null;
+        this._currentClaseTab = 0; // 0=técnica, 1=lectura, 2=repertorio
+
         // Estado de práctica: categoría activa y player
         this.currentCategory = 'technique';
         this.playerActiveItemId = null; // ID del ítem de biblioteca activo en el player
@@ -698,6 +702,9 @@ class GuitarStudioApp {
 
         // Enlazar eventos de la UI
         this.bindEvents();
+
+        // Cargar tema visual guardado
+        this.loadSavedTheme();
 
         // Reubicar metrónomo según resolución
         this.adjustQuickToolsLocation();
@@ -844,6 +851,7 @@ class GuitarStudioApp {
         if (overlay) overlay.style.display = "none";
 
         await this.loadProfileData();
+        this.updateSidebarForMode();
         this.navigateToView('studio');
     }
 
@@ -893,12 +901,14 @@ class GuitarStudioApp {
         this.activeProfile = null;
         this.isProfessorMode = true;
         this.data.setActiveProfileId(null);
+        this.updateSidebarForMode();
 
         const overlay = document.getElementById("profile-selector-overlay");
         if (overlay) overlay.style.display = "none";
 
         this.loadProfileData();
         this.updateProfileChip();
+        this.updateSidebarForMode();
         this.navigateToView('studio');
     }
 
@@ -1010,7 +1020,7 @@ class GuitarStudioApp {
         }
 
         container.innerHTML = weeks.map(w => `
-            <div class="studio-week-pill" onclick="app.navigateToView('practice')">
+            <div class="studio-week-pill" onclick="app._practiceTargetWeek='${w.id}'; app.navigateToView('practice');">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                 <span>${w.name}</span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;margin-left:auto;opacity:.5"><polyline points="9 18 15 12 9 6"/></svg>
@@ -1154,15 +1164,17 @@ class GuitarStudioApp {
 
         // Configurar callback del pulso del metrónomo
         const indicators = document.querySelectorAll(".beat-indicator");
-        this.metronome.onBeat((beatNumber) => {
-            indicators.forEach((ind, index) => {
-                if (index === beatNumber) {
-                    ind.classList.add("active");
-                } else {
-                    ind.classList.remove("active");
-                }
+        if (typeof this.metronome.onBeat === 'function') {
+            this.metronome.onBeat((beatNumber) => {
+                indicators.forEach((ind, index) => {
+                    if (index === beatNumber) {
+                        ind.classList.add("active");
+                    } else {
+                        ind.classList.remove("active");
+                    }
+                });
             });
-        });
+        }
 
         // Tabs de categoría dentro de la vista práctica (incluye supplementary)
         [...this.categoryIds, 'supplementary'].forEach(cat => {
@@ -1198,6 +1210,12 @@ class GuitarStudioApp {
         // Modal gestión perfiles
         document.getElementById("btn-profiles-modal-close")?.addEventListener("click", () => this.closeProfilesModal());
         document.getElementById("btn-add-profile")?.addEventListener("click", () => this.addNewProfile());
+
+        // Modal metadatos de biblioteca
+        document.getElementById("btn-lib-metadata-save")?.addEventListener("click", () => this.saveLibItemMetadata());
+        document.getElementById("btn-lib-metadata-cancel")?.addEventListener("click", () => {
+            document.getElementById('lib-metadata-modal').style.display = 'none';
+        });
 
         // Guardar anotaciones del cuaderno
         document.getElementById("btn-save-notes").addEventListener("click", () => this.saveTeacherNotes());
@@ -1305,6 +1323,194 @@ class GuitarStudioApp {
         indicators.forEach(ind => ind.classList.remove("active"));
     }
 
+    // ==========================================================================
+    // Toast de Notificación
+    // ==========================================================================
+    showToast(message, icon, duration) {
+        icon = icon || '✓';
+        duration = duration || 4000;
+        const toast = document.createElement('div');
+        toast.className = 'gs-toast';
+        toast.innerHTML = '<span class="gs-toast-icon">' + icon + '</span><span class="gs-toast-msg">' + message + '</span>';
+        document.body.appendChild(toast);
+        setTimeout(function() {
+            toast.classList.add('toast-exit');
+            setTimeout(function() { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 320);
+        }, duration);
+    }
+
+    // ==========================================================================
+    // Grupos de Clase
+    // ==========================================================================
+    _getGroups() {
+        try { return JSON.parse(localStorage.getItem('gs-groups') || '[]'); } catch(e) { return []; }
+    }
+    _saveGroups(groups) { localStorage.setItem('gs-groups', JSON.stringify(groups)); }
+    _genGroupId() { return 'grp_' + Date.now() + '_' + Math.random().toString(36).slice(2,7); }
+
+    async renderGroupsInNotebook() {
+        const container = document.getElementById('groups-list-notebook');
+        if (!container) return;
+        const groups = this._getGroups();
+        const profiles = await this.data.getProfiles();
+
+        if (groups.length === 0) {
+            container.innerHTML = '<p class="text-muted">No hay grupos creados aún.</p>';
+            return;
+        }
+        const self = this;
+        container.innerHTML = groups.map(function(g) {
+            const members = profiles.filter(function(p) { return (g.memberIds || []).includes(p.id); });
+            const avatars = members.slice(0,5).map(function(p) {
+                return '<div class="group-member-avatar" style="background:' + (p.color||'#6366f1') + '" title="' + self._escapeHtml(p.name) + '">' + ((p.name||'?')[0].toUpperCase()) + '</div>';
+            }).join('');
+            const extra = members.length > 5 ? '<div class="group-member-avatar group-member-more">+' + (members.length-5) + '</div>' : '';
+            const dayTime = [g.day, g.time].filter(Boolean).join(' · ') || 'Sin horario';
+            const meetShort = g.meetLink ? g.meetLink.replace(/^https?:\/\//, '').slice(0,36) + (g.meetLink.length > 40 ? '…' : '') : '';
+            const waBtnSvg = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:12px;height:12px"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>';
+            return '<div class="group-card" data-group-id="' + g.id + '">' +
+                '<div class="group-card-top">' +
+                  '<div class="group-card-info">' +
+                    '<div class="group-card-name">' + self._escapeHtml(g.name) + '</div>' +
+                    '<div class="group-card-meta">' + dayTime + ' · ' + members.length + ' alumno' + (members.length !== 1 ? 's' : '') + '</div>' +
+                  '</div>' +
+                  '<div class="group-card-actions">' +
+                    '<button class="btn btn-outline btn-sm" onclick="app.showEditGroupForm(\'' + g.id + '\')">Editar</button>' +
+                    '<button class="btn btn-outline btn-sm btn-danger-outline" onclick="app.deleteGroup(\'' + g.id + '\')">Eliminar</button>' +
+                  '</div>' +
+                '</div>' +
+                '<div class="group-card-members">' + avatars + extra +
+                  (members.length === 0 ? '<span class="text-muted" style="font-size:12px">Sin alumnos asignados</span>' : '') +
+                '</div>' +
+                (g.meetLink ? '<div class="group-meet-bar">' +
+                  '<span class="group-meet-url">' + self._escapeHtml(meetShort) + '</span>' +
+                  '<div class="group-meet-btns">' +
+                    '<button class="btn btn-outline btn-sm" onclick="app.copyMeetLink(\'' + g.id + '\')">Copiar link</button>' +
+                    '<button class="btn btn-sm group-whatsapp-btn" onclick="app.sendMeetWhatsApp(\'' + g.id + '\')">' + waBtnSvg + ' WhatsApp</button>' +
+                  '</div></div>' : '') +
+                '</div>';
+        }).join('');
+    }
+
+    async showNewGroupForm() { await this._showGroupForm(null); }
+    async showEditGroupForm(groupId) { await this._showGroupForm(groupId); }
+
+    async _showGroupForm(groupId) {
+        const groups = this._getGroups();
+        const existing = groupId ? groups.find(function(g) { return g.id === groupId; }) : null;
+        const profiles = await this.data.getProfiles();
+        const container = document.getElementById('groups-list-notebook');
+        if (!container) return;
+        const self = this;
+
+        const dayOptions = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'].map(function(d) {
+            return '<option value="' + d + '"' + (existing && existing.day === d ? ' selected' : '') + '>' + d + '</option>';
+        }).join('');
+
+        const memberChecks = profiles.map(function(p) {
+            const checked = existing && (existing.memberIds||[]).includes(p.id) ? ' checked' : '';
+            return '<label class="group-member-check">' +
+                '<input type="checkbox" name="member" value="' + p.id + '"' + checked + '>' +
+                '<div class="group-member-avatar sm" style="background:' + (p.color||'#6366f1') + '">' + ((p.name||'?')[0].toUpperCase()) + '</div>' +
+                '<span>' + self._escapeHtml(p.name) + '</span></label>';
+        }).join('');
+
+        container.innerHTML = '<div class="group-form card" id="group-form-card">' +
+            '<h4 class="group-form-title">' + (existing ? 'Editar Grupo' : 'Nuevo Grupo') + '</h4>' +
+            '<div class="form-group"><label class="form-label">Nombre del grupo</label>' +
+            '<input class="form-control" id="gf-name" value="' + self._escapeHtml(existing ? existing.name : '') + '" placeholder="Ej. Folklore Miércoles"></div>' +
+            '<div class="group-form-row">' +
+            '<div class="form-group" style="flex:1"><label class="form-label">Día</label>' +
+            '<select class="form-control" id="gf-day"><option value="">Sin definir</option>' + dayOptions + '</select></div>' +
+            '<div class="form-group" style="flex:1"><label class="form-label">Horario</label>' +
+            '<input class="form-control" id="gf-time" type="time" value="' + (existing && existing.time ? existing.time : '') + '"></div></div>' +
+            '<div class="form-group"><label class="form-label">Link de Google Meet</label>' +
+            '<input class="form-control" id="gf-meet" value="' + self._escapeHtml(existing ? (existing.meetLink||'') : '') + '" placeholder="https://meet.google.com/..."></div>' +
+            '<div class="form-group"><label class="form-label">Alumnos</label>' +
+            '<div class="group-members-grid" id="gf-members">' + (memberChecks || '<p class="text-muted" style="font-size:12px">No hay alumnos creados aún.</p>') + '</div></div>' +
+            '<div class="group-form-actions">' +
+            '<button class="btn btn-primary" onclick="app._saveGroupForm(\'' + (groupId||'') + '\')">Guardar</button>' +
+            '<button class="btn btn-outline" onclick="app.renderGroupsInNotebook()">Cancelar</button>' +
+            '</div></div>';
+
+        const nameInput = document.getElementById('gf-name');
+        if (nameInput) nameInput.focus();
+    }
+
+    async _saveGroupForm(groupId) {
+        const name = document.getElementById('gf-name').value.trim();
+        if (!name) { this.showToast('Ingresá un nombre para el grupo.', '⚠️', 3000); return; }
+        const day      = document.getElementById('gf-day').value;
+        const time     = document.getElementById('gf-time').value;
+        const meetLink = document.getElementById('gf-meet').value.trim();
+        const memberIds = Array.from(document.querySelectorAll('#gf-members input[name="member"]:checked')).map(function(el) { return el.value; });
+        const groups = this._getGroups();
+        if (groupId) {
+            const idx = groups.findIndex(function(g) { return g.id === groupId; });
+            if (idx > -1) groups[idx] = Object.assign({}, groups[idx], { name, day, time, meetLink, memberIds });
+        } else {
+            groups.push({ id: this._genGroupId(), name, day, time, meetLink, memberIds, createdAt: Date.now() });
+        }
+        this._saveGroups(groups);
+        this.showToast(groupId ? 'Grupo actualizado.' : '¡Grupo creado!', '✓');
+        await this.renderGroupsInNotebook();
+    }
+
+    async deleteGroup(groupId) {
+        if (!confirm('¿Eliminar este grupo?')) return;
+        this._saveGroups(this._getGroups().filter(function(g) { return g.id !== groupId; }));
+        await this.renderGroupsInNotebook();
+        this.showToast('Grupo eliminado.', '✓');
+    }
+
+    copyMeetLink(groupId) {
+        const group = this._getGroups().find(function(g) { return g.id === groupId; });
+        if (!group || !group.meetLink) return;
+        const self = this;
+        navigator.clipboard.writeText(group.meetLink)
+            .then(function() { self.showToast('Link copiado al portapapeles.', '📋'); })
+            .catch(function() { self.showToast('Copiá manualmente: ' + group.meetLink, '⚠️', 6000); });
+    }
+
+    sendMeetWhatsApp(groupId) {
+        const group = this._getGroups().find(function(g) { return g.id === groupId; });
+        if (!group || !group.meetLink) return;
+        const dayTime = [group.day, group.time].filter(Boolean).join(' a las ');
+        const msg = encodeURIComponent(
+            '¡Hola! Te comparto el link para la clase' +
+            (group.name ? ' de ' + group.name : '') +
+            (dayTime ? ' (' + dayTime + ')' : '') +
+            ':\n' + group.meetLink
+        );
+        window.open('https://wa.me/?text=' + msg, '_blank');
+    }
+
+    // ==========================================================================
+    // Sistema de Temas Visuales
+    // ==========================================================================
+
+    /**
+     * Aplica un tema visual al app: tango | folklore | partitura
+     * Persiste la elección en localStorage.
+     */
+    applyTheme(theme) {
+        if (!['tango', 'folklore', 'partitura'].includes(theme)) return;
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('gs-theme', theme);
+        // Marcar swatch activo
+        document.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('active'));
+        const active = document.getElementById(`btn-theme-${theme}`);
+        if (active) active.classList.add('active');
+    }
+
+    /**
+     * Carga el tema guardado en localStorage, o aplica tango por defecto.
+     */
+    loadSavedTheme() {
+        const saved = localStorage.getItem('gs-theme') || 'tango';
+        this.applyTheme(saved);
+    }
+
     navigateToView(viewId) {
         // Cerrar visores si están abiertos
         if (this._pdfBlobUrl) this.closePDFViewer();
@@ -1320,6 +1526,24 @@ class GuitarStudioApp {
             this.pauseStepTimer(this.activeTimerStep);
         }
 
+        const PROFESSOR_VIEWS = ['dashboard', 'notebook', 'library'];
+        const labels = {
+            studio: 'Mi Estudio', practice: 'Modo Práctica',
+            'my-library': 'Mi Biblioteca', dashboard: 'Tablero de Control',
+            notebook: 'Cuaderno', library: 'Biblioteca Principal'
+        };
+        const labelEl = document.getElementById("header-view-label");
+
+        // Vistas del profesor requieren PIN si el alumno intenta acceder
+        if (PROFESSOR_VIEWS.includes(viewId) && !this.isProfessorMode) {
+            this.requestProfessorPin(() => {
+                this.isProfessorMode = true;
+                this.updateSidebarForMode();
+                this.navigateToView(viewId);
+            });
+            return;
+        }
+
         // Ocultar vistas activas
         document.querySelectorAll(".app-view").forEach(view => {
             view.classList.remove("active");
@@ -1332,14 +1556,9 @@ class GuitarStudioApp {
         const targetView = document.getElementById(`view-${viewId}`);
         const targetLink = document.querySelector(`.nav-item[data-view="${viewId}"]`);
 
-        if (targetView && targetLink) {
-            targetView.classList.add("active");
-            targetLink.classList.add("active");
-        }
+        if (targetView) targetView.classList.add("active");
+        if (targetLink) targetLink.classList.add("active");
 
-        // Actualizar label del header
-        const labels = { studio: 'Mi Estudio', practice: 'Modo Práctica', notebook: 'Cuaderno', library: 'Biblioteca' };
-        const labelEl = document.getElementById("header-view-label");
         if (labelEl) labelEl.textContent = labels[viewId] || '';
 
         // Mostrar/ocultar tabs de práctica
@@ -1348,29 +1567,47 @@ class GuitarStudioApp {
 
         if (viewId === 'practice') {
             this.renderPracticeView();
-        } else if (viewId === 'notebook') {
-            if (!this.isProfessorMode) {
-                // Revertir la activación visual y pedir PIN
-                targetView?.classList.remove("active");
-                targetLink?.classList.remove("active");
-                const studioView = document.getElementById("view-studio");
-                const studioLink = document.querySelector('.nav-item[data-view="studio"]');
-                studioView?.classList.add("active");
-                studioLink?.classList.add("active");
-                if (labelEl) labelEl.textContent = 'Mi Estudio';
-                this.requestProfessorPin(() => {
-                    this.isProfessorMode = true;
-                    this.navigateToView('notebook');
-                });
-                return;
+            // Scroll al acordeón de la semana elegida desde Mi Estudio
+            if (this._practiceTargetWeek) {
+                const _tid = this._practiceTargetWeek;
+                this._practiceTargetWeek = null;
+                setTimeout(() => {
+                    const el = document.querySelector('[data-week-id="' + _tid + '"]');
+                    const container = document.getElementById('practice-content-area');
+                    if (el && container) {
+                        container.scrollTop = el.offsetTop - 16;
+                        const hdr = el.querySelector('.practice-week-header');
+                        if (hdr && el.classList.contains('collapsed')) hdr.click();
+                    }
+                }, 200);
             }
+        } else if (viewId === 'notebook') {
             this.renderWeeksInNotebook();
+            this.renderGroupsInNotebook();
             this.renderLibraryInNotebook();
             this.renderAssignMatrix();
         } else if (viewId === 'studio') {
             this.renderStudioPendingWeeks();
         } else if (viewId === 'library') {
             this.renderLibraryView();
+        } else if (viewId === 'my-library') {
+            this.renderMyLibraryView();
+        } else if (viewId === 'dashboard') {
+            this.renderDashboardView();
+        }
+    }
+
+    updateSidebarForMode() {
+        const profSection = document.getElementById('nav-section-professor');
+        const studSection = document.getElementById('nav-section-student');
+        if (!profSection || !studSection) return;
+
+        if (this.isProfessorMode) {
+            profSection.classList.remove('nav-section-locked');
+            studSection.classList.add('nav-section-dimmed');
+        } else {
+            profSection.classList.add('nav-section-locked');
+            studSection.classList.remove('nav-section-dimmed');
         }
     }
 
@@ -1472,11 +1709,12 @@ class GuitarStudioApp {
             allowedWeekIds = new Set(pws.map(pw => pw.weekId));
         }
 
-        // Agrupar por semana
+        // Agrupar por semana — más reciente primero (semana actual al tope)
         const weeksWithItems = weeks.map(w => ({
             week: w,
             items: catItems.filter(wi => wi.weekId === w.id)
-        })).filter(({ week, items }) => items.length > 0 && (!allowedWeekIds || allowedWeekIds.has(week.id)));
+        })).filter(({ week, items }) => items.length > 0 && (!allowedWeekIds || allowedWeekIds.has(week.id)))
+          .sort((a, b) => (b.week.createdAt || 0) - (a.week.createdAt || 0));
 
         if (weeksWithItems.length === 0) {
             const emptyMsg = isSupplementary
@@ -1486,7 +1724,7 @@ class GuitarStudioApp {
                 : t('practice-empty-state');
             html += `<div class="practice-empty-state">
                 <p class="text-muted">${emptyMsg}</p>
-                ${!isSupplementary ? `<button class="btn btn-outline btn-sm" onclick="app.navigateToView('notebook')">${t('practice-empty-go-notebook')}</button>` : ''}
+                ${!isSupplementary && this.isProfessorMode ? `<button class="btn btn-outline btn-sm" onclick="app.navigateToView('notebook')">${t('practice-empty-go-notebook')}</button>` : ''}
             </div>`;
         } else {
             // Cargar todos los library items necesarios
@@ -1496,9 +1734,17 @@ class GuitarStudioApp {
                 allLib.forEach(item => { libraryCache[item.id] = item; });
             } catch(e) { console.warn(e); }
 
+            const typeGroups = [
+                { key: 'score',   label: 'Partituras',  icon: 'fa-guitar',    color: 'var(--tb-accent)',  action: (id) => `app.openPlayerForItem('${id}')` },
+                { key: 'pdf',     label: 'PDFs',        icon: 'fa-file-pdf',  color: '#e53e3e',           action: (id) => `app.openPDF('${id}')` },
+                { key: 'youtube', label: 'Videos',      icon: 'fa-youtube',   color: '#FF0000',           action: (id) => `app.openYouTube('${id}')` },
+                { key: 'spotify', label: 'Spotify',     icon: 'fa-spotify',   color: '#1DB954',           action: (id) => `app.openSpotify('${id}')` },
+            ];
+
             html += `<div class="weeks-accordion">`;
             weeksWithItems.forEach(({ week, items }, wIdx) => {
-                const isOpen = wIdx === 0; // La más reciente (mayor order) abierta por defecto
+                const resolvedItems = items.map(wi => libraryCache[wi.libraryItemId]).filter(Boolean);
+                const isOpen = wIdx === 0;
                 html += `<div class="week-accordion-item ${isOpen ? 'open' : ''}">
                     <div class="week-accordion-header" onclick="this.parentElement.classList.toggle('open')">
                         <span class="week-accordion-title">${this._escapeHtml(week.title)}</span>
@@ -1506,51 +1752,28 @@ class GuitarStudioApp {
                     </div>
                     <div class="week-accordion-body">`;
 
-                // GP score cards
-                const scoreItems = items.map(wi => libraryCache[wi.libraryItemId]).filter(i => i && i.type === 'score');
-                if (scoreItems.length > 0) {
-                    html += `<div class="exercise-cards-grid">`;
-                    scoreItems.forEach(item => {
-                        html += `<div class="gp-exercise-card" data-item-id="${item.id}">
-                            <div class="gp-card-icon"><i class="fas fa-guitar"></i></div>
-                            <div class="gp-card-info">
-                                <span class="gp-card-title">${this._escapeHtml(item.title)}</span>
-                                <span class="gp-card-meta">${item.filename || ''}</span>
-                            </div>
-                            <button class="btn btn-primary btn-sm gp-open-btn" onclick="app.openPlayerForItem('${item.id}')">
-                                <i class="fas fa-play"></i>
-                            </button>
-                        </div>`;
-                    });
-                    html += `</div>`;
-                }
+                typeGroups.forEach(({ key, label, icon, color, action }) => {
+                    const group = resolvedItems.filter(i => i.type === key);
+                    if (group.length === 0) return;
 
-                // Resource cards (PDF, YouTube, Spotify)
-                const resourceItems = items.map(wi => libraryCache[wi.libraryItemId]).filter(i => i && i.type !== 'score');
-                if (resourceItems.length > 0) {
-                    html += `<div class="resource-cards-row">`;
-                    resourceItems.forEach(item => {
-                        if (item.type === 'pdf') {
-                            html += `<div class="resource-card resource-pdf" onclick="app.openPDF('${item.id}')">
-                                <i class="fas fa-file-pdf" style="color:#e53e3e"></i>
-                                <span>${this._escapeHtml(item.title)}</span>
-                            </div>`;
-                        } else if (item.type === 'youtube') {
-                            html += `<div class="resource-card resource-youtube" onclick="app.openYouTube('${item.id}')">
-                                <i class="fab fa-youtube" style="color:#FF0000"></i>
-                                <span>${this._escapeHtml(item.title)}</span>
-                            </div>`;
-                        } else if (item.type === 'spotify') {
-                            html += `<div class="resource-card resource-spotify" onclick="app.openSpotify('${item.id}')">
-                                <i class="fab fa-spotify" style="color:#1DB954"></i>
-                                <span>${this._escapeHtml(item.title)}</span>
-                            </div>`;
-                        }
-                    });
-                    html += `</div>`;
-                }
+                    html += `<div class="week-type-section">
+                        <div class="week-type-header">
+                            <i class="fas ${icon}" style="color:${color}"></i>
+                            <span>${label}</span>
+                        </div>
+                        <ul class="week-type-list">`;
 
-                html += `</div></div>`; // close accordion body + item
+                    group.forEach(item => {
+                        html += `<li class="week-type-item" onclick="${action(item.id)}">
+                            <span class="week-type-item-title">${this._escapeHtml(item.title)}</span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0;opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+                        </li>`;
+                    });
+
+                    html += `</ul></div>`;
+                });
+
+                html += `</div></div>`;
             });
             html += `</div>`; // close weeks-accordion
         }
@@ -1812,6 +2035,10 @@ class GuitarStudioApp {
         const typeIcon = { score: 'fa-guitar', pdf: 'fa-file-pdf', youtube: 'fa-youtube', spotify: 'fa-spotify' };
         const typeColor = { score: 'var(--tb-accent)', pdf: '#e53e3e', youtube: '#FF0000', spotify: '#1DB954' };
 
+        const levelLabel = { inicial: 'Inicial', intermedio: 'Intermedio', avanzado: 'Avanzado' };
+        const exTypeLabel = { tecnica: 'Técnica', lectura: 'Lectura', repertorio: 'Repertorio', teoria: 'Teoría', improvisacion: 'Improvisación' };
+        const styleLabel = { tango: 'Tango', folklore: 'Folklore', jazz: 'Jazz', clasico: 'Clásico', rock: 'Rock', pop: 'Pop', bossa: 'Bossa Nova', flamenco: 'Flamenco', otro: 'Otro' };
+
         container.innerHTML = items.map(item => {
             const weekOptions = weeks.map(w => {
                 const assigned = allWeekItems.find(wi => wi.libraryItemId === item.id && wi.weekId === w.id);
@@ -1827,13 +2054,20 @@ class GuitarStudioApp {
                 return `<option value="${cat}" ${wi && wi.category === cat ? 'selected' : ''}>${catLabels[cat] || cat}</option>`;
             }).join('');
 
-            return `<div class="library-item-row" data-item-id="${item.id}">
+            const isMedia = item.type === 'youtube' || item.type === 'spotify';
+            const metaTags = [
+                item.level ? `<span class="lib-meta-tag lib-meta-level">${levelLabel[item.level] || item.level}</span>` : '',
+                !isMedia && item.exerciseType ? `<span class="lib-meta-tag lib-meta-extype">${exTypeLabel[item.exerciseType] || item.exerciseType}</span>` : '',
+                isMedia && item.musicalStyle ? `<span class="lib-meta-tag lib-meta-style">${styleLabel[item.musicalStyle] || item.musicalStyle}</span>` : '',
+            ].filter(Boolean).join('');
+
+            return `<div class="library-item-row${wi ? ' assigned' : ''}" data-item-id="${item.id}" data-assigned="${wi ? 'true' : 'false'}">
                 <div class="library-item-icon" style="color:${typeColor[item.type] || 'var(--tb-text-secondary)'}">
                     <i class="fas ${typeIcon[item.type] || 'fa-file'}"></i>
                 </div>
                 <div class="library-item-info">
                     <span class="library-item-title">${this._escapeHtml(item.title)}</span>
-                    <span class="library-item-type">${item.type}</span>
+                    <div class="lib-meta-tags">${metaTags || '<span class="lib-meta-empty">Sin clasificar</span>'}</div>
                 </div>
                 <div class="library-item-assign">
                     <select class="form-select-sm lib-week-select" data-item-id="${item.id}">
@@ -1843,8 +2077,11 @@ class GuitarStudioApp {
                     <select class="form-select-sm lib-cat-select" data-item-id="${item.id}">
                         ${catOptions}
                     </select>
-                    <button class="btn btn-outline btn-sm lib-assign-btn" data-item-id="${item.id}" data-i18n="btn-assign">Asignar</button>
+                    <button class="btn btn-outline btn-sm lib-assign-btn" data-item-id="${item.id}">Asignar</button>
                 </div>
+                <button class="btn btn-outline btn-sm" onclick="app.editLibraryItem('${item.id}')" title="Editar detalles">
+                    <i class="fas fa-pen"></i>
+                </button>
                 <button class="btn btn-text btn-sm" onclick="app.deleteLibraryItem('${item.id}')" style="color:var(--tb-accent)">
                     <i class="fas fa-trash"></i>
                 </button>
@@ -1899,6 +2136,7 @@ class GuitarStudioApp {
             };
             await this.data.saveLibraryItem(item);
             this.renderLibraryInNotebook();
+            this.showLibItemMetadataModal(item, true);
         };
         reader.readAsArrayBuffer(file);
     }
@@ -1918,6 +2156,7 @@ class GuitarStudioApp {
             };
             await this.data.saveLibraryItem(item);
             this.renderLibraryInNotebook();
+            this.showLibItemMetadataModal(item, true);
         };
         reader.readAsArrayBuffer(file);
     }
@@ -1927,18 +2166,17 @@ class GuitarStudioApp {
         const input = document.getElementById("yt-url-input");
         const url = (input ? input.value.trim() : '');
         if (!url) return;
-        const title = prompt(this.lang === 'es' ? 'Título del video:' : 'Video title:', '');
-        if (title === null) return;
-        await this.data.saveLibraryItem({
+        const item = {
             id: this.data.generateId('lib'),
             type: 'youtube',
-            title: title || url,
+            title: url,
             url,
             uploadedAt: Date.now(),
             categories: []
-        });
+        };
+        await this.data.saveLibraryItem(item);
         if (input) input.value = '';
-        this.renderLibraryInNotebook();
+        this.showLibItemMetadataModal(item, true);
     }
 
     // Agrega una URL de Spotify a la biblioteca
@@ -1946,18 +2184,53 @@ class GuitarStudioApp {
         const input = document.getElementById("spotify-url-input");
         const url = (input ? input.value.trim() : '');
         if (!url) return;
-        const title = prompt(this.lang === 'es' ? 'Título de la pista:' : 'Track title:', '');
-        if (title === null) return;
-        await this.data.saveLibraryItem({
+        const item = {
             id: this.data.generateId('lib'),
             type: 'spotify',
-            title: title || url,
+            title: url,
             url,
             uploadedAt: Date.now(),
             categories: []
-        });
+        };
+        await this.data.saveLibraryItem(item);
         if (input) input.value = '';
+        this.showLibItemMetadataModal(item, true);
+    }
+
+    showLibItemMetadataModal(item, isNew = false) {
+        const modal = document.getElementById('lib-metadata-modal');
+        if (!modal) return;
+
+        document.getElementById('lib-metadata-modal-title').textContent = isNew ? 'Completar detalles' : 'Editar detalles';
+        document.getElementById('lib-metadata-item-id').value = item.id;
+        document.getElementById('lib-metadata-title').value = item.title || '';
+        document.getElementById('lib-metadata-level').value = item.level || '';
+        document.getElementById('lib-metadata-exerciseType').value = item.exerciseType || '';
+        document.getElementById('lib-metadata-musicalStyle').value = item.musicalStyle || '';
+
+        // Mostrar filas según tipo
+        const isMedia = item.type === 'youtube' || item.type === 'spotify';
+        document.getElementById('lib-metadata-row-exerciseType').style.display = isMedia ? 'none' : 'flex';
+        document.getElementById('lib-metadata-row-musicalStyle').style.display = isMedia ? 'flex' : 'none';
+
+        modal.style.display = 'flex';
+        document.getElementById('lib-metadata-title').focus();
+    }
+
+    async saveLibItemMetadata() {
+        const itemId = document.getElementById('lib-metadata-item-id').value;
+        const item = await this.data.getLibraryItem(itemId);
+        if (!item) return;
+
+        item.title = document.getElementById('lib-metadata-title').value.trim() || item.title;
+        item.level = document.getElementById('lib-metadata-level').value;
+        item.exerciseType = document.getElementById('lib-metadata-exerciseType').value;
+        item.musicalStyle = document.getElementById('lib-metadata-musicalStyle').value;
+
+        await this.data.saveLibraryItem(item);
+        document.getElementById('lib-metadata-modal').style.display = 'none';
         this.renderLibraryInNotebook();
+        this.renderLibraryView();
     }
 
     // showWizardStep mantiene compatibilidad pero ya no se usa en el flujo principal
@@ -2213,12 +2486,15 @@ class GuitarStudioApp {
             this.saveStreak();
             this.renderHeatmap();
             
-            // Efecto fuego y alerta
-            alert(TRANSLATIONS[this.lang]["practice-complete-congrats"]);
+            // Celebración con toast
+            this.showToast(TRANSLATIONS[this.lang]["practice-complete-congrats"], '🔥');
         } else {
-            alert(this.lang === "es" 
-                ? "¡Rutina completada de nuevo! Ya habías registrado tu práctica de hoy." 
-                : "Routine completed again! You already registered your practice today.");
+            this.showToast(
+                this.lang === "es"
+                    ? "¡Rutina completada de nuevo! Ya habías registrado tu práctica de hoy."
+                    : "Routine completed again! You already registered your practice today.",
+                '✓'
+            );
         }
         
         this.navigateToView("studio");
@@ -3277,6 +3553,795 @@ class GuitarStudioApp {
         });
     }
 
+    async renderDashboardView() {
+        const content = document.getElementById("dashboard-content");
+        if (!content) return;
+
+        // Si hay una clase abierta, mostrar detalle (Carga view)
+        if (this._currentClaseId) {
+            await this._renderClaseDetail(this._currentClaseId);
+            return;
+        }
+
+        const [profiles, weeks, allProfileWeeks] = await Promise.all([
+            this.data.getProfiles(),
+            this.data.getWeeks(),
+            this.data.getAllProfileWeeks(),
+        ]);
+
+        const todayStr = this.getTodayString();
+        const yDate = new Date(); yDate.setDate(yDate.getDate() - 1);
+        const yesterdayStr = yDate.toISOString().split('T')[0];
+
+        // Datos de práctica por perfil
+        const profileData = profiles.map(p => {
+            const streak = this.data.getProfileStreak(p.id);
+            const lastPracticed = this.data.getProfileLastPracticed(p.id);
+            const lastReset = this.data.getProfileLastResetCheck ? this.data.getProfileLastResetCheck(p.id) : null;
+            const rawSteps = this.data.getProfileCompletedSteps ? this.data.getProfileCompletedSteps(p.id) : [false,false,false];
+            const todaySteps = lastReset === todayStr ? (rawSteps || [false,false,false]) : [false,false,false];
+            let status = 'inactive', lastLabel = 'Nunca';
+            if (lastPracticed) {
+                const lastDate = new Date(lastPracticed).toISOString().split('T')[0];
+                if (lastDate === todayStr) { status = 'today'; lastLabel = new Date(lastPracticed).toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' }); }
+                else if (lastDate === yesterdayStr) { status = 'yesterday'; lastLabel = 'Ayer'; }
+                else { const days = Math.max(1, Math.round((Date.now() - lastPracticed) / 86400000)); lastLabel = `Hace ${days} día${days!==1?'s':''}`; }
+            }
+            return { ...p, streak, lastPracticed, todaySteps, status, lastLabel };
+        });
+
+        // Grupos y clases
+        const groups = this._getGroups();
+        const allClases = this.data.getAllClases();
+        const dayNames = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+        const todayDayName = dayNames[new Date().getDay()];
+
+        // Clases de hoy: grupos cuyo día coincide con hoy
+        const todayGroups = groups.filter(g => g.day === todayDayName);
+        // Clases registradas hoy (por fecha)
+        const clasesHoy = allClases.filter(c => c.date === todayStr);
+        // Todas las demás clases (futuras), ordenadas por fecha
+        const clasesFuturas = allClases
+            .filter(c => c.date > todayStr)
+            .sort((a,b) => a.date.localeCompare(b.date))
+            .slice(0, 10);
+        // Clases anteriores
+        const clasesAnteriores = allClases
+            .filter(c => c.date < todayStr)
+            .sort((a,b) => b.date.localeCompare(a.date))
+            .slice(0, 5);
+
+        // Construir lista de items para el timeline lateral
+        const timelineItems = [];
+
+        // Agregar grupos de hoy como items (con clase existente o botón crear)
+        todayGroups.forEach(g => {
+            const claseExistente = clasesHoy.find(c => c.groupId === g.id);
+            if (claseExistente) {
+                timelineItems.push({ type:'clase', clase:claseExistente, group:g });
+            } else {
+                timelineItems.push({ type:'grupo-hoy', group:g });
+            }
+        });
+
+        // Agregar clases de hoy de grupos que no coinciden por día (creadas manualmente)
+        clasesHoy.forEach(c => {
+            const g = groups.find(gr => gr.id === c.groupId);
+            if (g && !todayGroups.find(tg => tg.id === g.id)) {
+                timelineItems.push({ type:'clase', clase:c, group:g });
+            }
+        });
+
+        // Clases futuras
+        clasesFuturas.forEach(c => {
+            const g = groups.find(gr => gr.id === c.groupId);
+            if (g) timelineItems.push({ type:'futura', clase:c, group:g });
+        });
+
+        // Clases anteriores
+        clasesAnteriores.forEach(c => {
+            const g = groups.find(gr => gr.id === c.groupId);
+            if (g) timelineItems.push({ type:'anterior', clase:c, group:g });
+        });
+
+        const statusColors = { programada:'#ff9500', iniciada:'#C8304A', finalizada:'#34c759' };
+        const statusLabels = { programada:'Pendiente', iniciada:'En curso', finalizada:'Finalizada' };
+
+        const renderTimelineItem = (item) => {
+            if (item.type === 'grupo-hoy') {
+                const g = item.group;
+                const members = profiles.filter(p => (g.memberIds||[]).includes(p.id));
+                return `<div class="tl-item tl-item-new" onclick="app.createClase('${g.id}')">
+                    <div class="tl-dot-col">
+                        <span class="tl-time">${g.time ? g.time.slice(0,5) : '—'}</span>
+                        <div class="tl-dot" style="background:#2e1620;border-color:#4e3040"></div>
+                        <div class="tl-line"></div>
+                    </div>
+                    <div class="tl-info">
+                        <div class="tl-group">${this._escapeHtml(g.name)}</div>
+                        <div class="tl-meta">${members.length} alumno${members.length!==1?'s':''}</div>
+                        <span class="tl-badge" style="background:rgba(78,48,64,.4);color:#8a6a6e">+ Iniciar clase</span>
+                    </div>
+                </div>`;
+            }
+            const { clase, group: g } = item;
+            const members = profiles.filter(p => (g.memberIds||[]).includes(p.id));
+            const color = statusColors[clase.status] || '#8a6a6e';
+            const label = statusLabels[clase.status] || clase.status;
+            const dateStr = item.type !== 'clase'
+                ? new Date(clase.date+'T12:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'})
+                : '';
+            const att = clase.attendance ? Object.values(clase.attendance).filter(v=>v==='presente').length : 0;
+            return `<div class="tl-item${item.type==='anterior'?' tl-item-past':''}" onclick="app.openClase('${clase.id}')">
+                <div class="tl-dot-col">
+                    <span class="tl-time">${g.time ? g.time.slice(0,5) : dateStr}</span>
+                    <div class="tl-dot" style="background:${color};border-color:${color};${clase.status==='iniciada'?'animation:tlPulse 2s infinite':''}"></div>
+                    <div class="tl-line"></div>
+                </div>
+                <div class="tl-info">
+                    <div class="tl-group">${this._escapeHtml(g.name)}</div>
+                    <div class="tl-meta">${members.length} alumno${members.length!==1?'s':''} · ${att} presente${att!==1?'s':''}</div>
+                    <span class="tl-badge" style="background:${color}22;color:${color}">${label}</span>
+                </div>
+            </div>`;
+        };
+
+        const dateLabel = new Date().toLocaleDateString('es-AR', { weekday:'long', day:'numeric', month:'long' });
+
+        // Panel de actividad de alumnos (derecho cuando no hay clase seleccionada)
+        const todayPract = profileData.filter(p=>p.status==='today');
+        const yesterdayPract = profileData.filter(p=>p.status==='yesterday');
+        const inactivePract = profileData.filter(p=>p.status==='inactive');
+
+        const renderMiniProfile = (p) => {
+            const color = p.status==='today' ? '#34c759' : p.status==='yesterday' ? '#ff9500' : '#5e3a42';
+            return `<div class="dash-mini-row" onclick="app.selectProfileById('${p.id}')">
+                <div class="dash-avatar" style="background:${p.color||'#6366f1'}">${(p.name||'?')[0].toUpperCase()}</div>
+                <div style="flex:1;min-width:0">
+                    <div class="dash-name">${this._escapeHtml(p.name)}</div>
+                    <div style="font:400 10px Inter;color:#5e3a42">${p.lastLabel}</div>
+                </div>
+                ${p.streak>0 ? `<span style="font:600 11px Inter;color:#C8304A">🔥${p.streak}</span>` : ''}
+                <div style="display:flex;gap:3px">${p.todaySteps.map((d,i)=>`<div style="width:8px;height:8px;border-radius:2px;background:${d?['#a29bfe','#55efc4','#fdcb6e'][i]:'#2e1620'}"></div>`).join('')}</div>
+                <div style="font:500 10px Inter;color:${color};min-width:42px;text-align:right">${p.lastLabel}</div>
+            </div>`;
+        };
+
+        const hasTimeline = timelineItems.length > 0 || groups.length > 0;
+
+        content.innerHTML = `
+        <div class="dash-shell">
+            <!-- SIDEBAR: Timeline de clases -->
+            <div class="dash-timeline-sidebar">
+                <div class="dash-tl-header">
+                    <div class="dash-tl-date">${dateLabel.charAt(0).toUpperCase()+dateLabel.slice(1)}</div>
+                    <button class="btn btn-primary btn-sm" onclick="app._showNewClaseDialog()" style="font-size:10px;padding:4px 10px">+ Nueva clase</button>
+                </div>
+                ${groups.length === 0
+                    ? `<div style="padding:20px 12px;text-align:center">
+                        <p style="font:400 12px Inter;color:#5e3a42;line-height:1.5">Creá grupos en Biblioteca para ver las clases acá</p>
+                        <button class="btn btn-ghost btn-sm" style="margin-top:8px;font-size:11px" onclick="app.navigateToView('library')">Ir a Biblioteca →</button>
+                       </div>`
+                    : timelineItems.length === 0
+                    ? `<div style="padding:20px 12px;text-align:center">
+                        <p style="font:400 12px Inter;color:#5e3a42">Sin clases registradas</p>
+                       </div>`
+                    : timelineItems.map(renderTimelineItem).join('')
+                }
+            </div>
+
+            <!-- MAIN: Panel vacío o clase seleccionada -->
+            <div class="dash-main-panel" id="dash-main-panel">
+                <div class="dash-empty-state">
+                    <div style="text-align:center;margin-bottom:28px">
+                        <svg viewBox="0 0 48 48" fill="none" style="width:56px;height:56px;opacity:.2;margin-bottom:12px" stroke="#C8304A" stroke-width="1"><circle cx="24" cy="24" r="20"/><path d="M24 14v10l6 4"/></svg>
+                        <p style="font:400 italic 14px 'Playfair Display',serif;color:#5e3a42">Seleccioná una clase del panel izquierdo</p>
+                        <p style="font:400 11px Inter;color:#3e2030;margin-top:4px">o creá una nueva con "+ Nueva clase"</p>
+                    </div>
+
+                    <!-- Actividad de alumnos -->
+                    ${profiles.length > 0 ? `
+                    <div class="dash-activity-panel">
+                        <div style="font:700 9px Inter;color:#5e3a42;text-transform:uppercase;letter-spacing:.12em;margin-bottom:10px">
+                            Actividad de alumnos · ${todayPract.length}/${profiles.length} practicaron hoy
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:4px">
+                            ${[...todayPract,...yesterdayPract,...inactivePract].map(renderMiniProfile).join('')}
+                        </div>
+                    </div>` : `
+                    <div class="dash-activity-panel" style="text-align:center;padding:20px">
+                        <p style="font:400 12px Inter;color:#5e3a42">No hay alumnos todavía.<br>Creá perfiles desde el selector de perfiles.</p>
+                    </div>`}
+                </div>
+            </div>
+        </div>`;
+    }
+
+    _renderClasesSection(profiles) {
+        const groups = this._getGroups();
+        if (groups.length === 0) return '';
+        const allClases = this.data.getAllClases();
+        const dayOrder = { 'Lunes':0,'Martes':1,'Miércoles':2,'Jueves':3,'Viernes':4,'Sábado':5,'Domingo':6 };
+        const today = new Date().getDay();
+        const sorted = [...groups].sort((a, b) => {
+            const da = ((dayOrder[a.day]??7) - (today===0?6:today-1) + 7) % 7;
+            const db = ((dayOrder[b.day]??7) - (today===0?6:today-1) + 7) % 7;
+            return da - db;
+        });
+        const statusDot = s => s==='finalizada'
+            ? `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#34c759;flex-shrink:0"></span>`
+            : s==='iniciada'
+            ? `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#C8304A;flex-shrink:0"></span>`
+            : `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#ff9500;flex-shrink:0"></span>`;
+
+        const cards = sorted.map(g => {
+            const members = profiles.filter(p => (g.memberIds||[]).includes(p.id));
+            const dayTime = [g.day, g.time ? g.time.slice(0,5):''].filter(Boolean).join(' · ');
+            const groupClases = allClases.filter(c=>c.groupId===g.id)
+                .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+            const claseItems = groupClases.slice(0,5).map(c => {
+                const dateLabel = new Date(c.date+'T12:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'});
+                const att = c.attendance ? Object.values(c.attendance).filter(v=>v==='presente').length : 0;
+                return `<div class="clase-tl-item" onclick="app.openClase('${c.id}')">
+                    ${statusDot(c.status)}
+                    <span class="clase-tl-date">${dateLabel}</span>
+                    <span class="clase-tl-title">${this._escapeHtml(c.title||'Clase')}</span>
+                    <span class="clase-tl-att">${att}/${members.length}</span>
+                </div>`;
+            }).join('');
+            return `<div class="dash-group-card">
+                <div class="dash-group-card-header">
+                    <div>
+                        <div class="dash-class-name">${this._escapeHtml(g.name)}</div>
+                        <div class="dash-class-meta">${dayTime}${dayTime&&members.length?' · ':''}${members.length} alumno${members.length!==1?'s':''}</div>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="app.createClase('${g.id}')">+ Nueva clase</button>
+                </div>
+                <div class="clase-timeline">${claseItems||'<p class="text-muted" style="font-size:12px;padding:6px 0">Sin clases registradas</p>'}</div>
+            </div>`;
+        }).join('');
+
+        return `<div class="dash-section" style="border-top:1px solid var(--tb-border);margin-top:12px;padding-top:16px">
+            <div class="dash-section-header">
+                <span class="dash-section-title" style="color:var(--tb-text-secondary)">Clases por Grupo</span>
+            </div>
+            <div class="dash-groups-grid">${cards}</div>
+        </div>`;
+    }
+
+    // =========================================================================
+    // Gestión de Clases — Phase 6
+    // =========================================================================
+
+    createClase(groupId) {
+        const group = this._getGroups().find(g => g.id === groupId);
+        if (!group) return;
+        const today = new Date().toISOString().slice(0,10);
+        const clase = {
+            id: this.data.generateId('clase'),
+            groupId,
+            title: `Clase ${new Date().toLocaleDateString('es-AR',{day:'numeric',month:'short'})}`,
+            date: today,
+            status: 'programada',
+            attendance: {},
+            content: [],   // [{id, title, type, cat}]  cat: 0=técnica,1=lectura,2=repertorio
+            objetivos: [],
+            resumen: '',
+            notaAlumno: ''
+        };
+        this.data.saveClase(clase);
+        this.openClase(clase.id);
+    }
+
+    openClase(claseId) {
+        this._currentClaseId = claseId;
+        this._currentClaseTab = 0;
+        this.renderDashboardView();
+    }
+
+    closeClasetDetail() {
+        this._currentClaseId = null;
+        this.renderDashboardView();
+    }
+
+    _showNewClaseDialog() {
+        const groups = this._getGroups();
+        if (groups.length === 0) {
+            alert('Creá un grupo en Biblioteca primero.');
+            return;
+        }
+        const opts = groups.map(g => `<option value="${g.id}">${this._escapeHtml(g.name)}</option>`).join('');
+        const todayStr = new Date().toISOString().slice(0,10);
+        const dlg = document.createElement('div');
+        dlg.className = 'modal-overlay';
+        dlg.innerHTML = `<div class="modal-box" style="max-width:340px">
+            <h3 style="margin:0 0 16px;font:700 16px 'Playfair Display',serif;color:var(--tb-text)">Nueva clase</h3>
+            <label style="font:600 11px Inter;color:#5e3a42;text-transform:uppercase;letter-spacing:.08em">Grupo</label>
+            <select id="dlg-group-sel" class="input-field" style="margin-bottom:12px">${opts}</select>
+            <label style="font:600 11px Inter;color:#5e3a42;text-transform:uppercase;letter-spacing:.08em">Fecha</label>
+            <input type="date" id="dlg-clase-date" class="input-field" value="${todayStr}" style="margin-bottom:20px">
+            <div style="display:flex;gap:8px;justify-content:flex-end">
+                <button class="btn btn-ghost" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+                <button class="btn btn-primary" onclick="app._confirmNewClase(this)">Crear</button>
+            </div>
+        </div>`;
+        document.body.appendChild(dlg);
+        dlg.addEventListener('click', e => { if (e.target === dlg) dlg.remove(); });
+    }
+
+    _confirmNewClase(btn) {
+        const dlg = btn.closest('.modal-overlay');
+        const groupId = dlg.querySelector('#dlg-group-sel').value;
+        const date = dlg.querySelector('#dlg-clase-date').value;
+        if (!groupId) return;
+        const clase = {
+            id: this.data.generateId('clase'),
+            groupId,
+            title: `Clase ${new Date(date+'T12:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'})}`,
+            date,
+            status: 'programada',
+            attendance: {},
+            content: [],
+            objetivos: [],
+            resumen: '',
+            notaAlumno: ''
+        };
+        this.data.saveClase(clase);
+        dlg.remove();
+        this.openClase(clase.id);
+    }
+
+    async _renderClaseDetail(claseId) {
+        const content = document.getElementById('dashboard-content');
+        if (!content) return;
+        const clase = this.data.getClase(claseId);
+        if (!clase) { this.closeClasetDetail(); return; }
+
+        const group = this._getGroups().find(g=>g.id===clase.groupId) || {};
+        const profiles = await this.data.getProfiles();
+        const members = profiles.filter(p=>(group.memberIds||[]).includes(p.id));
+
+        // Status
+        const statusLabels = { programada:'Programada', iniciada:'En curso', finalizada:'Finalizada' };
+        const statusColors = { programada:'#ff9500', iniciada:'#C8304A', finalizada:'#34c759' };
+        const statusLabel = statusLabels[clase.status] || clase.status;
+        const statusColor = statusColors[clase.status] || 'var(--tb-text-muted)';
+
+        // Action button
+        let actionBtn = '';
+        if (clase.status === 'programada') {
+            actionBtn = `<button class="btn btn-primary" onclick="app.iniciarClase('${claseId}')">▶ Iniciar clase</button>`;
+        } else if (clase.status === 'iniciada') {
+            actionBtn = `<button class="btn btn-success" onclick="app.finalizarClase('${claseId}')">✓ Finalizar y publicar</button>`;
+        } else {
+            actionBtn = `<span style="font:400 italic 12px 'Playfair Display',serif;color:#34c759">✓ Clase finalizada</span>`;
+        }
+
+        // Attendance chips
+        const attChips = members.length ? members.map(m => {
+            const state = clase.attendance[m.id] || 'sin-marcar';
+            const cfg = {
+                'presente':   { bg:'rgba(52,199,89,.1)',  border:'rgba(52,199,89,.3)',  dot:'#34c759', nameColor:'#34c759' },
+                'ausente':    { bg:'rgba(200,48,74,.1)',  border:'rgba(200,48,74,.25)', dot:'#C8304A', nameColor:'#C8304A' },
+                'sin-marcar': { bg:'#150a0e',             border:'#2e1620',             dot:'#3a3a40', nameColor:'#9e8a8e' }
+            }[state];
+            return `<div onclick="app.toggleAttendance('${claseId}','${m.id}')"
+                style="display:flex;align-items:center;gap:6px;padding:5px 10px 5px 5px;border-radius:20px;border:1px solid ${cfg.border};background:${cfg.bg};cursor:pointer;user-select:none;transition:all .15s">
+                <div style="width:22px;height:22px;border-radius:50%;background:${m.color||'#888'};display:flex;align-items:center;justify-content:center;font:700 10px Inter;color:#fff;flex-shrink:0">${(m.name||'?')[0].toUpperCase()}</div>
+                <span style="font:500 11px Inter;color:${cfg.nameColor};white-space:nowrap">${this._escapeHtml(m.name)}</span>
+                <div style="width:6px;height:6px;border-radius:50%;background:${cfg.dot};flex-shrink:0"></div>
+            </div>`;
+        }).join('') : '<p class="text-muted" style="font-size:12px">Sin alumnos en este grupo</p>';
+
+        // Content tabs
+        const catNames = ['Técnica','Lectura','Repertorio'];
+        const catTabs = catNames.map((name,i) =>
+            `<button class="ctab${this._currentClaseTab===i?' active':''}" onclick="app.setClaseTab('${claseId}',${i})">${name}</button>`
+        ).join('');
+        const tabContent = (clase.content||[]).filter(c=>c.cat===this._currentClaseTab).map(c => {
+            const icons = { gp:'🎸', pdf:'📄', audio:'🎵', youtube:'▶', spotify:'🎵' };
+            return `<div class="content-item">
+                <span style="font-size:14px">${icons[c.type]||'📎'}</span>
+                <span class="ci-title">${this._escapeHtml(c.title||c.name||'')}</span>
+                <button class="ci-rm" onclick="app.removeContentFromClase('${claseId}','${c.id}')" title="Quitar">×</button>
+            </div>`;
+        }).join('') || `<p class="text-muted" style="font-size:12px;padding:6px 0">Sin contenido en esta categoría</p>`;
+
+        // Objetivos
+        const objItems = (clase.objetivos||[]).map(o =>
+            `<div style="display:flex;align-items:center;gap:7px;padding:6px 10px;background:#150a0e;border:1px solid #2e1620;border-radius:7px;margin-bottom:3px">
+                <div style="width:14px;height:14px;border-radius:4px;border:1.5px solid #2e1620;flex-shrink:0"></div>
+                <span style="flex:1;font:400 12px Inter;color:#c8a0a4">${this._escapeHtml(o.text)}</span>
+                <button onclick="app.removeObjetivoFromClase('${claseId}','${o.id}')" style="background:transparent;border:none;cursor:pointer;color:#3e2030;padding:2px;font-size:14px">×</button>
+            </div>`
+        ).join('') || `<p style="padding:8px 10px;font:400 italic 11px 'Playfair Display',serif;color:#3e2030;border:1px dashed #2e1620;border-radius:7px">Agregá objetivos para que el alumno practique…</p>`;
+
+        // Meet bar
+        const meetBar = group.meetLink ? `
+            <div style="display:flex;align-items:center;gap:6px;background:#150a0e;border:1px solid #2e1620;border-radius:8px;padding:5px 6px 5px 10px;margin-bottom:16px">
+                <svg viewBox="0 0 24 24" fill="none" style="width:11px;height:11px;flex-shrink:0" stroke="#4a9eff" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                <span style="font:400 10px 'Courier New',monospace;color:#5e3a42;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${this._escapeHtml(group.meetLink)}</span>
+                <a href="${this._escapeHtml(group.meetLink)}" target="_blank" class="btn-meet-sm">Entrar</a>
+                <button onclick="app.sendMeetWhatsApp('${group.id}')" class="btn-wa-sm" title="WhatsApp">
+                    <svg viewBox="0 0 24 24" fill="#25d366" style="width:11px;height:11px"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
+                </button>
+            </div>` : '';
+
+        content.innerHTML = `
+        <div class="clase-detail-layout">
+            <!-- Panel izquierdo -->
+            <div class="clase-detail-left">
+                <button class="btn btn-ghost btn-sm" onclick="app.closeClasetDetail()" style="align-self:flex-start;margin-bottom:4px">← Volver</button>
+                <div>
+                    <div style="font:700 9px Inter;color:${statusColor};text-transform:uppercase;letter-spacing:.14em;margin-bottom:4px">${statusLabel}</div>
+                    <h2 class="clase-detail-title" contenteditable="true" onblur="app.saveClaseTitle('${claseId}',this.textContent.trim())">${this._escapeHtml(clase.title)}</h2>
+                    <div style="font:400 12px Inter;color:#8a6a6e;margin-top:4px">
+                        ${this._escapeHtml(group.name||'')} ·
+                        <input type="date" value="${clase.date}" onchange="app.saveClaseDate('${claseId}',this.value)" style="background:transparent;border:none;color:#8a6a6e;font:400 12px Inter;cursor:pointer;outline:none">
+                    </div>
+                </div>
+
+                ${meetBar}
+
+                <div class="clase-section">
+                    <div class="clase-section-title">Asistencia
+                        <span style="font:400 10px Inter;color:#3e2030;font-weight:400;text-transform:none;letter-spacing:0;margin-left:8px">click = presente · doble = ausente</span>
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px">${attChips}</div>
+                </div>
+
+                <div class="clase-section">
+                    <div class="clase-section-title">Contenido de esta clase</div>
+                    <div class="content-tabs" style="display:flex;gap:4px;margin:8px 0">${catTabs}</div>
+                    <div class="content-list">${tabContent}</div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                    <div class="clase-section">
+                        <label class="clase-section-title">Resumen
+                            <span style="font:400 9px Inter;color:#3e2030;background:#1a0c10;border:1px solid #2e1620;padding:1px 6px;border-radius:4px;font-weight:400;text-transform:none;letter-spacing:0;margin-left:4px">Solo el profesor</span>
+                        </label>
+                        <textarea class="form-input" style="resize:none;min-height:90px;width:100%;margin-top:6px;font-size:12px" placeholder="¿Qué se trabajó hoy?…" onchange="app.saveResumenClase('${claseId}',this.value)">${this._escapeHtml(clase.resumen||'')}</textarea>
+                    </div>
+                    <div class="clase-section">
+                        <label class="clase-section-title" style="color:var(--tb-accent)">Objetivos para ${this._escapeHtml(group.name||'el alumno')}
+                            <span style="font:400 9px Inter;color:var(--tb-accent);background:rgba(200,48,74,.06);border:1px solid rgba(200,48,74,.18);padding:1px 6px;border-radius:4px;font-weight:400;text-transform:none;letter-spacing:0;margin-left:4px">El alumno los ve</span>
+                        </label>
+                        <div style="margin-top:6px">${objItems}</div>
+                        <div style="display:flex;gap:5px;margin-top:6px">
+                            <input class="form-input" id="new-obj-${claseId}" style="flex:1;font-size:11px;padding:6px 10px" placeholder="+ Nuevo objetivo…" onkeydown="if(event.key==='Enter'){event.preventDefault();app.addObjetivoToClase('${claseId}')}">
+                            <button onclick="app.addObjetivoToClase('${claseId}')" style="padding:6px 12px;border-radius:7px;background:rgba(200,48,74,.12);border:1px solid rgba(200,48,74,.25);color:var(--tb-accent);font:600 11px Inter;cursor:pointer;white-space:nowrap">Agregar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="padding-top:4px;margin-top:auto;display:flex;justify-content:flex-end">
+                    ${actionBtn}
+                </div>
+            </div>
+
+            <!-- Panel derecho: biblioteca + subir -->
+            <div class="clase-detail-right">
+                <div style="font:600 14px 'Playfair Display',serif;color:#f2e6e8;margin-bottom:10px">Agregar contenido</div>
+                <div class="lib-search" style="display:flex;align-items:center;gap:8px;background:#0d0709;border:1px solid #2e1620;border-radius:8px;padding:7px 11px;margin-bottom:8px">
+                    <svg viewBox="0 0 16 16" fill="none" style="width:12px;height:12px;flex-shrink:0" stroke="#5e3a42" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4.5"/><path d="M10.5 10.5l3 3" stroke-linecap="round"/></svg>
+                    <input placeholder="Buscar en biblioteca…" oninput="app._renderClaseLibPanel('${claseId}',this.value)" style="flex:1;background:transparent;border:none;outline:none;font:400 12px Inter;color:#f2e6e8" id="clase-lib-search">
+                </div>
+                <div style="display:flex;gap:4px;margin-bottom:8px">
+                    ${['Todos','Técnica','Lectura','Repertorio'].map((l,i)=>`<button class="lcat${i===0?' active':''}" onclick="app._filterClaseLib('${claseId}',${i-1},this)">${l}</button>`).join('')}
+                </div>
+                <div class="clase-lib-results" id="clase-lib-results" style="flex:1;overflow-y:auto"></div>
+
+                <!-- Subir nuevo (fijo al fondo) -->
+                <div style="border-top:1px solid #2e1620;padding-top:10px;margin-top:10px">
+                    <div class="clase-section-title" style="margin-bottom:8px">Subir nuevo</div>
+                    <div id="clase-upload-area-${claseId}">
+                        <div class="dropzone" onclick="app._pickFile('${claseId}')" style="padding:14px;margin-bottom:8px;cursor:pointer">
+                            <svg viewBox="0 0 40 40" fill="none" style="width:28px;height:28px" stroke="var(--tb-accent)" stroke-width="1.3"><path d="M20 8v18M12 16l8-8 8 8"/><path d="M8 28v4a2 2 0 0 0 2 2h20a2 2 0 0 0 2-2v-4"/></svg>
+                            <div style="font:500 12px Inter;color:#8a6a6e;margin-top:6px">Arrastrá un archivo acá</div>
+                            <div style="font:400 10px Inter;color:#3e2030">.gp · .gp5 · .gpx · .pdf</div>
+                        </div>
+                        <div style="display:flex;gap:6px">
+                            <input class="form-input" id="clase-url-input-${claseId}" style="flex:1;font-size:11px" placeholder="O pegá link YouTube / Spotify…" oninput="app._onUrlInput('${claseId}',this.value)">
+                            <button id="clase-url-detect-${claseId}" onclick="app._detectUrl('${claseId}')" style="display:none;padding:6px 9px;border-radius:7px;background:#1a0c10;border:1px solid #2e1620;color:#8a6a6e;font:500 10px Inter;cursor:pointer">Detectar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+
+        this._renderClaseLibPanel(claseId, '', -1);
+    }
+
+    setClaseTab(claseId, tabIdx) {
+        this._currentClaseTab = tabIdx;
+        // Re-render solo el panel izquierdo
+        const tabs = document.querySelectorAll('.ctab');
+        tabs.forEach((t,i) => t.classList.toggle('active', i===tabIdx));
+        const clase = this.data.getClase(claseId);
+        if (!clase) return;
+        const catContent = (clase.content||[]).filter(c=>c.cat===tabIdx);
+        const icons = { gp:'🎸', pdf:'📄', audio:'🎵', youtube:'▶', spotify:'🎵' };
+        const listEl = document.querySelector('.content-list');
+        if (listEl) {
+            listEl.innerHTML = catContent.map(c =>
+                `<div class="content-item">
+                    <span style="font-size:14px">${icons[c.type]||'📎'}</span>
+                    <span class="ci-title">${this._escapeHtml(c.title||c.name||'')}</span>
+                    <button class="ci-rm" onclick="app.removeContentFromClase('${claseId}','${c.id}')" title="Quitar">×</button>
+                </div>`
+            ).join('') || `<p class="text-muted" style="font-size:12px;padding:6px 0">Sin contenido en esta categoría</p>`;
+        }
+    }
+
+    async _renderClaseLibPanel(claseId, query, catFilter) {
+        const container = document.getElementById('clase-lib-results');
+        if (!container) return;
+        const clase = this.data.getClase(claseId);
+        if (!clase) return;
+        const items = await this.data.getLibraryItems();
+        const q = (query||'').toLowerCase();
+        const filtered = items.filter(it => {
+            if (q && !(it.title||it.name||'').toLowerCase().includes(q)) return false;
+            if (catFilter >= 0) {
+                const catMap = { technique:0, reading:1, repertoire:2 };
+                if (catMap[it.category] !== catFilter) return false;
+            }
+            return true;
+        });
+        if (!filtered.length) {
+            container.innerHTML = '<p class="text-muted" style="font-size:12px;padding:8px">Sin resultados</p>';
+            return;
+        }
+        const addedIds = new Set((clase.content||[]).map(c=>c.id));
+        const icons = { gp:'🎸', pdf:'📄', audio:'🎵', youtube:'▶', spotify:'🎵' };
+        container.innerHTML = filtered.map(it => {
+            const inClass = addedIds.has(it.id);
+            return `<div class="lib-item${inClass?' in-class':''}" onclick="${inClass?'':'`app.addContentToClase(\''+claseId+'\',\''+it.id+'\')`'}">
+                <span style="font-size:13px">${icons[it.fileType]||'📎'}</span>
+                <span class="li-title">${this._escapeHtml(it.title||it.name||'')}</span>
+                ${inClass
+                    ? `<div class="li-check"><svg viewBox="0 0 10 10" fill="none" style="width:9px;height:9px"><path d="M2 5l2 2 4-4" stroke="#34c759" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`
+                    : `<div class="li-add"><svg viewBox="0 0 10 10" fill="none" style="width:9px;height:9px"><path d="M5 2v6M2 5h6" stroke="var(--tb-accent)" stroke-width="1.5" stroke-linecap="round"/></svg></div>`}
+            </div>`;
+        }).join('');
+    }
+
+    _filterClaseLib(claseId, catFilter, btn) {
+        document.querySelectorAll('.lcat').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        const q = document.getElementById('clase-lib-search')?.value||'';
+        this._renderClaseLibPanel(claseId, q, catFilter);
+    }
+
+    _onUrlInput(claseId, val) {
+        const detectBtn = document.getElementById(`clase-url-detect-${claseId}`);
+        if (detectBtn) detectBtn.style.display = val.length > 5 ? 'block' : 'none';
+    }
+
+    _detectUrl(claseId) {
+        const input = document.getElementById(`clase-url-input-${claseId}`);
+        if (!input) return;
+        const url = input.value.toLowerCase();
+        const type = url.includes('spotify') ? 'spotify' : 'youtube';
+        const catMap = { youtube:2, spotify:2 };
+        const cat = catMap[type];
+        const title = type==='youtube' ? 'Video de referencia' : 'Playlist de referencia';
+        const clase = this.data.getClase(claseId);
+        if (!clase) return;
+        clase.content = clase.content||[];
+        const item = { id:this.data.generateId('url'), title, type, cat, url:input.value };
+        clase.content.push(item);
+        this.data.saveClase(clase);
+        input.value = '';
+        const detectBtn = document.getElementById(`clase-url-detect-${claseId}`);
+        if (detectBtn) detectBtn.style.display = 'none';
+        this._renderClaseLibPanel(claseId,'', -1);
+        this.setClaseTab(claseId, cat);
+        this.showToast('Contenido agregado', '🔗');
+    }
+
+    _pickFile(claseId) {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.gp,.gp5,.gpx,.pdf,.mp3,.mp4,.m4a';
+        input.onchange = async () => {
+            const file = input.files[0];
+            if (!file) return;
+            const ext = file.name.split('.').pop().toLowerCase();
+            const typeMap = { gp:'gp', gp5:'gp', gpx:'gp', pdf:'pdf', mp3:'audio', mp4:'audio', m4a:'audio' };
+            const type = typeMap[ext]||'pdf';
+            const catDefault = type==='gp'?0 : type==='pdf'?1 : 2;
+            const clase = this.data.getClase(claseId);
+            if (!clase) return;
+            const item = { id:this.data.generateId('file'), title:file.name.replace(/\.[^.]+$/, ''), type, cat:catDefault, name:file.name };
+            clase.content = clase.content||[];
+            clase.content.push(item);
+            this.data.saveClase(clase);
+            this._renderClaseLibPanel(claseId,'', -1);
+            this.setClaseTab(claseId, catDefault);
+            this.showToast('Archivo agregado', '📎');
+        };
+        input.click();
+    }
+
+    iniciarClase(claseId) {
+        const clase = this.data.getClase(claseId);
+        if (!clase) return;
+        clase.status = 'iniciada';
+        this.data.saveClase(clase);
+        this._renderClaseDetail(claseId);
+    }
+
+    finalizarClase(claseId) {
+        const clase = this.data.getClase(claseId);
+        if (!clase) return;
+        clase.status = 'finalizada';
+        this.data.saveClase(clase);
+        this.showToast('Clase finalizada y publicada', '✅');
+        this._renderClaseDetail(claseId);
+    }
+
+    toggleAttendance(claseId, profileId) {
+        const clase = this.data.getClase(claseId);
+        if (!clase) return;
+        const cycle = { 'sin-marcar':'presente', 'presente':'ausente', 'ausente':'sin-marcar' };
+        const cur = clase.attendance[profileId] || 'sin-marcar';
+        clase.attendance[profileId] = cycle[cur];
+        this.data.saveClase(clase);
+        // Re-render solo el bloque de asistencia
+        const chips = document.querySelectorAll('[onclick*="toggleAttendance"]');
+        if (chips.length) {
+            this._renderClaseDetail(claseId);
+        }
+    }
+
+    async addContentToClase(claseId, libItemId) {
+        const clase = this.data.getClase(claseId);
+        if (!clase) return;
+        if ((clase.content||[]).some(c=>c.id===libItemId)) return;
+        const item = await this.data.getLibraryItem(libItemId);
+        if (!item) return;
+        const catMap = { technique:0, reading:1, repertoire:2 };
+        const cat = catMap[item.category] ?? this._currentClaseTab;
+        clase.content = clase.content||[];
+        clase.content.push({ id:item.id, title:item.title||item.name, type:item.fileType, cat, name:item.name });
+        this.data.saveClase(clase);
+        this._currentClaseTab = cat;
+        const q = document.getElementById('clase-lib-search')?.value||'';
+        const activeLcat = document.querySelector('.lcat.active');
+        const catFilter = activeLcat ? parseInt(activeLcat.dataset.cat??'-1') : -1;
+        this._renderClaseLibPanel(claseId, q, catFilter);
+        this.setClaseTab(claseId, cat);
+        this.showToast('Contenido agregado', '📎');
+    }
+
+    removeContentFromClase(claseId, itemId) {
+        const clase = this.data.getClase(claseId);
+        if (!clase) return;
+        clase.content = (clase.content||[]).filter(c=>c.id!==itemId);
+        this.data.saveClase(clase);
+        this.setClaseTab(claseId, this._currentClaseTab);
+        const q = document.getElementById('clase-lib-search')?.value||'';
+        this._renderClaseLibPanel(claseId, q, -1);
+    }
+
+    addObjetivoToClase(claseId) {
+        const input = document.getElementById(`new-obj-${claseId}`);
+        if (!input) return;
+        const text = input.value.trim();
+        if (!text) return;
+        const clase = this.data.getClase(claseId);
+        if (!clase) return;
+        clase.objetivos = clase.objetivos||[];
+        clase.objetivos.push({ id:this.data.generateId('obj'), text });
+        this.data.saveClase(clase);
+        input.value = '';
+        this._renderClaseDetail(claseId);
+    }
+
+    removeObjetivoFromClase(claseId, objId) {
+        const clase = this.data.getClase(claseId);
+        if (!clase) return;
+        clase.objetivos = (clase.objetivos||[]).filter(o=>o.id!==objId);
+        this.data.saveClase(clase);
+        this._renderClaseDetail(claseId);
+    }
+
+    saveResumenClase(claseId, text) {
+        const clase = this.data.getClase(claseId);
+        if (!clase) return;
+        clase.resumen = text;
+        this.data.saveClase(clase);
+    }
+
+    saveClaseTitle(claseId, text) {
+        const clase = this.data.getClase(claseId);
+        if (!clase) return;
+        clase.title = text || clase.title;
+        this.data.saveClase(clase);
+    }
+
+    saveClaseDate(claseId, date) {
+        const clase = this.data.getClase(claseId);
+        if (!clase) return;
+        clase.date = date;
+        this.data.saveClase(clase);
+    }
+
+    async renderMyLibraryView() {
+        const content = document.getElementById("my-lib-view-content");
+        if (!content) return;
+
+        if (!this.activeProfile) {
+            content.innerHTML = `<p class="text-muted" style="padding:24px">Seleccioná un perfil de alumno para ver tu biblioteca.</p>`;
+            return;
+        }
+
+        const [allItems, allWeekItems, profileWeeks] = await Promise.all([
+            this.data.getLibraryItems(),
+            this.data.getAllWeekItems(),
+            this.data.getProfileWeeks(this.activeProfile.id),
+        ]);
+
+        const assignedWeekIds = new Set(profileWeeks.map(pw => pw.weekId));
+        const assignedItemIds = new Set(
+            allWeekItems.filter(wi => assignedWeekIds.has(wi.weekId)).map(wi => wi.libraryItemId)
+        );
+
+        let items = allItems.filter(i => assignedItemIds.has(i.id));
+
+        // Filtro por tipo
+        const activeChip = document.querySelector('#my-lib-filter-chips .lib-chip.active');
+        const filterVal = activeChip?.dataset.filter || 'all';
+        if (filterVal !== 'all') items = items.filter(i => i.type === filterVal);
+
+        // Filtro por búsqueda
+        const searchVal = (document.getElementById('my-lib-search-input')?.value || '').toLowerCase().trim();
+        if (searchVal) items = items.filter(i => i.title?.toLowerCase().includes(searchVal));
+
+        if (items.length === 0) {
+            content.innerHTML = `<p class="text-muted" style="padding:24px">No hay contenido asignado todavía.</p>`;
+            return;
+        }
+
+        const typeGroups = [
+            { key: 'score',   label: 'Partituras', icon: 'fa-guitar',   color: 'var(--tb-accent)',  action: id => `app.openPlayerForItem('${id}')` },
+            { key: 'pdf',     label: 'PDFs',       icon: 'fa-file-pdf', color: '#e53e3e',           action: id => `app.openPDF('${id}')` },
+            { key: 'youtube', label: 'Videos',     icon: 'fa-youtube',  color: '#FF0000',           action: id => `app.openYouTube('${id}')` },
+            { key: 'spotify', label: 'Spotify',    icon: 'fa-spotify',  color: '#1DB954',           action: id => `app.openSpotify('${id}')` },
+        ];
+
+        let html = '';
+        typeGroups.forEach(({ key, label, icon, color, action }) => {
+            const group = items.filter(i => i.type === key);
+            if (group.length === 0) return;
+            html += `<div class="week-type-section" style="margin-bottom:24px">
+                <div class="week-type-header">
+                    <i class="fas ${icon}" style="color:${color}"></i>
+                    <span>${label}</span>
+                </div>
+                <ul class="week-type-list">
+                    ${group.map(item => `<li class="week-type-item" onclick="${action(item.id)}">
+                        <span class="week-type-item-title">${this._escapeHtml(item.title)}</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0;opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+                    </li>`).join('')}
+                </ul>
+            </div>`;
+        });
+        content.innerHTML = html;
+
+        // Bind search + chips
+        document.getElementById('my-lib-search-input')?.addEventListener('input', () => this.renderMyLibraryView());
+        document.querySelectorAll('#my-lib-filter-chips .lib-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                document.querySelectorAll('#my-lib-filter-chips .lib-chip').forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
+                this.renderMyLibraryView();
+            });
+        });
+    }
+
     async renderLibraryView() {
         const content = document.getElementById("lib-view-content");
         if (!content) return;
@@ -3306,9 +4371,21 @@ class GuitarStudioApp {
         this._bindLibraryFilters();
     }
 
-    _renderLibraryContent(items, weeks, allWeekItems, searchQuery = '', activeFilter = 'all') {
+    _getActiveLibFilters() {
+        return {
+            fileType: document.querySelector('#lib-filter-chips .lib-chip.active')?.dataset.filter || 'all',
+            level:    document.querySelector('#lib-filter-chips-level .lib-chip.active')?.dataset.filter || 'all',
+            exerciseType: document.querySelector('#lib-filter-chips-extype .lib-chip.active')?.dataset.filter || 'all',
+            musicalStyle: document.querySelector('#lib-filter-chips-style .lib-chip.active')?.dataset.filter || 'all',
+        };
+    }
+
+    _renderLibraryContent(items, weeks, allWeekItems, searchQuery = '', filters = {}) {
         const content = document.getElementById("lib-view-content");
         if (!content) return;
+
+        if (typeof filters === 'string') filters = { fileType: filters };
+        const { fileType = 'all', level = 'all', exerciseType = 'all', musicalStyle = 'all' } = filters;
 
         const isProfessor = this.isProfessorMode;
         const typeIcon = { score: 'fa-guitar', pdf: 'fa-file-pdf', youtube: 'fa-youtube', spotify: 'fa-spotify' };
@@ -3316,11 +4393,13 @@ class GuitarStudioApp {
         const catLabel = { technique: 'Técnica', reading: 'Lectura', repertoire: 'Repertorio', supplementary: 'Complementario' };
 
         let filtered = items.filter(item => {
-            const matchSearch = !searchQuery || item.title.toLowerCase().includes(searchQuery.toLowerCase());
-            const wi = allWeekItems.find(w => w.libraryItemId === item.id);
-            const itemCat = wi ? wi.category : null;
-            const matchFilter = activeFilter === 'all' || itemCat === activeFilter;
-            return matchSearch && matchFilter;
+            if (searchQuery && !item.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+            if (fileType !== 'all' && item.type !== fileType) return false;
+            if (level !== 'all' && item.level !== level) return false;
+            const isMedia = item.type === 'youtube' || item.type === 'spotify';
+            if (exerciseType !== 'all' && (isMedia || item.exerciseType !== exerciseType)) return false;
+            if (musicalStyle !== 'all' && (!isMedia || item.musicalStyle !== musicalStyle)) return false;
+            return true;
         });
 
         if (filtered.length === 0) {
@@ -3410,12 +4489,31 @@ class GuitarStudioApp {
         });
     }
 
+    async editLibraryItem(itemId) {
+        const item = await this.data.getLibraryItem(itemId);
+        if (item) this.showLibItemMetadataModal(item, false);
+    }
+
     _libItemRowHtml(item, wi, typeIcon, typeColor, catLabel, showDelete) {
+        const isMedia = item.type === 'youtube' || item.type === 'spotify';
+        const levelLabel = { inicial: 'Inicial', intermedio: 'Intermedio', avanzado: 'Avanzado' };
+        const exTypeLabel = { tecnica: 'Técnica', lectura: 'Lectura', repertorio: 'Repertorio', teoria: 'Teoría', improvisacion: 'Improvisación' };
+        const styleLabel = { tango: 'Tango', folklore: 'Folklore', jazz: 'Jazz', clasico: 'Clásico', rock: 'Rock', pop: 'Pop', bossa: 'Bossa Nova', flamenco: 'Flamenco', otro: 'Otro' };
+
         const catBadge = wi && wi.category
             ? `<span class="lib-cat-badge lib-cat-${wi.category}">${catLabel[wi.category] || wi.category}</span>`
             : '';
+        const metaTags = [
+            item.level ? `<span class="lib-meta-tag lib-meta-level">${levelLabel[item.level] || item.level}</span>` : '',
+            !isMedia && item.exerciseType ? `<span class="lib-meta-tag lib-meta-extype">${exTypeLabel[item.exerciseType] || item.exerciseType}</span>` : '',
+            isMedia && item.musicalStyle ? `<span class="lib-meta-tag lib-meta-style">${styleLabel[item.musicalStyle] || item.musicalStyle}</span>` : '',
+        ].filter(Boolean).join('');
+
         const deleteBtn = showDelete
             ? `<button class="lib-action-btn lib-delete-btn" onclick="app.deleteLibraryItem('${item.id}')" title="Eliminar"><i class="fas fa-trash"></i></button>`
+            : '';
+        const editBtn = showDelete
+            ? `<button class="lib-action-btn" onclick="app.editLibraryItem('${item.id}')" title="Editar"><i class="fas fa-pen"></i></button>`
             : '';
         const iconClass = typeIcon[item.type] || 'fa-file';
         const color = typeColor[item.type] || 'var(--tb-text-secondary)';
@@ -3423,12 +4521,13 @@ class GuitarStudioApp {
             <div class="lib-item-icon" style="color:${color}"><i class="fas ${iconClass}"></i></div>
             <div class="lib-item-info">
                 <span class="lib-item-title">${this._escapeHtml(item.title)}</span>
-                <div class="lib-item-meta">${catBadge}<span class="lib-item-type">${item.type.toUpperCase()}</span></div>
+                <div class="lib-item-meta">${catBadge}${metaTags}</div>
             </div>
             <div class="lib-item-actions">
                 <button class="lib-action-btn lib-open-btn" data-open-item="${item.id}" data-type="${item.type}" title="Abrir">
                     <i class="fas fa-play"></i>
                 </button>
+                ${editBtn}
                 ${deleteBtn}
             </div>
         </div>`;
@@ -3439,22 +4538,23 @@ class GuitarStudioApp {
         if (!input) return;
         if (this._libSearchHandler) input.removeEventListener('input', this._libSearchHandler);
         this._libSearchHandler = () => {
-            const q = input.value;
-            const active = document.querySelector('.lib-chip.active')?.getAttribute('data-filter') || 'all';
-            this._renderLibraryContent(this._libAllItems, this._libWeeks, this._libAllWeekItems, q, active);
+            this._renderLibraryContent(this._libAllItems, this._libWeeks, this._libAllWeekItems, input.value, this._getActiveLibFilters());
         };
         input.addEventListener('input', this._libSearchHandler);
     }
 
     _bindLibraryFilters() {
-        document.querySelectorAll('.lib-chip').forEach(chip => {
-            chip.onclick = () => {
-                document.querySelectorAll('.lib-chip').forEach(c => c.classList.remove('active'));
-                chip.classList.add('active');
-                const filter = chip.getAttribute('data-filter');
-                const q = document.getElementById("lib-search-input")?.value || '';
-                this._renderLibraryContent(this._libAllItems, this._libWeeks, this._libAllWeekItems, q, filter);
-            };
+        ['lib-filter-chips', 'lib-filter-chips-level', 'lib-filter-chips-extype', 'lib-filter-chips-style'].forEach(groupId => {
+            const group = document.getElementById(groupId);
+            if (!group) return;
+            group.querySelectorAll('.lib-chip').forEach(chip => {
+                chip.onclick = () => {
+                    group.querySelectorAll('.lib-chip').forEach(c => c.classList.remove('active'));
+                    chip.classList.add('active');
+                    const q = document.getElementById("lib-search-input")?.value || '';
+                    this._renderLibraryContent(this._libAllItems, this._libWeeks, this._libAllWeekItems, q, this._getActiveLibFilters());
+                };
+            });
         });
     }
 

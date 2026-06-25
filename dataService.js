@@ -358,6 +358,36 @@ class DataService {
     }
 
     // ==========================================================================
+    // Clases (sesiones de clase) — localStorage gs-clases
+    // ==========================================================================
+    _getClasesRaw() {
+        try { return JSON.parse(localStorage.getItem('gs-clases') || '[]'); } catch { return []; }
+    }
+    _saveClasesRaw(arr) { localStorage.setItem('gs-clases', JSON.stringify(arr)); }
+
+    getAllClases() { return this._getClasesRaw(); }
+    getClase(id) { return this._getClasesRaw().find(c => c.id === id) || null; }
+    saveClase(clase) {
+        const arr = this._getClasesRaw().filter(c => c.id !== clase.id);
+        arr.push(clase);
+        this._saveClasesRaw(arr);
+    }
+    deleteClase(id) { this._saveClasesRaw(this._getClasesRaw().filter(c => c.id !== id)); }
+
+    // ==========================================================================
+    // Objetivos completados por alumno — localStorage gs-obj-{profileId}
+    // ==========================================================================
+    getObjetivosCompletados(profileId) {
+        try { return JSON.parse(localStorage.getItem(`gs-obj-${profileId}`) || '{}'); } catch { return {}; }
+    }
+    setObjetivoCompletado(profileId, claseId, objId, done) {
+        const key = `${claseId}__${objId}`;
+        const data = this.getObjetivosCompletados(profileId);
+        if (done) data[key] = true; else delete data[key];
+        localStorage.setItem(`gs-obj-${profileId}`, JSON.stringify(data));
+    }
+
+    // ==========================================================================
     // Helper para generar IDs únicos
     // ==========================================================================
     generateId(prefix = 'id') {

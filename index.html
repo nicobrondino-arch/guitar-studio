@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="dark">
+<html lang="es" data-theme="tango">
 <head>
     <script>
     (function() {
@@ -120,7 +120,7 @@
     <!-- Google Fonts: Inter & Outfit -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Josefin+Sans:wght@300;400;600;700&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
     <!-- styles.css link -->
     <link rel="stylesheet" href="styles.css">
     <!-- FontAwesome icons for alphaTab tutorial player -->
@@ -153,45 +153,67 @@
                 <span class="brand-text">Guitar Studio</span>
             </div>
             
-            <ul class="nav-links">
-                <li class="nav-item active" data-view="studio">
-                    <a href="#studio">
-                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="3" y="3" width="7" height="9"></rect>
-                            <rect x="14" y="3" width="7" height="5"></rect>
-                            <rect x="14" y="12" width="7" height="9"></rect>
-                            <rect x="3" y="16" width="7" height="5"></rect>
-                        </svg>
-                        <span class="nav-text" data-i18n="nav-studio">Mi Estudio</span>
-                    </a>
-                </li>
-                <li class="nav-item" data-view="practice">
-                    <a href="#practice">
-                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                        </svg>
-                        <span class="nav-text" data-i18n="nav-practice">Modo Práctica</span>
-                    </a>
-                </li>
-                <li class="nav-item" data-view="notebook">
-                    <a href="#notebook">
-                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M12 20h9"></path>
-                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
-                        </svg>
-                        <span class="nav-text" data-i18n="nav-notebook">Cuaderno</span>
-                    </a>
-                </li>
-                <li class="nav-item" data-view="library">
-                    <a href="#library">
-                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-                            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-                        </svg>
-                        <span class="nav-text" data-i18n="nav-library">Biblioteca</span>
-                    </a>
-                </li>
-            </ul>
+            <div class="nav-links">
+                <!-- Espacio del Docente -->
+                <div class="nav-section" id="nav-section-professor">
+                    <span class="nav-section-label">Docente</span>
+                    <ul>
+                        <li class="nav-item nav-item-professor" data-view="dashboard">
+                            <a href="#dashboard">
+                                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="3" width="7" height="9"></rect>
+                                    <rect x="14" y="3" width="7" height="5"></rect>
+                                    <rect x="14" y="12" width="7" height="9"></rect>
+                                    <rect x="3" y="16" width="7" height="5"></rect>
+                                </svg>
+                                <span class="nav-text">Tablero</span>
+                            </a>
+                        </li>
+                        <li class="nav-item nav-item-professor" data-view="library">
+                            <a href="#library">
+                                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                                </svg>
+                                <span class="nav-text">Biblioteca</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Espacio del Alumno -->
+                <div class="nav-section" id="nav-section-student">
+                    <span class="nav-section-label">Alumno</span>
+                    <ul>
+                        <li class="nav-item nav-item-student active" data-view="studio">
+                            <a href="#studio">
+                                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                                </svg>
+                                <span class="nav-text" data-i18n="nav-studio">Mi Estudio</span>
+                            </a>
+                        </li>
+                        <li class="nav-item nav-item-student" data-view="practice">
+                            <a href="#practice">
+                                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                                </svg>
+                                <span class="nav-text" data-i18n="nav-practice">Modo Práctica</span>
+                            </a>
+                        </li>
+                        <li class="nav-item nav-item-student" data-view="my-library">
+                            <a href="#my-library">
+                                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                                </svg>
+                                <span class="nav-text">Mi Biblioteca</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
 
             <!-- Quick Tools (Metronome & Volume) -->
             <div class="quick-tools-box">
@@ -228,8 +250,15 @@
                 </div>
             </div>
             
-            <!-- Language Selector at the Bottom -->
+            <!-- Selectores de Tema e Idioma -->
             <div class="sidebar-footer">
+                <!-- Selector de tema visual -->
+                <div class="theme-selector">
+                    <button class="theme-swatch theme-swatch-tango" id="btn-theme-tango" title="Tango Clásico" onclick="app.applyTheme('tango')"></button>
+                    <button class="theme-swatch theme-swatch-folklore" id="btn-theme-folklore" title="Folklore" onclick="app.applyTheme('folklore')"></button>
+                    <button class="theme-swatch theme-swatch-partitura" id="btn-theme-partitura" title="Partitura Vintage" onclick="app.applyTheme('partitura')"></button>
+                </div>
+                <!-- Selector de idioma -->
                 <div class="lang-selector">
                     <button class="lang-btn active" id="btn-lang-es">ES</button>
                     <span class="lang-divider">|</span>
@@ -268,57 +297,66 @@
                 <section id="view-studio" class="app-view active">
                     <div class="studio-hub">
 
-                        <!-- Fila superior: Racha + Frase motivacional -->
-                        <div class="studio-top-row">
-                            <!-- Racha -->
-                            <div class="card studio-streak-card">
-                                <div class="studio-streak-inner">
-                                    <div class="studio-streak-fire">🔥</div>
-                                    <div class="studio-streak-info">
-                                        <span class="studio-streak-num" id="streak-count">0</span>
-                                        <span class="studio-streak-lbl" data-i18n="streak-label">Días</span>
-                                    </div>
-                                </div>
-                                <p class="studio-streak-desc" id="studio-streak-desc" data-i18n="studio-streak-desc">Toca 15 minutos para mantener encendido tu fuego de práctica.</p>
-                                <button class="btn btn-primary btn-sm" onclick="app.navigateToView('practice')">
+                        <!-- Layout B: Streak (left tall) + Progreso (right) -->
+                        <div class="studio-top-grid">
+
+                            <!-- Streak Card -->
+                            <div class="card studio-streak-card-b">
+                                <div class="studio-streak-eyebrow">Racha</div>
+                                <div class="studio-streak-fire-b">🔥</div>
+                                <div class="studio-streak-num-b" id="streak-count">0</div>
+                                <div class="studio-streak-unit-b" data-i18n="streak-label">días seguidos</div>
+                                <p class="studio-streak-desc" id="studio-streak-desc" data-i18n="studio-streak-desc">Comenzá tu práctica de hoy.</p>
+                                <button class="btn btn-primary btn-sm studio-streak-cta" onclick="app.navigateToView('practice')">
                                     <span data-i18n="btn-start-practice">Comenzar Práctica</span>
                                 </button>
                             </div>
 
-                            <!-- Frase motivacional -->
-                            <div class="card studio-phrase-card">
-                                <div class="studio-phrase-icon">💬</div>
-                                <p class="studio-phrase-text" id="studio-phrase-text">"La práctica no hace la perfección. La práctica perfecta hace la perfección."</p>
-                                <span class="studio-phrase-author" id="studio-phrase-author">— Vince Lombardi</span>
+                            <!-- Progress Card -->
+                            <div class="card studio-progress-card-b">
+                                <div class="card-header-flex">
+                                    <h3 class="card-title" data-i18n="card-progress-title">Progreso de Hoy</h3>
+                                    <span class="studio-progress-pct" id="progress-percentage">0%</span>
+                                </div>
+                                <!-- Global bar oculto (JS lo sigue usando) -->
+                                <div style="display:none"><div id="studio-progress-bar" style="width:0%"></div></div>
+                                <!-- Barras por categoría -->
+                                <div class="studio-cats-b">
+                                    <div class="studio-cat-bar-row studio-cat-item" id="summary-cat-technique">
+                                        <div class="studio-cat-bar-label">
+                                            <div class="status-dot"></div>
+                                            <span data-i18n="cat-technique">Técnica</span>
+                                            <span class="cat-bar-status-text">Pendiente</span>
+                                        </div>
+                                        <div class="studio-bar-track"><div class="studio-bar-fill"></div></div>
+                                    </div>
+                                    <div class="studio-cat-bar-row studio-cat-item" id="summary-cat-reading">
+                                        <div class="studio-cat-bar-label">
+                                            <div class="status-dot"></div>
+                                            <span data-i18n="cat-reading">Lectura Musical</span>
+                                            <span class="cat-bar-status-text">Pendiente</span>
+                                        </div>
+                                        <div class="studio-bar-track"><div class="studio-bar-fill"></div></div>
+                                    </div>
+                                    <div class="studio-cat-bar-row studio-cat-item" id="summary-cat-repertoire">
+                                        <div class="studio-cat-bar-label">
+                                            <div class="status-dot"></div>
+                                            <span data-i18n="cat-repertoire">Repertorio</span>
+                                            <span class="cat-bar-status-text">Pendiente</span>
+                                        </div>
+                                        <div class="studio-bar-track"><div class="studio-bar-fill"></div></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Progreso del día -->
-                        <div class="card studio-progress-card">
-                            <div class="card-header-flex">
-                                <h3 class="card-title" data-i18n="card-progress-title">Progreso de Hoy</h3>
-                                <span class="studio-progress-pct" id="progress-percentage">0%</span>
-                            </div>
-                            <div class="studio-progress-bar-wrap">
-                                <div class="studio-progress-bar" id="studio-progress-bar" style="width:0%"></div>
-                            </div>
-                            <div class="studio-cats-row">
-                                <div class="studio-cat-item" id="summary-cat-technique">
-                                    <div class="status-dot"></div>
-                                    <span data-i18n="cat-technique">Técnica</span>
-                                </div>
-                                <div class="studio-cat-item" id="summary-cat-reading">
-                                    <div class="status-dot"></div>
-                                    <span data-i18n="cat-reading">Lectura Musical</span>
-                                </div>
-                                <div class="studio-cat-item" id="summary-cat-repertoire">
-                                    <div class="status-dot"></div>
-                                    <span data-i18n="cat-repertoire">Enfoque Semanal</span>
-                                </div>
-                            </div>
+                        <!-- Frase motivacional -->
+                        <div class="card studio-phrase-card-b">
+                            <p class="studio-phrase-text" id="studio-phrase-text">"La práctica no hace la perfección. La práctica consciente hace la perfección."</p>
+                            <span class="studio-phrase-author" id="studio-phrase-author">— Vince Lombardi</span>
                         </div>
 
-                        <!-- Semanas pendientes -->
+                        <!-- Semanas asignadas -->
                         <div class="card studio-pending-card">
                             <h3 class="card-title">Mis Semanas Asignadas</h3>
                             <div id="studio-pending-weeks">
@@ -326,7 +364,7 @@
                             </div>
                         </div>
 
-                        <!-- Heatmap + Stats -->
+                        <!-- Heatmap -->
                         <div class="card studio-heatmap-card">
                             <h3 class="card-title" data-i18n="card-heatmap-title">Registro de Consistencia</h3>
                             <p class="card-subtitle" data-i18n="card-heatmap-subtitle">Tus días practicados en el último mes</p>
@@ -339,10 +377,9 @@
                         <div class="card studio-notes-card">
                             <div class="card-header-flex">
                                 <h3 class="card-title" data-i18n="card-teacher-title">Cuaderno del Profesor</h3>
-                                <button class="btn btn-text" onclick="app.navigateToView('notebook')" data-i18n="btn-edit">Ver Completo</button>
                             </div>
                             <div class="teacher-notes-preview" id="teacher-notes-preview">
-                                <p class="text-muted" data-i18n="no-notes-yet">No hay anotaciones registradas para esta semana. Ve al Cuaderno.</p>
+                                <p class="text-muted" data-i18n="no-notes-yet">No hay anotaciones registradas para esta semana.</p>
                             </div>
                         </div>
 
@@ -618,6 +655,20 @@
                         </div>
                     </div>
 
+                    <!-- Sección: Grupos de Clase -->
+                    <div class="notebook-groups-section">
+                        <div class="card-header-flex" style="margin-bottom:16px">
+                            <div>
+                                <h3 class="card-title">Grupos de Clase</h3>
+                                <p class="card-subtitle" style="margin-top:3px">Organizá tus alumnos en grupos y gestioná los links de Meet</p>
+                            </div>
+                            <button class="btn btn-primary btn-sm" onclick="app.showNewGroupForm()">+ Nuevo Grupo</button>
+                        </div>
+                        <div id="groups-list-notebook">
+                            <p class="text-muted">No hay grupos creados aún.</p>
+                        </div>
+                    </div>
+
                     <!-- Sección 3: Biblioteca de Contenido -->
                     <div class="notebook-library-section">
                         <div class="card-header-flex" style="margin-bottom: 20px;">
@@ -693,24 +744,127 @@
                     </div>
                 </section>
 
-                <!-- VIEW 4: BIBLIOTECA -->
+                <!-- VIEW 4: BIBLIOTECA PRINCIPAL (Profesor) -->
                 <section id="view-library" class="app-view">
-                    <!-- Toolbar: búsqueda + filtros -->
                     <div class="lib-toolbar">
                         <div class="lib-search-wrap">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lib-search-icon"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                             <input type="text" class="lib-search-input" id="lib-search-input" placeholder="Buscar por nombre...">
                         </div>
-                        <div class="lib-filter-chips" id="lib-filter-chips">
-                            <button class="lib-chip active" data-filter="all">Todos</button>
-                            <button class="lib-chip" data-filter="technique">Técnica</button>
-                            <button class="lib-chip" data-filter="reading">Lectura</button>
-                            <button class="lib-chip" data-filter="repertoire">Repertorio</button>
+                        <div class="lib-filter-row">
+                            <div class="lib-filter-chips" id="lib-filter-chips">
+                                <span class="lib-filter-label">Tipo</span>
+                                <button class="lib-chip active" data-filter-type="fileType" data-filter="all">Todos</button>
+                                <button class="lib-chip" data-filter-type="fileType" data-filter="score">Partituras</button>
+                                <button class="lib-chip" data-filter-type="fileType" data-filter="pdf">PDFs</button>
+                                <button class="lib-chip" data-filter-type="fileType" data-filter="youtube">Videos</button>
+                                <button class="lib-chip" data-filter-type="fileType" data-filter="spotify">Spotify</button>
+                            </div>
+                            <div class="lib-filter-chips" id="lib-filter-chips-level">
+                                <span class="lib-filter-label">Nivel</span>
+                                <button class="lib-chip active" data-filter-type="level" data-filter="all">Todos</button>
+                                <button class="lib-chip" data-filter-type="level" data-filter="inicial">Inicial</button>
+                                <button class="lib-chip" data-filter-type="level" data-filter="intermedio">Intermedio</button>
+                                <button class="lib-chip" data-filter-type="level" data-filter="avanzado">Avanzado</button>
+                            </div>
+                            <div class="lib-filter-chips" id="lib-filter-chips-extype">
+                                <span class="lib-filter-label">Ejercicio</span>
+                                <button class="lib-chip active" data-filter-type="exerciseType" data-filter="all">Todos</button>
+                                <button class="lib-chip" data-filter-type="exerciseType" data-filter="tecnica">Técnica</button>
+                                <button class="lib-chip" data-filter-type="exerciseType" data-filter="lectura">Lectura</button>
+                                <button class="lib-chip" data-filter-type="exerciseType" data-filter="repertorio">Repertorio</button>
+                                <button class="lib-chip" data-filter-type="exerciseType" data-filter="teoria">Teoría</button>
+                                <button class="lib-chip" data-filter-type="exerciseType" data-filter="improvisacion">Improvisación</button>
+                            </div>
+                            <div class="lib-filter-chips" id="lib-filter-chips-style">
+                                <span class="lib-filter-label">Estilo</span>
+                                <button class="lib-chip active" data-filter-type="musicalStyle" data-filter="all">Todos</button>
+                                <button class="lib-chip" data-filter-type="musicalStyle" data-filter="tango">Tango</button>
+                                <button class="lib-chip" data-filter-type="musicalStyle" data-filter="folklore">Folklore</button>
+                                <button class="lib-chip" data-filter-type="musicalStyle" data-filter="jazz">Jazz</button>
+                                <button class="lib-chip" data-filter-type="musicalStyle" data-filter="clasico">Clásico</button>
+                                <button class="lib-chip" data-filter-type="musicalStyle" data-filter="rock">Rock</button>
+                                <button class="lib-chip" data-filter-type="musicalStyle" data-filter="pop">Pop</button>
+                                <button class="lib-chip" data-filter-type="musicalStyle" data-filter="bossa">Bossa Nova</button>
+                                <button class="lib-chip" data-filter-type="musicalStyle" data-filter="flamenco">Flamenco</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="lib-view-content"></div>
+
+                    <!-- Sección fusionada: Grupos de Clase -->
+                    <div class="lib-groups-section" style="margin-top:32px;padding-top:24px;border-top:1px solid var(--tb-border)">
+                        <div class="card-header-flex" style="margin-bottom:16px">
+                            <div>
+                                <h3 class="card-title">Grupos de Clase</h3>
+                                <p class="card-subtitle" style="margin-top:3px">Organizá tus alumnos y gestioná los links de Meet</p>
+                            </div>
+                            <button class="btn btn-primary btn-sm" onclick="app.showNewGroupForm()">+ Nuevo Grupo</button>
+                        </div>
+                        <div id="groups-list-notebook">
+                            <p class="text-muted">No hay grupos creados aún.</p>
                         </div>
                     </div>
 
-                    <!-- Contenido dinámico (generado por JS según rol) -->
-                    <div id="lib-view-content"></div>
+                    <!-- Sección fusionada: Semanas de Trabajo -->
+                    <div class="lib-weeks-section" style="margin-top:32px;padding-top:24px;border-top:1px solid var(--tb-border)">
+                        <div class="card-header-flex" style="margin-bottom:16px">
+                            <div>
+                                <h3 class="card-title">Semanas de Trabajo</h3>
+                                <p class="card-subtitle" style="margin-top:3px">Planificá el contenido por semana y asignalo a alumnos</p>
+                            </div>
+                            <button class="btn btn-primary btn-sm" id="btn-new-week">+ Nueva Semana</button>
+                        </div>
+                        <div id="weeks-list-notebook">
+                            <p class="text-muted">No hay semanas creadas aún.</p>
+                        </div>
+                    </div>
+
+                    <!-- Anotaciones del profesor -->
+                    <div class="lib-notes-section" style="margin-top:32px;padding-top:24px;border-top:1px solid var(--tb-border)">
+                        <h3 class="card-title" style="margin-bottom:16px">Anotaciones del Profesor</h3>
+                        <div class="notebook-layout">
+                            <div class="notebook-card-form">
+                                <div class="form-group">
+                                    <label class="form-label">Nombre del Profesor</label>
+                                    <input type="text" class="form-control" id="notes-teacher-name" placeholder="Ej. Juan Gómez">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Enfoque de la Semana</label>
+                                    <textarea class="form-control" id="notes-focus-task" rows="3" placeholder="Ej. Practicar transiciones de acordes..."></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Correcciones Técnicas</label>
+                                    <textarea class="form-control" id="notes-corrections" rows="3" placeholder="Ej. Mantener muñeca relajada..."></textarea>
+                                </div>
+                                <button class="btn btn-primary" id="btn-save-notes">Guardar Anotaciones</button>
+                                <span id="save-status-msg" class="save-status-msg"></span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 5: TABLERO DE CONTROL (Profesor) -->
+                <section id="view-dashboard" class="app-view app-view-fullheight">
+                    <div id="dashboard-content" style="height:100%;overflow:hidden"></div>
+                </section>
+
+                <!-- VIEW 6: MI BIBLIOTECA (Alumno) -->
+                <section id="view-my-library" class="app-view">
+                    <div class="lib-toolbar">
+                        <div class="lib-search-wrap">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lib-search-icon"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            <input type="text" class="lib-search-input" id="my-lib-search-input" placeholder="Buscar por nombre...">
+                        </div>
+                        <div class="lib-filter-chips" id="my-lib-filter-chips">
+                            <button class="lib-chip active" data-filter="all">Todos</button>
+                            <button class="lib-chip" data-filter="score">Partituras</button>
+                            <button class="lib-chip" data-filter="pdf">PDFs</button>
+                            <button class="lib-chip" data-filter="youtube">Videos</button>
+                            <button class="lib-chip" data-filter="spotify">Spotify</button>
+                        </div>
+                    </div>
+                    <div id="my-lib-view-content"></div>
                 </section>
 
 
@@ -801,6 +955,57 @@
             </div>
             <div class="modal-actions">
                 <button class="btn btn-outline" id="btn-profiles-modal-close">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+<!-- MODAL METADATOS DE BIBLIOTECA -->
+    <div class="modal-overlay" id="lib-metadata-modal" style="display:none">
+        <div class="modal-box modal-wide">
+            <h3 class="modal-title" id="lib-metadata-modal-title">Detalles del contenido</h3>
+            <input type="hidden" id="lib-metadata-item-id">
+            <div class="modal-form-row">
+                <label class="modal-label">Título</label>
+                <input type="text" class="form-input" id="lib-metadata-title" placeholder="Nombre del contenido">
+            </div>
+            <div class="modal-form-row" id="lib-metadata-row-level">
+                <label class="modal-label">Nivel</label>
+                <select class="form-select" id="lib-metadata-level">
+                    <option value="">— Sin especificar —</option>
+                    <option value="inicial">Inicial</option>
+                    <option value="intermedio">Intermedio</option>
+                    <option value="avanzado">Avanzado</option>
+                </select>
+            </div>
+            <div class="modal-form-row" id="lib-metadata-row-exerciseType">
+                <label class="modal-label">Tipo de ejercicio</label>
+                <select class="form-select" id="lib-metadata-exerciseType">
+                    <option value="">— Sin especificar —</option>
+                    <option value="tecnica">Técnica</option>
+                    <option value="lectura">Lectura</option>
+                    <option value="repertorio">Repertorio</option>
+                    <option value="teoria">Teoría</option>
+                    <option value="improvisacion">Improvisación</option>
+                </select>
+            </div>
+            <div class="modal-form-row" id="lib-metadata-row-musicalStyle">
+                <label class="modal-label">Estilo musical</label>
+                <select class="form-select" id="lib-metadata-musicalStyle">
+                    <option value="">— Sin especificar —</option>
+                    <option value="tango">Tango</option>
+                    <option value="folklore">Folklore</option>
+                    <option value="jazz">Jazz</option>
+                    <option value="clasico">Clásico</option>
+                    <option value="rock">Rock</option>
+                    <option value="pop">Pop</option>
+                    <option value="bossa">Bossa Nova</option>
+                    <option value="flamenco">Flamenco</option>
+                    <option value="otro">Otro</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-outline" id="btn-lib-metadata-cancel">Cancelar</button>
+                <button class="btn btn-primary" id="btn-lib-metadata-save">Guardar</button>
             </div>
         </div>
     </div>
