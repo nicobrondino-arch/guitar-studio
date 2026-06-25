@@ -1,4 +1,4 @@
-/**
+﻿/**
  * app.js - Lógica principal de Guitar Studio.
  * Controla navegación SPA, internacionalización (ES/EN), temporizadores,
  * metrónomo de UI, persistencia de racha (LocalStorage), base de datos (IndexedDB)
@@ -761,6 +761,7 @@ class GuitarStudioApp {
         this.loadTeacherNotesUI();
         await this.renderPracticeView();
         await this.renderStudioPendingWeeks();
+        await this.renderProximaClaseAlumno();
         this.renderMotivationalPhrase();
         this.updateProfileChip();
         this.checkStreakValidity();
@@ -1026,6 +1027,241 @@ class GuitarStudioApp {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;margin-left:auto;opacity:.5"><polyline points="9 18 15 12 9 6"/></svg>
             </div>
         `).join('');
+    }
+
+    async renderProximaClaseAlumno() {
+        const container = document.getElementById('studio-proxima-clase');
+        if (!container) return;
+
+        // Solo visible para alumnos (no profesor)
+        if (this.isProfessorMode || !this.activeProfile) {
+            container.innerHTML = '';
+            return;
+        }
+
+        const profileId = this.activeProfile.id;
+        const groups = this._getGroups().filter(g => (g.memberIds || []).includes(profileId));
+        if (groups.length === 0) { container.innerHTML = ''; return; }
+
+        const groupIds = groups.map(g => g.id);
+        const allClases = this.data.getAllClases();
+
+        // Clases relevantes: del grupo del alumno, iniciada o finalizada, ordenadas por fecha desc
+        const clases = allClases
+            .filter(c => groupIds.includes(c.groupId) && (c.status === 'iniciada' || c.status === 'finalizada'))
+            .sort((a, b) => b.date.localeCompare(a.date));
+
+        if (clases.length === 0) { container.innerHTML = ''; return; }
+
+        const proxima = clases[0]; // La más reciente
+        const group = groups.find(g => g.id === proxima.groupId) || {};
+        const anteriores = clases.slice(1, 4);
+
+        const catColors = [
+            { color: '#a29bfe', label: 'Técnica',    borderColor: 'rgba(162,155,254,.2)' },
+            { color: '#55efc4', label: 'Lectura',     borderColor: 'rgba(85,239,196,.2)'  },
+            { color: '#fdcb6e', label: 'Repertorio',  borderColor: 'rgba(253,203,110,.2)' },
+        ];
+
+        const typeIcon = (item) => {
+            if (item.type === 'youtube' || (item.url && item.url.includes('youtu')))
+                return `<svg viewBox="0 0 16 16" fill="none" style="width:13px;height:13px;color:#FF0000;flex-shrink:0" stroke="currentColor" stroke-width="1.2"><rect x="2" y="4" width="12" height="9" rx="1.5"/><path d="M6.5 7.5l4 2-4 2V7.5z" fill="currentColor" stroke="none"/></svg>`;
+            if (item.type === 'pdf')
+                return `<svg viewBox="0 0 16 16" fill="none" style="width:13px;height:13px;flex-shrink:0" stroke="#e53e3e" stroke-width="1.5"><path d="M4 2h6l4 4v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M9 2v4h4"/></svg>`;
+            return `<svg viewBox="0 0 16 16" fill="none" style="width:13px;height:13px;flex-shrink:0" stroke="#C8304A" stroke-width="1.5"><path d="M10 2v8a3 3 0 1 1-2-2.83V2l4 1"/></svg>`;
+        };
+
+        const renderCatSection = (catIdx) => {
+            const items = (proxima.content || []).filter(ci => ci.cat === catIdx);
+            if (items.length === 0) return '';
+            const { color, label, borderColor } = catColors[catIdx];
+            const itemsHtml = items.map(ci => `
+                <div class="alm-pc-item">
+                    ${typeIcon(ci)}
+                    ${this._escapeHtml(ci.title)}
+                </div>`).join('');
+            return `<div class="alm-proxima-cat">
+                <div class="alm-pc-label" style="color:${color}">
+                    <div style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></div>
+                    ${label}
+                </div>
+                <div class="alm-pc-items" style="border-left:2px solid ${borderColor}">
+                    ${itemsHtml}
+                </div>
+            </div>`;
+        };
+
+        const catSections = [0,1,2].map(renderCatSection).join('');
+        const hasContent = (proxima.content || []).length > 0;
+
+        const notaAlumno = proxima.notaAlumno || proxima.resumen || '';
+
+        // Objetivos del profesor
+        const objetivos = proxima.objetivos || [];
+        const objetivosHtml = objetivos.length > 0 ? `
+            <div class="alm-objetivos">
+                <div style="font:700 9px Inter;color:#5e3a42;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px">Objetivos para esta semana</div>
+                ${objetivos.map(o => `<div class="alm-objetivo-item">
+                    <svg viewBox="0 0 10 10" fill="none" style="width:10px;height:10px;flex-shrink:0"><circle cx="5" cy="5" r="4" stroke="#C8304A" stroke-width="1"/><path d="M3 5l1.5 1.5 3-3" stroke="#C8304A" stroke-width="1.2" stroke-linecap="round"/></svg>
+                    ${this._escapeHtml(o.text)}
+                </div>`).join('')}
+            </div>` : '';
+
+        const dateStr = new Date(proxima.date + 'T12:00').toLocaleDateString('es-AR', { weekday:'long', day:'numeric', month:'long' });
+        const isLive = proxima.status === 'iniciada';
+
+        // Canal de preguntas — guardado en localStorage por clase+perfil
+        const pregKey = `gs-preg-${profileId}-${proxima.id}`;
+        const pregData = JSON.parse(localStorage.getItem(pregKey) || '{"text":"","sent":false}');
+
+        const pregHtml = `<div class="alm-preguntas-card" id="alm-preguntas-${proxima.id}">
+            <div class="alm-preguntas-header">
+                <div>
+                    <div style="font:700 9px Inter;color:#4a9eff;text-transform:uppercase;letter-spacing:.12em;margin-bottom:3px">Canal de preguntas</div>
+                    <div style="font:400 italic 13px 'Playfair Display',serif;color:#8a6a6e">Dejá tus dudas para trabajar en la próxima clase</div>
+                </div>
+            </div>
+            <div class="alm-preguntas-body">
+                ${pregData.sent
+                    ? `<div style="display:flex;flex-direction:column;gap:8px">
+                        <div style="background:var(--tb-bg-primary);border:1px solid #1e3a5a;border-radius:8px;padding:10px 14px">
+                            <div style="font:500 10px Inter;color:#4a9eff;margin-bottom:5px;text-transform:uppercase;letter-spacing:.08em">Tu pregunta</div>
+                            <p style="font:400 italic 13px/1.6 'Playfair Display',serif;color:#c8a0a4">${this._escapeHtml(pregData.text)}</p>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <svg viewBox="0 0 16 16" fill="none" style="width:13px;height:13px" stroke="#34c759" stroke-width="1.5"><path d="M3 8l3 3 7-7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            <span style="font:500 12px Inter;color:#34c759">Enviada — el profesor la verá antes de la próxima clase</span>
+                        </div>
+                        <button style="align-self:flex-start;background:transparent;border:1px solid #2e1620;border-radius:7px;padding:5px 12px;font:500 11px Inter;color:#8a6a6e;cursor:pointer" onclick="app._nuevaPreguntaAlumno('${proxima.id}')">+ Agregar otra pregunta</button>
+                    </div>`
+                    : `<div style="display:flex;flex-direction:column;gap:10px">
+                        <textarea id="preg-input-${proxima.id}" style="width:100%;background:var(--tb-bg-primary);border:1px solid #2e1620;border-radius:8px;padding:10px 12px;font:400 13px/1.6 'Playfair Display',serif;color:var(--tb-text-primary);resize:none;outline:none;min-height:72px;box-sizing:border-box" placeholder="¿Qué no quedó claro? ¿Algo que quieras repasar la próxima clase?…">${this._escapeHtml(pregData.text)}</textarea>
+                        <div style="display:flex;justify-content:flex-end">
+                            <button class="btn btn-ghost btn-sm" style="display:flex;align-items:center;gap:6px;border-color:#1e3a5a;color:#4a9eff" onclick="app._enviarPreguntaAlumno('${proxima.id}')">
+                                <svg viewBox="0 0 16 16" fill="none" style="width:11px;height:11px" stroke="currentColor" stroke-width="1.5"><path d="M14 2L2 7l5 2 2 5 5-12z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                Enviar pregunta
+                            </button>
+                        </div>
+                    </div>`}
+            </div>
+        </div>`;
+
+        // Clases anteriores
+        const anterioresHtml = anteriores.length > 0 ? `
+            <div class="alm-prev-section">
+                <div style="font:700 9px Inter;color:#5e3a42;text-transform:uppercase;letter-spacing:.14em;padding:0 4px;margin-bottom:8px">Clases Anteriores</div>
+                ${anteriores.map(c => {
+                    const g2 = groups.find(gr => gr.id === c.groupId) || {};
+                    const d = new Date(c.date+'T12:00').toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'});
+                    const cnt = (c.content || []).length;
+                    return `<div class="alm-prev-clase" onclick="app._abrirClaseAnteriorAlumno('${c.id}')">
+                        <svg viewBox="0 0 16 16" fill="none" style="width:14px;height:14px;flex-shrink:0" stroke="#5e3a42" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+                        <div style="flex:1">
+                            <div style="font:600 13px 'Playfair Display',serif;color:var(--tb-text-primary)">${d.charAt(0).toUpperCase()+d.slice(1)} — ${this._escapeHtml(g2.name||'')}</div>
+                            <div style="font:400 11px Inter;color:#5e3a42;margin-top:2px">${cnt} ejercicio${cnt!==1?'s':''} · Finalizada</div>
+                        </div>
+                        <svg viewBox="0 0 16 16" fill="none" style="width:13px;height:13px" stroke="#3e2030" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+                    </div>`;
+                }).join('')}
+            </div>` : '';
+
+        const meetBtn = group.meetLink ? `
+            <button class="btn btn-meet btn-sm" onclick="window.open('https://${this._escapeHtml(group.meetLink)}','_blank')">
+                <svg viewBox="0 0 24 24" fill="none" style="width:12px;height:12px" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                Entrar al Meet
+            </button>` : '';
+
+        container.innerHTML = `
+        <div class="alm-proxima-wrap">
+            <!-- Card hero: próxima clase -->
+            <div class="alm-proxima-card${isLive ? ' alm-proxima-live' : ''}">
+                <div class="alm-proxima-header">
+                    <div>
+                        <div class="alm-proxima-label">${isLive ? '🔴 Clase en curso ahora' : 'Preparación para la próxima clase'}</div>
+                        <div class="alm-proxima-title">${this._escapeHtml(group.name || proxima.title)}</div>
+                        <div class="alm-proxima-meta">${dateStr}${group.time ? ' · ' + group.time.slice(0,5) : ''}</div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+                        ${meetBtn}
+                        ${group.meetLink ? `<span style="font:400 10px Inter;color:#3e2030">${this._escapeHtml(group.meetLink)}</span>` : ''}
+                    </div>
+                </div>
+                <div class="alm-proxima-body">
+                    ${hasContent
+                        ? catSections
+                        : `<p style="font:400 italic 13px 'Playfair Display',serif;color:#5e3a42">El profesor aún no cargó contenido para esta clase.</p>`}
+                    ${notaAlumno ? `
+                    <div class="alm-nota-profesor">
+                        <div style="font:700 9px Inter;color:#C8304A;text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px">Nota del Profesor</div>
+                        <p style="font:400 italic 13px/1.6 'Playfair Display',serif;color:#9e8a8e">"${this._escapeHtml(notaAlumno)}"</p>
+                    </div>` : ''}
+                    ${objetivosHtml}
+                </div>
+            </div>
+
+            ${pregHtml}
+            ${anterioresHtml}
+        </div>`;
+    }
+
+    _enviarPreguntaAlumno(claseId) {
+        if (!this.activeProfile) return;
+        const inp = document.getElementById(`preg-input-${claseId}`);
+        if (!inp || !inp.value.trim()) return;
+        const key = `gs-preg-${this.activeProfile.id}-${claseId}`;
+        const existing = JSON.parse(localStorage.getItem(key) || '{"text":"","sent":false}');
+        // Guardar múltiples preguntas como array
+        const pregKey = `gs-pregs-${this.activeProfile.id}-${claseId}`;
+        const pregs = JSON.parse(localStorage.getItem(pregKey) || '[]');
+        pregs.push({ text: inp.value.trim(), ts: Date.now() });
+        localStorage.setItem(pregKey, JSON.stringify(pregs));
+        localStorage.setItem(key, JSON.stringify({ text: inp.value.trim(), sent: true }));
+        this.renderProximaClaseAlumno();
+    }
+
+    _nuevaPreguntaAlumno(claseId) {
+        if (!this.activeProfile) return;
+        const key = `gs-preg-${this.activeProfile.id}-${claseId}`;
+        localStorage.setItem(key, JSON.stringify({ text: '', sent: false }));
+        this.renderProximaClaseAlumno();
+    }
+
+    _abrirClaseAnteriorAlumno(claseId) {
+        // Por ahora muestra un detalle simple — se puede expandir
+        const clase = this.data.getClase(claseId);
+        if (!clase) return;
+        const group = this._getGroups().find(g => g.id === clase.groupId) || {};
+        const dateStr = new Date(clase.date+'T12:00').toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'});
+        const catLabels = ['Técnica','Lectura','Repertorio'];
+        const catColors = ['#a29bfe','#55efc4','#fdcb6e'];
+        const contentHtml = (clase.content||[]).length === 0
+            ? '<p style="color:#5e3a42;font:italic 13px Playfair Display,serif">Sin contenido registrado.</p>'
+            : [0,1,2].map(ci => {
+                const items = (clase.content||[]).filter(x => x.cat === ci);
+                if (!items.length) return '';
+                return `<div style="margin-bottom:12px">
+                    <div style="font:700 9px Inter;color:${catColors[ci]};text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px">${catLabels[ci]}</div>
+                    ${items.map(x=>`<div style="padding:6px 10px;background:var(--tb-bg-primary);border-radius:7px;font:400 13px Inter;color:var(--tb-text-primary);margin-bottom:3px">${this._escapeHtml(x.title)}</div>`).join('')}
+                </div>`;
+            }).join('');
+
+        const dlg = document.createElement('div');
+        dlg.className = 'modal-overlay';
+        dlg.innerHTML = `<div class="modal-box" style="max-width:460px">
+            <div style="font:700 9px Inter;color:#C8304A;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px">Clase anterior</div>
+            <h3 style="font:700 18px 'Playfair Display',serif;color:var(--tb-text-primary);margin-bottom:4px">${this._escapeHtml(group.name||clase.title)}</h3>
+            <p style="font:400 12px Inter;color:#5e3a42;margin-bottom:16px">${dateStr.charAt(0).toUpperCase()+dateStr.slice(1)}</p>
+            <div style="max-height:300px;overflow-y:auto">${contentHtml}</div>
+            ${clase.notaAlumno ? `<div style="margin-top:14px;padding:10px 14px;border-left:3px solid #C8304A;background:rgba(200,48,74,.05);border-radius:0 8px 8px 0">
+                <div style="font:700 9px Inter;color:#C8304A;text-transform:uppercase;margin-bottom:5px">Nota del Profesor</div>
+                <p style="font:400 italic 13px/1.6 'Playfair Display',serif;color:#9e8a8e">"${this._escapeHtml(clase.notaAlumno)}"</p>
+            </div>` : ''}
+            <div style="margin-top:18px;display:flex;justify-content:flex-end">
+                <button class="btn btn-ghost" onclick="this.closest('.modal-overlay').remove()">Cerrar</button>
+            </div>
+        </div>`;
+        document.body.appendChild(dlg);
+        dlg.addEventListener('click', e => { if (e.target === dlg) dlg.remove(); });
     }
 
     renderMotivationalPhrase() {
@@ -1588,6 +1824,7 @@ class GuitarStudioApp {
             this.renderAssignMatrix();
         } else if (viewId === 'studio') {
             this.renderStudioPendingWeeks();
+            this.renderProximaClaseAlumno();
         } else if (viewId === 'library') {
             this.renderLibraryView();
         } else if (viewId === 'my-library') {

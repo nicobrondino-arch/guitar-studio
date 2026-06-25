@@ -4605,3 +4605,168 @@ textarea.form-control {
     max-width: 400px;
     box-shadow: 0 20px 60px rgba(0,0,0,.6);
 }
+
+/* =========================================================================
+   Vista Alumno — Próxima Clase
+   ========================================================================= */
+
+.alm-proxima-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 4px;
+}
+
+/* Card hero de próxima clase */
+.alm-proxima-card {
+    background: var(--tb-bg-secondary);
+    border: 1px solid var(--tb-accent);
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.alm-proxima-card.alm-proxima-live {
+    border-color: #C8304A;
+    box-shadow: 0 0 0 1px rgba(200,48,74,.2), 0 8px 32px rgba(200,48,74,.1);
+}
+
+.alm-proxima-header {
+    background: linear-gradient(135deg, var(--tb-bg-secondary) 0%, var(--tb-bg-elevated) 100%);
+    padding: 18px 22px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    border-bottom: 1px solid var(--tb-border);
+}
+
+.alm-proxima-label {
+    font: 700 9px Inter, sans-serif;
+    color: var(--tb-accent);
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    margin-bottom: 5px;
+}
+
+.alm-proxima-title {
+    font: 700 20px var(--font-heading);
+    color: var(--tb-text-primary);
+    letter-spacing: -.01em;
+}
+
+.alm-proxima-meta {
+    font: 400 12px Inter, sans-serif;
+    color: var(--tb-text-secondary);
+    margin-top: 4px;
+}
+
+.alm-proxima-body {
+    padding: 18px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Secciones por categoría */
+.alm-proxima-cat {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.alm-pc-label {
+    font: 600 9px Inter, sans-serif;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.alm-pc-items {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding-left: 16px;
+}
+
+.alm-pc-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: var(--tb-bg-primary);
+    border-radius: 7px;
+    font: 400 13px Inter, sans-serif;
+    color: var(--tb-text-secondary);
+    cursor: default;
+    transition: background .12s;
+}
+
+.alm-pc-item:hover { background: var(--tb-bg-elevated); }
+
+/* Nota del profesor */
+.alm-nota-profesor {
+    margin-top: 4px;
+    padding: 10px 14px;
+    border-left: 3px solid var(--tb-accent);
+    background: var(--tb-accent-glow);
+    border-radius: 0 8px 8px 0;
+}
+
+/* Objetivos */
+.alm-objetivos {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.alm-objetivo-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    font: 400 13px Inter, sans-serif;
+    color: var(--tb-text-secondary);
+}
+
+/* Canal de preguntas */
+.alm-preguntas-card {
+    background: var(--tb-bg-secondary);
+    border: 1px solid #1e3a5a;
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.alm-preguntas-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid #1a2e40;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.alm-preguntas-body {
+    padding: 14px 18px;
+}
+
+/* Clases anteriores */
+.alm-prev-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.alm-prev-clase {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--tb-bg-secondary);
+    border: 1px solid var(--tb-border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color .15s;
+}
+
+.alm-prev-clase:hover { border-color: var(--tb-border-hover); }
