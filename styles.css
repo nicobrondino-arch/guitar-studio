@@ -513,7 +513,70 @@ button {
 }
 
 /* ==========================================================================
-   Tablero del Profesor — Layout V2
+   Modo Práctica — Split layout con ring timer
+   ========================================================================== */
+.practice-split-layout { display:grid; grid-template-columns:280px 1fr; height:calc(100vh - 120px); overflow:hidden; }
+.practice-timer-panel { background:var(--tb-bg-secondary); border-right:1px solid var(--tb-border); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px 20px; gap:14px; overflow-y:auto; }
+.practice-ring-wrap { position:relative; width:180px; height:180px; flex-shrink:0; }
+.practice-ring-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.practice-ring-time { font:700 34px var(--font-heading,'Outfit'),serif; letter-spacing:-.02em; }
+.practice-ring-label { font:400 10px Inter,sans-serif; text-transform:uppercase; letter-spacing:.1em; margin-top:3px; }
+.ring-running { animation:ringPulse 2s ease infinite; }
+@keyframes ringPulse { 0%,100%{opacity:1} 50%{opacity:.85} }
+.practice-goal-row { display:flex; align-items:center; gap:6px; font:400 11px Inter,sans-serif; color:var(--tb-text-muted); }
+.btn-goal-edit { background:transparent; border:none; cursor:pointer; color:var(--tb-text-muted); font-size:13px; padding:2px 4px; }
+.btn-goal-edit:hover { color:var(--tb-text-primary); }
+.practice-complete-btn { width:100%; padding:10px; border-radius:9px; font:600 12px Inter,sans-serif; cursor:pointer; }
+.practice-content-right { overflow-y:auto; padding:16px 20px; display:flex; flex-direction:column; gap:12px; }
+.practice-objectives-card { background:var(--tb-bg-secondary); border:1px solid rgba(200,48,74,.2); border-radius:10px; overflow:hidden; }
+.practice-objectives-header { padding:8px 14px; border-bottom:1px solid rgba(200,48,74,.1); display:flex; justify-content:space-between; font:700 9px Inter,sans-serif; text-transform:uppercase; letter-spacing:.1em; color:var(--tb-accent); }
+.practice-objectives-list { padding:10px 14px; display:flex; flex-direction:column; gap:5px; }
+.practice-cats-config-bar { display:flex; align-items:center; gap:6px; flex-wrap:wrap; font:400 11px Inter,sans-serif; color:var(--tb-text-muted); }
+.practice-cat-toggle { padding:4px 10px; border-radius:6px; font:500 10px Inter,sans-serif; cursor:pointer; border:1px solid var(--tb-border); background:transparent; color:var(--tb-text-muted); transition:all .15s; }
+.practice-cat-toggle.active { background:rgba(200,48,74,.1); border-color:rgba(200,48,74,.25); color:var(--tb-accent); }
+
+/* ==========================================================================
+   Cuaderno rediseñado — Split layout plantillas + biblioteca
+   ========================================================================== */
+.notebook-split-layout { display:grid; grid-template-columns:230px 1fr; height:520px; overflow:hidden; border:1px solid var(--tb-border); border-radius:var(--border-radius); margin-bottom:24px; }
+.notebook-sidebar { background:var(--tb-bg-secondary); border-right:1px solid var(--tb-border); display:flex; flex-direction:column; overflow:hidden; }
+.nb-sidebar-header { padding:12px 14px 10px; border-bottom:1px solid var(--tb-border); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+.nb-sidebar-title { font:700 9px Inter,sans-serif; color:var(--tb-text-muted); text-transform:uppercase; letter-spacing:.12em; }
+.nb-template-list { flex:1; overflow-y:auto; padding:8px; display:flex; flex-direction:column; gap:5px; }
+.nb-sidebar-footer { padding:10px; border-top:1px solid var(--tb-border); flex-shrink:0; }
+.nb-tpl-card { padding:11px; border-radius:9px; border:1px solid var(--tb-border); background:var(--tb-bg-primary); cursor:pointer; position:relative; transition:border-color .15s; }
+.nb-tpl-card:hover { border-color:var(--tb-border-hover); }
+.nb-tpl-card.active { background:var(--tb-accent-glow); border-color:var(--tb-accent); }
+.nb-tpl-dot { width:8px; height:8px; border-radius:50%; margin-bottom:6px; transition:background .15s; }
+.nb-tpl-name { font:600 12px var(--font-heading,'Outfit'),serif; color:var(--tb-text-primary); margin-bottom:3px; }
+.nb-tpl-meta { font:400 10px Inter,sans-serif; color:var(--tb-text-muted); margin-bottom:8px; }
+.nb-tpl-cats { display:flex; flex-direction:column; gap:3px; }
+.nb-tpl-cat-row { display:flex; justify-content:space-between; font:400 10px Inter,sans-serif; color:var(--tb-text-muted); }
+.nb-tpl-del { position:absolute; top:7px; right:8px; background:transparent; border:none; cursor:pointer; color:var(--tb-border); font-size:16px; line-height:1; padding:2px; }
+.nb-tpl-del:hover { color:var(--tb-accent); }
+.notebook-main { display:flex; flex-direction:column; overflow:hidden; }
+.nb-toolbar { padding:10px 14px; border-bottom:1px solid var(--tb-border); flex-shrink:0; display:flex; flex-direction:column; gap:7px; }
+.nb-search-box { display:flex; align-items:center; gap:8px; background:var(--tb-bg-primary); border:1px solid var(--tb-border); border-radius:7px; padding:6px 10px; }
+.nb-chips { display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
+.nb-chip { padding:3px 9px; border-radius:5px; font:500 10px Inter,sans-serif; cursor:pointer; border:1px solid var(--tb-border); background:var(--tb-bg-secondary); color:var(--tb-text-muted); transition:all .15s; }
+.nb-chip.active { background:var(--tb-accent-glow); border-color:var(--tb-accent); color:var(--tb-accent); }
+.nb-chip-div { width:1px; height:13px; background:var(--tb-border); margin:0 2px; flex-shrink:0; }
+.nb-chip-tpl-active { background:rgba(212,168,83,.1) !important; border-color:rgba(212,168,83,.25) !important; color:#D4A853 !important; }
+.nb-table-header { display:grid; grid-template-columns:16px 1fr 80px 76px 70px 80px 60px 32px; padding:6px 14px; border-bottom:1px solid var(--tb-border); flex-shrink:0; }
+.nb-table-header span { font:700 9px Inter,sans-serif; color:var(--tb-text-muted); text-transform:uppercase; letter-spacing:.08em; }
+.nb-table-body { flex:1; overflow-y:auto; }
+.nb-table-row { display:grid; grid-template-columns:16px 1fr 80px 76px 70px 80px 60px 32px; padding:8px 14px; border-bottom:1px solid var(--tb-border); align-items:center; border-left:2px solid transparent; cursor:pointer; transition:background .1s; }
+.nb-table-row:hover { background:var(--tb-bg-secondary); }
+.nb-table-row.in-tpl { border-left-color:var(--tb-accent); }
+.nb-row-type-dot { width:8px; height:8px; border-radius:50%; }
+.nb-row-title { font:500 12px Inter,sans-serif; color:var(--tb-text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.nb-row-meta { font:400 11px Inter,sans-serif; color:var(--tb-text-muted); }
+.nb-cat-badge { font:500 10px Inter,sans-serif; }
+.nb-tpl-toggle { display:flex; align-items:center; justify-content:center; cursor:pointer; width:28px; height:28px; border-radius:6px; }
+.nb-tpl-toggle:hover { background:var(--tb-bg-elevated); }
+.nb-row-edit { background:transparent; border:none; cursor:pointer; color:var(--tb-text-muted); font:600 14px Inter,sans-serif; padding:3px 6px; border-radius:4px; }
+.nb-row-edit:hover { background:var(--tb-bg-elevated); color:var(--tb-text-primary); }
+ — Layout V2
    ========================================================================== */
 .dashboard-v2 { display: flex; flex-direction: column; gap: 0; padding: 0 4px; }
 

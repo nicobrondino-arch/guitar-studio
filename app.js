@@ -1,4 +1,4 @@
-﻿/**
+/**
  * app.js - Lógica principal de Guitar Studio.
  * Controla navegación SPA, internacionalización (ES/EN), temporizadores,
  * metrónomo de UI, persistencia de racha (LocalStorage), base de datos (IndexedDB)
@@ -666,10 +666,7 @@ class GuitarStudioApp {
         // Perfil activo (alumno o null = modo profesor)
         this.activeProfile = null; // { id, name, color } o null
         this.isProfessorMode = false;
-
-        // Estado de clases (Phase 6)
-        this._currentClaseId = null;
-        this._currentClaseTab = 0; // 0=técnica, 1=lectura, 2=repertorio
+        this._currentClaseId = null; // clase abierta en el tablero
 
         // Estado de práctica: categoría activa y player
         this.currentCategory = 'technique';
@@ -761,7 +758,7 @@ class GuitarStudioApp {
         this.loadTeacherNotesUI();
         await this.renderPracticeView();
         await this.renderStudioPendingWeeks();
-        await this.renderProximaClaseAlumno();
+        await this.renderProximaClase();
         this.renderMotivationalPhrase();
         this.updateProfileChip();
         this.checkStreakValidity();
@@ -1001,6 +998,84 @@ class GuitarStudioApp {
         this.renderProfilesModalList();
     }
 
+    // ==========================================================================
+    // Próxima Clase — vista del alumno en Mi Estudio
+    // ==========================================================================
+    async renderProximaClase() {
+        const card = document.getElementById('proxima-clase-card');
+        const content = document.getElementById('proxima-clase-content');
+        if (!card || !content) return;
+
+        if (!this.activeProfile) { card.style.display = 'none'; return; }
+
+        const groups = this._getGroups().filter(g => (g.memberIds || []).includes(this.activeProfile.id));
+        if (groups.length === 0) { card.style.display = 'none'; return; }
+
+        const allClases = this.data.getAllClases();
+        const myClases = allClases
+            .filter(c => groups.some(g => g.id === c.groupId) && c.status === 'finalizada')
+            .sort((a, b) => (b.finalizadaAt || 0) - (a.finalizadaAt || 0));
+
+        if (myClases.length === 0) { card.style.display = 'none'; return; }
+
+        const clase = myClases[0];
+        const group = groups.find(g => g.id === clase.groupId) || {};
+        const completados = this.data.getObjetivosCompletados(this.activeProfile.id);
+
+        const dateLabel = new Date((clase.date || '') + 'T12:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+        const dayTime = [dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1), group.time ? group.time.slice(0, 5) : ''].filter(Boolean).join(' · ');
+
+        const meetBar = group.meetLink ? `
+            <div class="proxima-meet-bar">
+                <span class="proxima-meet-url">${this._escapeHtml(group.meetLink)}</span>
+                <a href="https://${this._escapeHtml(group.meetLink)}" target="_blank" class="btn btn-outline btn-sm">Entrar al Meet</a>
+            </div>` : '';
+
+        const objetivos = (clase.objetivos || []).map(obj => {
+            const key = `${clase.id}__${obj.id}`;
+            const done = !!completados[key];
+            const checkSvg = done ? `<svg viewBox="0 0 10 10" fill="none" style="width:9px;height:9px"><path d="M2 5l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
+            return `<div class="obj-check-row ${done ? 'done' : ''}" onclick="app.toggleObjetivo('${clase.id}','${obj.id}')">
+                <div class="obj-checkbox ${done ? 'checked' : ''}">${checkSvg}</div>
+                <span class="obj-text">${this._escapeHtml(obj.text)}</span>
+            </div>`;
+        }).join('');
+
+        card.style.display = 'block';
+        content.innerHTML = `
+            <div class="proxima-clase-header">
+                <div class="proxima-clase-info">
+                    <div class="proxima-clase-eyebrow">Preparación para la próxima clase</div>
+                    <div class="proxima-clase-title">${this._escapeHtml(group.name || 'Clase')}</div>
+                    <div class="proxima-clase-meta">${dayTime}</div>
+                </div>
+            </div>
+            ${meetBar}
+            ${objetivos.length > 0 ? `
+            <div class="proxima-clase-body">
+                <div class="proxima-clase-section-label">Objetivos</div>
+                <div class="obj-check-list">${objetivos}</div>
+            </div>` : '<p class="text-muted" style="padding:8px 0">El profesor aún no cargó objetivos para esta clase.</p>'}
+        `;
+    }
+
+    toggleObjetivo(claseId, objId) {
+        if (!this.activeProfile) return;
+        const completados = this.data.getObjetivosCompletados(this.activeProfile.id);
+        const key = `${claseId}__${objId}`;
+        const done = !completados[key];
+        this.data.setObjetivoCompletado(this.activeProfile.id, claseId, objId, done);
+        const row = document.querySelector(`.obj-check-row[onclick*="${objId}"]`);
+        if (row) {
+            row.classList.toggle('done', done);
+            const cb = row.querySelector('.obj-checkbox');
+            if (cb) {
+                cb.classList.toggle('checked', done);
+                cb.innerHTML = done ? `<svg viewBox="0 0 10 10" fill="none" style="width:9px;height:9px"><path d="M2 5l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
+            }
+        }
+    }
+
     async renderStudioPendingWeeks() {
         const container = document.getElementById("studio-pending-weeks");
         if (!container) return;
@@ -1027,241 +1102,6 @@ class GuitarStudioApp {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;margin-left:auto;opacity:.5"><polyline points="9 18 15 12 9 6"/></svg>
             </div>
         `).join('');
-    }
-
-    async renderProximaClaseAlumno() {
-        const container = document.getElementById('studio-proxima-clase');
-        if (!container) return;
-
-        // Solo visible para alumnos (no profesor)
-        if (this.isProfessorMode || !this.activeProfile) {
-            container.innerHTML = '';
-            return;
-        }
-
-        const profileId = this.activeProfile.id;
-        const groups = this._getGroups().filter(g => (g.memberIds || []).includes(profileId));
-        if (groups.length === 0) { container.innerHTML = ''; return; }
-
-        const groupIds = groups.map(g => g.id);
-        const allClases = this.data.getAllClases();
-
-        // Clases relevantes: del grupo del alumno, iniciada o finalizada, ordenadas por fecha desc
-        const clases = allClases
-            .filter(c => groupIds.includes(c.groupId) && (c.status === 'iniciada' || c.status === 'finalizada'))
-            .sort((a, b) => b.date.localeCompare(a.date));
-
-        if (clases.length === 0) { container.innerHTML = ''; return; }
-
-        const proxima = clases[0]; // La más reciente
-        const group = groups.find(g => g.id === proxima.groupId) || {};
-        const anteriores = clases.slice(1, 4);
-
-        const catColors = [
-            { color: '#a29bfe', label: 'Técnica',    borderColor: 'rgba(162,155,254,.2)' },
-            { color: '#55efc4', label: 'Lectura',     borderColor: 'rgba(85,239,196,.2)'  },
-            { color: '#fdcb6e', label: 'Repertorio',  borderColor: 'rgba(253,203,110,.2)' },
-        ];
-
-        const typeIcon = (item) => {
-            if (item.type === 'youtube' || (item.url && item.url.includes('youtu')))
-                return `<svg viewBox="0 0 16 16" fill="none" style="width:13px;height:13px;color:#FF0000;flex-shrink:0" stroke="currentColor" stroke-width="1.2"><rect x="2" y="4" width="12" height="9" rx="1.5"/><path d="M6.5 7.5l4 2-4 2V7.5z" fill="currentColor" stroke="none"/></svg>`;
-            if (item.type === 'pdf')
-                return `<svg viewBox="0 0 16 16" fill="none" style="width:13px;height:13px;flex-shrink:0" stroke="#e53e3e" stroke-width="1.5"><path d="M4 2h6l4 4v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M9 2v4h4"/></svg>`;
-            return `<svg viewBox="0 0 16 16" fill="none" style="width:13px;height:13px;flex-shrink:0" stroke="#C8304A" stroke-width="1.5"><path d="M10 2v8a3 3 0 1 1-2-2.83V2l4 1"/></svg>`;
-        };
-
-        const renderCatSection = (catIdx) => {
-            const items = (proxima.content || []).filter(ci => ci.cat === catIdx);
-            if (items.length === 0) return '';
-            const { color, label, borderColor } = catColors[catIdx];
-            const itemsHtml = items.map(ci => `
-                <div class="alm-pc-item">
-                    ${typeIcon(ci)}
-                    ${this._escapeHtml(ci.title)}
-                </div>`).join('');
-            return `<div class="alm-proxima-cat">
-                <div class="alm-pc-label" style="color:${color}">
-                    <div style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></div>
-                    ${label}
-                </div>
-                <div class="alm-pc-items" style="border-left:2px solid ${borderColor}">
-                    ${itemsHtml}
-                </div>
-            </div>`;
-        };
-
-        const catSections = [0,1,2].map(renderCatSection).join('');
-        const hasContent = (proxima.content || []).length > 0;
-
-        const notaAlumno = proxima.notaAlumno || proxima.resumen || '';
-
-        // Objetivos del profesor
-        const objetivos = proxima.objetivos || [];
-        const objetivosHtml = objetivos.length > 0 ? `
-            <div class="alm-objetivos">
-                <div style="font:700 9px Inter;color:#5e3a42;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px">Objetivos para esta semana</div>
-                ${objetivos.map(o => `<div class="alm-objetivo-item">
-                    <svg viewBox="0 0 10 10" fill="none" style="width:10px;height:10px;flex-shrink:0"><circle cx="5" cy="5" r="4" stroke="#C8304A" stroke-width="1"/><path d="M3 5l1.5 1.5 3-3" stroke="#C8304A" stroke-width="1.2" stroke-linecap="round"/></svg>
-                    ${this._escapeHtml(o.text)}
-                </div>`).join('')}
-            </div>` : '';
-
-        const dateStr = new Date(proxima.date + 'T12:00').toLocaleDateString('es-AR', { weekday:'long', day:'numeric', month:'long' });
-        const isLive = proxima.status === 'iniciada';
-
-        // Canal de preguntas — guardado en localStorage por clase+perfil
-        const pregKey = `gs-preg-${profileId}-${proxima.id}`;
-        const pregData = JSON.parse(localStorage.getItem(pregKey) || '{"text":"","sent":false}');
-
-        const pregHtml = `<div class="alm-preguntas-card" id="alm-preguntas-${proxima.id}">
-            <div class="alm-preguntas-header">
-                <div>
-                    <div style="font:700 9px Inter;color:#4a9eff;text-transform:uppercase;letter-spacing:.12em;margin-bottom:3px">Canal de preguntas</div>
-                    <div style="font:400 italic 13px 'Playfair Display',serif;color:#8a6a6e">Dejá tus dudas para trabajar en la próxima clase</div>
-                </div>
-            </div>
-            <div class="alm-preguntas-body">
-                ${pregData.sent
-                    ? `<div style="display:flex;flex-direction:column;gap:8px">
-                        <div style="background:var(--tb-bg-primary);border:1px solid #1e3a5a;border-radius:8px;padding:10px 14px">
-                            <div style="font:500 10px Inter;color:#4a9eff;margin-bottom:5px;text-transform:uppercase;letter-spacing:.08em">Tu pregunta</div>
-                            <p style="font:400 italic 13px/1.6 'Playfair Display',serif;color:#c8a0a4">${this._escapeHtml(pregData.text)}</p>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:8px">
-                            <svg viewBox="0 0 16 16" fill="none" style="width:13px;height:13px" stroke="#34c759" stroke-width="1.5"><path d="M3 8l3 3 7-7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                            <span style="font:500 12px Inter;color:#34c759">Enviada — el profesor la verá antes de la próxima clase</span>
-                        </div>
-                        <button style="align-self:flex-start;background:transparent;border:1px solid #2e1620;border-radius:7px;padding:5px 12px;font:500 11px Inter;color:#8a6a6e;cursor:pointer" onclick="app._nuevaPreguntaAlumno('${proxima.id}')">+ Agregar otra pregunta</button>
-                    </div>`
-                    : `<div style="display:flex;flex-direction:column;gap:10px">
-                        <textarea id="preg-input-${proxima.id}" style="width:100%;background:var(--tb-bg-primary);border:1px solid #2e1620;border-radius:8px;padding:10px 12px;font:400 13px/1.6 'Playfair Display',serif;color:var(--tb-text-primary);resize:none;outline:none;min-height:72px;box-sizing:border-box" placeholder="¿Qué no quedó claro? ¿Algo que quieras repasar la próxima clase?…">${this._escapeHtml(pregData.text)}</textarea>
-                        <div style="display:flex;justify-content:flex-end">
-                            <button class="btn btn-ghost btn-sm" style="display:flex;align-items:center;gap:6px;border-color:#1e3a5a;color:#4a9eff" onclick="app._enviarPreguntaAlumno('${proxima.id}')">
-                                <svg viewBox="0 0 16 16" fill="none" style="width:11px;height:11px" stroke="currentColor" stroke-width="1.5"><path d="M14 2L2 7l5 2 2 5 5-12z" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                Enviar pregunta
-                            </button>
-                        </div>
-                    </div>`}
-            </div>
-        </div>`;
-
-        // Clases anteriores
-        const anterioresHtml = anteriores.length > 0 ? `
-            <div class="alm-prev-section">
-                <div style="font:700 9px Inter;color:#5e3a42;text-transform:uppercase;letter-spacing:.14em;padding:0 4px;margin-bottom:8px">Clases Anteriores</div>
-                ${anteriores.map(c => {
-                    const g2 = groups.find(gr => gr.id === c.groupId) || {};
-                    const d = new Date(c.date+'T12:00').toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'});
-                    const cnt = (c.content || []).length;
-                    return `<div class="alm-prev-clase" onclick="app._abrirClaseAnteriorAlumno('${c.id}')">
-                        <svg viewBox="0 0 16 16" fill="none" style="width:14px;height:14px;flex-shrink:0" stroke="#5e3a42" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
-                        <div style="flex:1">
-                            <div style="font:600 13px 'Playfair Display',serif;color:var(--tb-text-primary)">${d.charAt(0).toUpperCase()+d.slice(1)} — ${this._escapeHtml(g2.name||'')}</div>
-                            <div style="font:400 11px Inter;color:#5e3a42;margin-top:2px">${cnt} ejercicio${cnt!==1?'s':''} · Finalizada</div>
-                        </div>
-                        <svg viewBox="0 0 16 16" fill="none" style="width:13px;height:13px" stroke="#3e2030" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
-                    </div>`;
-                }).join('')}
-            </div>` : '';
-
-        const meetBtn = group.meetLink ? `
-            <button class="btn btn-meet btn-sm" onclick="window.open('https://${this._escapeHtml(group.meetLink)}','_blank')">
-                <svg viewBox="0 0 24 24" fill="none" style="width:12px;height:12px" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-                Entrar al Meet
-            </button>` : '';
-
-        container.innerHTML = `
-        <div class="alm-proxima-wrap">
-            <!-- Card hero: próxima clase -->
-            <div class="alm-proxima-card${isLive ? ' alm-proxima-live' : ''}">
-                <div class="alm-proxima-header">
-                    <div>
-                        <div class="alm-proxima-label">${isLive ? '🔴 Clase en curso ahora' : 'Preparación para la próxima clase'}</div>
-                        <div class="alm-proxima-title">${this._escapeHtml(group.name || proxima.title)}</div>
-                        <div class="alm-proxima-meta">${dateStr}${group.time ? ' · ' + group.time.slice(0,5) : ''}</div>
-                    </div>
-                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
-                        ${meetBtn}
-                        ${group.meetLink ? `<span style="font:400 10px Inter;color:#3e2030">${this._escapeHtml(group.meetLink)}</span>` : ''}
-                    </div>
-                </div>
-                <div class="alm-proxima-body">
-                    ${hasContent
-                        ? catSections
-                        : `<p style="font:400 italic 13px 'Playfair Display',serif;color:#5e3a42">El profesor aún no cargó contenido para esta clase.</p>`}
-                    ${notaAlumno ? `
-                    <div class="alm-nota-profesor">
-                        <div style="font:700 9px Inter;color:#C8304A;text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px">Nota del Profesor</div>
-                        <p style="font:400 italic 13px/1.6 'Playfair Display',serif;color:#9e8a8e">"${this._escapeHtml(notaAlumno)}"</p>
-                    </div>` : ''}
-                    ${objetivosHtml}
-                </div>
-            </div>
-
-            ${pregHtml}
-            ${anterioresHtml}
-        </div>`;
-    }
-
-    _enviarPreguntaAlumno(claseId) {
-        if (!this.activeProfile) return;
-        const inp = document.getElementById(`preg-input-${claseId}`);
-        if (!inp || !inp.value.trim()) return;
-        const key = `gs-preg-${this.activeProfile.id}-${claseId}`;
-        const existing = JSON.parse(localStorage.getItem(key) || '{"text":"","sent":false}');
-        // Guardar múltiples preguntas como array
-        const pregKey = `gs-pregs-${this.activeProfile.id}-${claseId}`;
-        const pregs = JSON.parse(localStorage.getItem(pregKey) || '[]');
-        pregs.push({ text: inp.value.trim(), ts: Date.now() });
-        localStorage.setItem(pregKey, JSON.stringify(pregs));
-        localStorage.setItem(key, JSON.stringify({ text: inp.value.trim(), sent: true }));
-        this.renderProximaClaseAlumno();
-    }
-
-    _nuevaPreguntaAlumno(claseId) {
-        if (!this.activeProfile) return;
-        const key = `gs-preg-${this.activeProfile.id}-${claseId}`;
-        localStorage.setItem(key, JSON.stringify({ text: '', sent: false }));
-        this.renderProximaClaseAlumno();
-    }
-
-    _abrirClaseAnteriorAlumno(claseId) {
-        // Por ahora muestra un detalle simple — se puede expandir
-        const clase = this.data.getClase(claseId);
-        if (!clase) return;
-        const group = this._getGroups().find(g => g.id === clase.groupId) || {};
-        const dateStr = new Date(clase.date+'T12:00').toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'});
-        const catLabels = ['Técnica','Lectura','Repertorio'];
-        const catColors = ['#a29bfe','#55efc4','#fdcb6e'];
-        const contentHtml = (clase.content||[]).length === 0
-            ? '<p style="color:#5e3a42;font:italic 13px Playfair Display,serif">Sin contenido registrado.</p>'
-            : [0,1,2].map(ci => {
-                const items = (clase.content||[]).filter(x => x.cat === ci);
-                if (!items.length) return '';
-                return `<div style="margin-bottom:12px">
-                    <div style="font:700 9px Inter;color:${catColors[ci]};text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px">${catLabels[ci]}</div>
-                    ${items.map(x=>`<div style="padding:6px 10px;background:var(--tb-bg-primary);border-radius:7px;font:400 13px Inter;color:var(--tb-text-primary);margin-bottom:3px">${this._escapeHtml(x.title)}</div>`).join('')}
-                </div>`;
-            }).join('');
-
-        const dlg = document.createElement('div');
-        dlg.className = 'modal-overlay';
-        dlg.innerHTML = `<div class="modal-box" style="max-width:460px">
-            <div style="font:700 9px Inter;color:#C8304A;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px">Clase anterior</div>
-            <h3 style="font:700 18px 'Playfair Display',serif;color:var(--tb-text-primary);margin-bottom:4px">${this._escapeHtml(group.name||clase.title)}</h3>
-            <p style="font:400 12px Inter;color:#5e3a42;margin-bottom:16px">${dateStr.charAt(0).toUpperCase()+dateStr.slice(1)}</p>
-            <div style="max-height:300px;overflow-y:auto">${contentHtml}</div>
-            ${clase.notaAlumno ? `<div style="margin-top:14px;padding:10px 14px;border-left:3px solid #C8304A;background:rgba(200,48,74,.05);border-radius:0 8px 8px 0">
-                <div style="font:700 9px Inter;color:#C8304A;text-transform:uppercase;margin-bottom:5px">Nota del Profesor</div>
-                <p style="font:400 italic 13px/1.6 'Playfair Display',serif;color:#9e8a8e">"${this._escapeHtml(clase.notaAlumno)}"</p>
-            </div>` : ''}
-            <div style="margin-top:18px;display:flex;justify-content:flex-end">
-                <button class="btn btn-ghost" onclick="this.closest('.modal-overlay').remove()">Cerrar</button>
-            </div>
-        </div>`;
-        document.body.appendChild(dlg);
-        dlg.addEventListener('click', e => { if (e.target === dlg) dlg.remove(); });
     }
 
     renderMotivationalPhrase() {
@@ -1400,17 +1240,15 @@ class GuitarStudioApp {
 
         // Configurar callback del pulso del metrónomo
         const indicators = document.querySelectorAll(".beat-indicator");
-        if (typeof this.metronome.onBeat === 'function') {
-            this.metronome.onBeat((beatNumber) => {
-                indicators.forEach((ind, index) => {
-                    if (index === beatNumber) {
-                        ind.classList.add("active");
-                    } else {
-                        ind.classList.remove("active");
-                    }
-                });
+        this.metronome.onBeat((beatNumber) => {
+            indicators.forEach((ind, index) => {
+                if (index === beatNumber) {
+                    ind.classList.add("active");
+                } else {
+                    ind.classList.remove("active");
+                }
             });
-        }
+        });
 
         // Tabs de categoría dentro de la vista práctica (incluye supplementary)
         [...this.categoryIds, 'supplementary'].forEach(cat => {
@@ -1822,9 +1660,11 @@ class GuitarStudioApp {
             this.renderGroupsInNotebook();
             this.renderLibraryInNotebook();
             this.renderAssignMatrix();
+            this.renderTemplatesInNotebook();
+            this.renderLibraryTable();
         } else if (viewId === 'studio') {
             this.renderStudioPendingWeeks();
-            this.renderProximaClaseAlumno();
+            this.renderProximaClase();
         } else if (viewId === 'library') {
             this.renderLibraryView();
         } else if (viewId === 'my-library') {
@@ -1906,24 +1746,65 @@ class GuitarStudioApp {
                 </div>
             </div>`;
         } else {
-            // Timer y botón completar para la categoría activa
             const timerSecs = this.timerSeconds[catIdx] || 0;
             const mm = String(Math.floor(timerSecs / 60)).padStart(2, '0');
             const ss = String(timerSecs % 60).padStart(2, '0');
             const isCompleted = this.completedSteps[catIdx];
             const isTimerRunning = !!this.timerIntervals[catIdx];
-
-            html = `<div class="practice-category-header">
-                <div class="practice-timer-block">
-                    <span class="practice-timer-display" id="practice-timer-display">${mm}:${ss}</span>
-                    <button class="btn btn-outline btn-sm" id="btn-cat-timer-toggle">
-                        ${isTimerRunning ? (this.lang === 'es' ? '⏸ Pausar' : '⏸ Pause') : (timerSecs > 0 ? (this.lang === 'es' ? '▶ Continuar' : '▶ Resume') : (this.lang === 'es' ? '▶ Iniciar' : '▶ Start'))}
-                    </button>
+            // Ring timer setup
+            const goalsKey = `gs-pgoals-${this.activeProfile?.id||'def'}`;
+            const goals = JSON.parse(localStorage.getItem(goalsKey)||'[15,10,20]');
+            const goalMins = goals[catIdx];
+            const goalSecs = goalMins * 60;
+            const goalReached = timerSecs >= goalSecs;
+            const r = 80; const circ = +(2*Math.PI*r).toFixed(1);
+            const dashOffset = +(circ*(1-Math.min(timerSecs/Math.max(goalSecs,1),1))).toFixed(1);
+            const catAccents = ['#a29bfe','#55efc4','#fdcb6e'];
+            const accent = catAccents[catIdx] || 'var(--tb-accent)';
+            const activeCatsKey = `gs-acats-${this.activeProfile?.id||'def'}`;
+            const activeCats = JSON.parse(localStorage.getItem(activeCatsKey)||'[true,true,true]');
+            const catLbls = ['Técnica','Lectura','Repertorio'];
+            const objHtml = await this._renderPracticeObjectives();
+            html = `<div class="practice-split-layout">
+              <div class="practice-timer-panel">
+                <div class="practice-ring-wrap${isTimerRunning?' ring-running':''}">
+                  <svg viewBox="0 0 180 180" style="width:180px;height:180px">
+                    <circle cx="90" cy="90" r="${r}" fill="none" stroke="var(--tb-border)" stroke-width="8"/>
+                    <circle cx="90" cy="90" r="${r}" fill="none" stroke="${accent}" stroke-width="8"
+                      stroke-linecap="round" stroke-dasharray="${circ}" stroke-dashoffset="${dashOffset}"
+                      style="transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset .8s cubic-bezier(.4,0,.2,1)"/>
+                  </svg>
+                  <div class="practice-ring-center">
+                    <div class="practice-ring-time" style="color:${accent}">${mm}:${ss}</div>
+                    <div class="practice-ring-label" style="color:${accent}">${goalReached?'¡Meta!':'meta '+goalMins+' min'}</div>
+                  </div>
                 </div>
-                <button class="btn ${isCompleted ? 'btn-outline' : 'btn-primary'} btn-sm" id="btn-complete-cat" ${isCompleted ? 'disabled' : ''}>
-                    ${isCompleted ? '✓ ' : ''}${t('btn-complete-category')}
+                <div style="display:flex;gap:8px;width:100%">
+                  <button class="btn btn-primary" id="btn-cat-timer-toggle" style="background:${accent};border-color:${accent};flex:1">
+                    ${isTimerRunning ? '⏸ Pausar' : (timerSecs > 0 ? '▶ Continuar' : '▶ Iniciar')}
+                  </button>
+                  <button class="btn btn-outline btn-sm" id="btn-timer-reset" title="Reiniciar">↺</button>
+                </div>
+                <div class="practice-goal-row">
+                  <span>Meta:</span><span>${goalMins} min</span>
+                  <button onclick="app.editPracticeGoal(${catIdx})" class="btn-goal-edit" title="Editar meta">✎</button>
+                </div>
+                <button class="btn ${isCompleted?'btn-outline':'btn-primary'} practice-complete-btn" id="btn-complete-cat"
+                  ${isCompleted?'disabled':''}
+                  style="${goalReached&&!isCompleted?'background:rgba(52,199,89,.1);border-color:rgba(52,199,89,.35);color:#34c759;':''}">
+                  ${isCompleted ? '✓ Completada' : goalReached ? '🎯 ¡Meta! Completar' : t('btn-complete-category')}
                 </button>
-            </div>`;
+                <div style="display:flex;gap:5px;width:100%">
+                  ${this.categoryIds.map((c,i)=>`<div style="flex:1;height:4px;border-radius:2px;background:${this.completedSteps[i]?'rgba(52,199,89,.6)':'var(--tb-border)'}"></div>`).join('')}
+                </div>
+                <div style="font:400 10px Inter,sans-serif;color:var(--tb-text-muted);text-align:center">${this.completedSteps.filter(Boolean).length}/3 categorías</div>
+              </div>
+              <div class="practice-content-right">
+                ${objHtml}
+                <div class="practice-cats-config-bar">
+                  <span>Activas:</span>
+                  ${catLbls.map((l,i)=>`<button class="practice-cat-toggle${activeCats[i]?' active':''}" onclick="app.togglePracticeCat(${i})">${l}</button>`).join('')}
+                </div>`;
         }
 
         // Cargar semanas y sus ítems para esta categoría
@@ -2015,6 +1896,7 @@ class GuitarStudioApp {
             html += `</div>`; // close weeks-accordion
         }
 
+        if (!isSupplementary) html += '</div></div>'; // close practice-content-right + practice-split-layout
         area.innerHTML = html;
 
         // Supplementary: sin timer ni complete button
@@ -2022,9 +1904,13 @@ class GuitarStudioApp {
 
         // Bind timer toggle
         const timerBtn = document.getElementById("btn-cat-timer-toggle");
-        if (timerBtn) {
-            timerBtn.addEventListener("click", () => this.toggleTimer(catIdx + 1));
-        }
+        if (timerBtn) timerBtn.addEventListener("click", () => this.toggleTimer(catIdx + 1));
+        // Bind reset
+        const resetBtn = document.getElementById("btn-timer-reset");
+        if (resetBtn) resetBtn.addEventListener("click", () => {
+            this.timerSeconds[catIdx] = 0;
+            this.renderPracticeView();
+        });
 
         // Bind complete button
         const isCompleted = this.completedSteps[catIdx];
@@ -2032,6 +1918,206 @@ class GuitarStudioApp {
         if (completeBtn && !isCompleted) {
             completeBtn.addEventListener("click", () => this.completeCategory(catIdx));
         }
+    }
+
+    // ==========================================================================
+    // Modo Práctica — nuevos métodos
+    // ==========================================================================
+    async _renderPracticeObjectives() {
+        if (!this.activeProfile || this.isProfessorMode) return '';
+        const groups = this._getGroups().filter(g => (g.memberIds||[]).includes(this.activeProfile.id));
+        if (!groups.length) return '';
+        const clases = this.data.getAllClases()
+            .filter(c => groups.some(g => g.id === c.groupId) && c.status === 'finalizada')
+            .sort((a,b) => (b.finalizadaAt||0) - (a.finalizadaAt||0));
+        if (!clases.length) return '';
+        const clase = clases[0];
+        const objetivos = clase.objetivos || [];
+        if (!objetivos.length) return '';
+        const completados = this.data.getObjetivosCompletados(this.activeProfile.id);
+        const done = objetivos.filter(o => completados[`${clase.id}__${o.id}`]).length;
+        const items = objetivos.map(o => {
+            const key = `${clase.id}__${o.id}`;
+            const isDone = !!completados[key];
+            return `<div class="obj-check-row${isDone?' done':''}" onclick="app.toggleObjetivo('${clase.id}','${o.id}')">
+                <div class="obj-checkbox${isDone?' checked':''}">
+                    ${isDone?'<svg viewBox="0 0 10 10" fill="none" style="width:9px;height:9px"><path d="M2 5l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}
+                </div>
+                <span class="obj-text">${this._escapeHtml(o.text)}</span>
+            </div>`;
+        }).join('');
+        return `<div class="practice-objectives-card">
+            <div class="practice-objectives-header">
+                <span>Objetivos del profesor</span>
+                <span>${done}/${objetivos.length} completados</span>
+            </div>
+            <div class="practice-objectives-list">${items}</div>
+        </div>`;
+    }
+
+    editPracticeGoal(catIdx) {
+        const key = `gs-pgoals-${this.activeProfile?.id||'def'}`;
+        const goals = JSON.parse(localStorage.getItem(key)||'[15,10,20]');
+        const val = prompt(`Meta para esta categoría (minutos):`, goals[catIdx]);
+        if (!val) return;
+        goals[catIdx] = Math.max(1, Math.min(120, parseInt(val, 10)||15));
+        localStorage.setItem(key, JSON.stringify(goals));
+        this.renderPracticeView();
+    }
+
+    togglePracticeCat(idx) {
+        const key = `gs-acats-${this.activeProfile?.id||'def'}`;
+        const cats = JSON.parse(localStorage.getItem(key)||'[true,true,true]');
+        cats[idx] = !cats[idx];
+        localStorage.setItem(key, JSON.stringify(cats));
+        this.renderPracticeView();
+    }
+
+    // ==========================================================================
+    // Cuaderno — Plantillas
+    // ==========================================================================
+    renderTemplatesInNotebook() {
+        const list = document.getElementById('nb-template-list');
+        if (!list) return;
+        const tpls = this.data.getTemplates();
+        if (!tpls.length) {
+            list.innerHTML = '<p class="text-muted" style="padding:12px;font-size:12px">Sin plantillas. Creá una para empezar.</p>';
+            return;
+        }
+        list.innerHTML = tpls.map(t => {
+            const isActive = t.id === this._activeTplId;
+            const cntT = (t.content?.technique||[]).length;
+            const cntL = (t.content?.reading||[]).length;
+            return `<div class="nb-tpl-card${isActive?' active':''}" onclick="app.selectTemplate('${t.id}')">
+                <div class="nb-tpl-dot" style="background:${isActive?'var(--tb-accent)':'var(--tb-border)'}"></div>
+                <div class="nb-tpl-name">${this._escapeHtml(t.name)}</div>
+                <div class="nb-tpl-meta">${this._escapeHtml(t.meta||'')}</div>
+                <div class="nb-tpl-cats">
+                    <div class="nb-tpl-cat-row"><span style="color:#a29bfe">Técnica</span><span>${cntT?cntT+' ítem'+(cntT!==1?'s':''):'—'}</span></div>
+                    <div class="nb-tpl-cat-row"><span style="color:#55efc4">Lectura</span><span>${cntL?cntL+' ítem'+(cntL!==1?'s':''):'—'}</span></div>
+                    <div class="nb-tpl-cat-row"><span style="color:#fdcb6e">Repertorio</span><em style="color:var(--tb-border);font-size:10px">vacío — en clase</em></div>
+                </div>
+                <button onclick="event.stopPropagation();app.deleteTemplate('${t.id}')" class="nb-tpl-del">×</button>
+            </div>`;
+        }).join('');
+    }
+
+    selectTemplate(id) {
+        this._activeTplId = id === this._activeTplId ? null : id;
+        this.renderTemplatesInNotebook();
+        this.renderLibraryTable();
+    }
+
+    async newTemplate() {
+        const name = prompt('Nombre de la plantilla:');
+        if (!name?.trim()) return;
+        const tpl = {
+            id: this.data.generateId('tpl'),
+            name: name.trim(),
+            meta: '',
+            content: { technique:[], reading:[], repertoire:[] },
+            createdAt: Date.now()
+        };
+        this.data.saveTemplate(tpl);
+        this._activeTplId = tpl.id;
+        this.renderTemplatesInNotebook();
+        this.renderLibraryTable();
+    }
+
+    deleteTemplate(id) {
+        if (!confirm('¿Eliminar esta plantilla?')) return;
+        this.data.deleteTemplate(id);
+        if (this._activeTplId === id) this._activeTplId = null;
+        this.renderTemplatesInNotebook();
+        this.renderLibraryTable();
+    }
+
+    async toggleItemInTemplate(itemId) {
+        if (!this._activeTplId) { this.showToast('Seleccioná una plantilla primero.', '⚠️'); return; }
+        const tpl = this.data.getTemplates().find(t => t.id === this._activeTplId);
+        if (!tpl) return;
+        const item = await this.data.getLibraryItem(itemId);
+        if (!item) return;
+        const cat = item.category || 'technique';
+        if (cat === 'repertoire') { this.showToast('El repertorio no va en plantillas — se asigna durante la clase.', 'ℹ️'); return; }
+        const arr = [...(tpl.content[cat]||[])];
+        const idx = arr.indexOf(itemId);
+        if (idx > -1) arr.splice(idx, 1); else arr.push(itemId);
+        tpl.content[cat] = arr;
+        this.data.saveTemplate(tpl);
+        this.renderLibraryTable();
+    }
+
+    _libFilterType = 'all';
+    _libFilterCat  = 'all';
+    _libFilterTpl  = false;
+    _libSearch     = '';
+    _activeTplId   = null;
+
+    async renderLibraryTable() {
+        const tbody = document.getElementById('nb-library-table');
+        if (!tbody) return;
+        const items = await this.data.getLibraryItems();
+        const tpl = this._activeTplId ? this.data.getTemplates().find(t=>t.id===this._activeTplId) : null;
+        const tplIds = tpl ? [...(tpl.content.technique||[]),...(tpl.content.reading||[])] : [];
+        const catMap = { technique:'Técnica', reading:'Lectura', repertoire:'Repertorio', supplementary:'Compl.' };
+        const catColor = { technique:'#a29bfe', reading:'#55efc4', repertoire:'#fdcb6e', supplementary:'#9e8a8e' };
+        const typeLabel = { gp:'Guitar Pro', score:'Guitar Pro', pdf:'PDF', youtube:'YouTube', spotify:'Spotify' };
+        const q = (this._libSearch||'').toLowerCase();
+        const filtered = items.filter(it => {
+            const title = (it.title||it.name||'').toLowerCase();
+            if (q && !title.includes(q)) return false;
+            const ftype = it.fileType || it.type || '';
+            if (this._libFilterType !== 'all' && ftype !== this._libFilterType) return false;
+            if (this._libFilterCat  !== 'all' && it.category !== this._libFilterCat) return false;
+            if (this._libFilterTpl  && !tplIds.includes(it.id)) return false;
+            return true;
+        });
+        if (!filtered.length) {
+            tbody.innerHTML = '<div style="padding:24px;text-align:center"><p class="text-muted">Sin resultados</p></div>';
+            return;
+        }
+        tbody.innerHTML = filtered.map(it => {
+            const inTpl = tplIds.includes(it.id);
+            const cat = it.category || '';
+            const ftype = it.fileType || it.type || '';
+            return `<div class="nb-table-row${inTpl?' in-tpl':''}">
+                <div class="nb-row-type-dot" style="background:${cat==='technique'?'#a29bfe':cat==='reading'?'#55efc4':'#fdcb6e'}"></div>
+                <span class="nb-row-title">${this._escapeHtml(it.title||it.name||'')}</span>
+                <span class="nb-row-meta">${typeLabel[ftype]||ftype||'—'}</span>
+                <span class="nb-cat-badge" style="color:${catColor[cat]||'#9e8a8e'}">${catMap[cat]||'—'}</span>
+                <span class="nb-row-meta">${this._escapeHtml(it.level||'—')}</span>
+                <span class="nb-row-meta">${this._escapeHtml(it.musicalStyle||'—')}</span>
+                <div class="nb-tpl-toggle" onclick="app.toggleItemInTemplate('${it.id}')" title="${inTpl?'Quitar de plantilla':'Agregar a plantilla'}">
+                    ${inTpl
+                        ? '<svg viewBox="0 0 10 10" fill="none" style="width:11px;height:11px"><path d="M2 5l2 2 4-4" stroke="var(--tb-accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+                        : '<span style="color:var(--tb-border)">—</span>'}
+                </div>
+                <button class="nb-row-edit" onclick="app.showLibItemMetadataModal({id:'${it.id}'})">···</button>
+            </div>`;
+        }).join('');
+    }
+
+    filterLibrary(q) {
+        this._libSearch = q;
+        this.renderLibraryTable();
+    }
+
+    setLibFilter(val, btn) {
+        document.querySelectorAll('.nb-chip').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const types = ['gp','score','pdf','youtube','spotify'];
+        const cats  = ['technique','reading','repertoire','supplementary'];
+        if (val === 'all') { this._libFilterType='all'; this._libFilterCat='all'; }
+        else if (types.includes(val)) { this._libFilterType=val; this._libFilterCat='all'; }
+        else if (cats.includes(val))  { this._libFilterCat=val; this._libFilterType='all'; }
+        this.renderLibraryTable();
+    }
+
+    toggleInTplFilter(btn) {
+        this._libFilterTpl = !this._libFilterTpl;
+        btn.classList.toggle('nb-chip-tpl-active', this._libFilterTpl);
+        this.renderLibraryTable();
     }
 
     _escapeHtml(str) {
@@ -3794,7 +3880,7 @@ class GuitarStudioApp {
         const content = document.getElementById("dashboard-content");
         if (!content) return;
 
-        // Si hay una clase abierta, mostrar detalle (Carga view)
+        // Si hay una clase abierta, mostrar el detalle
         if (this._currentClaseId) {
             await this._renderClaseDetail(this._currentClaseId);
             return;
@@ -3806,265 +3892,184 @@ class GuitarStudioApp {
             this.data.getAllProfileWeeks(),
         ]);
 
+        if (profiles.length === 0) {
+            content.innerHTML = `<div class="dashboard-empty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;opacity:.3;margin-bottom:12px"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <p>Todavía no hay alumnos.<br>Creá perfiles desde el selector de perfiles.</p>
+            </div>`;
+            return;
+        }
+
         const todayStr = this.getTodayString();
         const yDate = new Date(); yDate.setDate(yDate.getDate() - 1);
         const yesterdayStr = yDate.toISOString().split('T')[0];
 
-        // Datos de práctica por perfil
+        // Construir datos por perfil
         const profileData = profiles.map(p => {
             const streak = this.data.getProfileStreak(p.id);
             const lastPracticed = this.data.getProfileLastPracticed(p.id);
             const lastReset = this.data.getProfileLastResetCheck ? this.data.getProfileLastResetCheck(p.id) : null;
             const rawSteps = this.data.getProfileCompletedSteps ? this.data.getProfileCompletedSteps(p.id) : [false,false,false];
             const todaySteps = lastReset === todayStr ? (rawSteps || [false,false,false]) : [false,false,false];
+
             let status = 'inactive', lastLabel = 'Nunca';
             if (lastPracticed) {
                 const lastDate = new Date(lastPracticed).toISOString().split('T')[0];
-                if (lastDate === todayStr) { status = 'today'; lastLabel = new Date(lastPracticed).toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' }); }
-                else if (lastDate === yesterdayStr) { status = 'yesterday'; lastLabel = 'Ayer'; }
-                else { const days = Math.max(1, Math.round((Date.now() - lastPracticed) / 86400000)); lastLabel = `Hace ${days} día${days!==1?'s':''}`; }
+                if (lastDate === todayStr) {
+                    status = 'today';
+                    lastLabel = new Date(lastPracticed).toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' });
+                } else if (lastDate === yesterdayStr) {
+                    status = 'yesterday';
+                    lastLabel = 'Ayer';
+                } else {
+                    const days = Math.max(1, Math.round((Date.now() - lastPracticed) / 86400000));
+                    lastLabel = days === 1 ? 'Hace 1 día' : `Hace ${days} días`;
+                }
             }
-            return { ...p, streak, lastPracticed, todaySteps, status, lastLabel };
+
+            const profileWeekIds = allProfileWeeks.filter(pw => pw.profileId === p.id).map(pw => pw.weekId);
+            const assignedWeeks = weeks.filter(w => profileWeekIds.includes(w.id));
+
+            return { ...p, streak, lastPracticed, todaySteps, status, lastLabel, assignedWeeks };
         });
 
-        // Grupos y clases
-        const groups = this._getGroups();
-        const allClases = this.data.getAllClases();
-        const dayNames = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
-        const todayDayName = dayNames[new Date().getDay()];
+        const todayGroup     = profileData.filter(p => p.status === 'today').sort((a,b) => (b.lastPracticed||0)-(a.lastPracticed||0));
+        const yesterdayGroup = profileData.filter(p => p.status === 'yesterday');
+        const inactiveGroup  = profileData.filter(p => p.status === 'inactive').sort((a,b) => (b.lastPracticed||0)-(a.lastPracticed||0));
 
-        // Clases de hoy: grupos cuyo día coincide con hoy
-        const todayGroups = groups.filter(g => g.day === todayDayName);
-        // Clases registradas hoy (por fecha)
-        const clasesHoy = allClases.filter(c => c.date === todayStr);
-        // Todas las demás clases (futuras), ordenadas por fecha
-        const clasesFuturas = allClases
-            .filter(c => c.date > todayStr)
-            .sort((a,b) => a.date.localeCompare(b.date))
-            .slice(0, 10);
-        // Clases anteriores
-        const clasesAnteriores = allClases
-            .filter(c => c.date < todayStr)
-            .sort((a,b) => b.date.localeCompare(a.date))
-            .slice(0, 5);
+        const catColors = ['#a29bfe','#55efc4','#fdcb6e'];
+        const catLabels = ['Técnica','Lectura','Repertorio'];
 
-        // Construir lista de items para el timeline lateral
-        const timelineItems = [];
+        const renderRow = (p) => {
+            const cats = p.todaySteps.map((done, i) => `
+                <div class="dash-cat-dot${done ? ' done' : ''}" title="${catLabels[i]}" style="--cc:${catColors[i]}">
+                    ${done ? '<svg viewBox="0 0 10 10" fill="none"><path d="M2 5l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ''}
+                </div>`).join('');
 
-        // Agregar grupos de hoy como items (con clase existente o botón crear)
-        todayGroups.forEach(g => {
-            const claseExistente = clasesHoy.find(c => c.groupId === g.id);
-            if (claseExistente) {
-                timelineItems.push({ type:'clase', clase:claseExistente, group:g });
-            } else {
-                timelineItems.push({ type:'grupo-hoy', group:g });
-            }
-        });
+            const timeColor = p.status === 'today' ? 'var(--tb-success)' : p.status === 'yesterday' ? '#ff9500' : 'var(--tb-accent)';
+            const dimmed = p.status === 'inactive' ? ' dash-row-dimmed' : '';
+            const groupLabel = p.assignedWeeks.length > 0 ? this._escapeHtml(p.assignedWeeks[0].title) : 'Sin semanas';
 
-        // Agregar clases de hoy de grupos que no coinciden por día (creadas manualmente)
-        clasesHoy.forEach(c => {
-            const g = groups.find(gr => gr.id === c.groupId);
-            if (g && !todayGroups.find(tg => tg.id === g.id)) {
-                timelineItems.push({ type:'clase', clase:c, group:g });
-            }
-        });
+            return `<div class="dash-profile-row${dimmed}">
+                <div class="dash-avatar" style="background:${p.color||'#6366f1'}">${(p.name||'?')[0].toUpperCase()}</div>
+                <div class="dash-name-group">
+                    <div class="dash-name">${this._escapeHtml(p.name)}</div>
+                    <div class="dash-group-label">${groupLabel}</div>
+                </div>
+                <div class="dash-cats">${cats}</div>
+                <div class="dash-streak">
+                    ${p.streak > 0
+                        ? '<span style="font-size:12px">🔥</span><span class="dash-streak-num">' + p.streak + '</span><span class="dash-streak-unit">d</span>'
+                        : '<span class="dash-streak-none">— racha</span>'}
+                </div>
+                <div class="dash-time" style="color:${timeColor}">${p.lastLabel}</div>
+            </div>`;
+        };
 
-        // Clases futuras
-        clasesFuturas.forEach(c => {
-            const g = groups.find(gr => gr.id === c.groupId);
-            if (g) timelineItems.push({ type:'futura', clase:c, group:g });
-        });
 
-        // Clases anteriores
-        clasesAnteriores.forEach(c => {
-            const g = groups.find(gr => gr.id === c.groupId);
-            if (g) timelineItems.push({ type:'anterior', clase:c, group:g });
-        });
+        // Sección de clases por grupo
+        const renderClasesSection = () => {
+            const groups = this._getGroups();
+            if (groups.length === 0) return '';
+            const allClases = this.data.getAllClases();
+            const dayOrder = { 'Lunes':0,'Martes':1,'Miércoles':2,'Jueves':3,'Viernes':4,'Sábado':5,'Domingo':6 };
+            const today = new Date().getDay();
+            const sorted = [...groups].sort((a, b) => {
+                const da = (( dayOrder[a.day]??7) - (today === 0 ? 6 : today - 1) + 7) % 7;
+                const db = (( dayOrder[b.day]??7) - (today === 0 ? 6 : today - 1) + 7) % 7;
+                return da - db;
+            });
 
-        const statusColors = { programada:'#ff9500', iniciada:'#C8304A', finalizada:'#34c759' };
-        const statusLabels = { programada:'Pendiente', iniciada:'En curso', finalizada:'Finalizada' };
-
-        const renderTimelineItem = (item) => {
-            if (item.type === 'grupo-hoy') {
-                const g = item.group;
+            const cards = sorted.map(g => {
                 const members = profiles.filter(p => (g.memberIds||[]).includes(p.id));
-                return `<div class="tl-item tl-item-new" onclick="app.createClase('${g.id}')">
-                    <div class="tl-dot-col">
-                        <span class="tl-time">${g.time ? g.time.slice(0,5) : '—'}</span>
-                        <div class="tl-dot" style="background:#2e1620;border-color:#4e3040"></div>
-                        <div class="tl-line"></div>
+                const dayTime = [g.day, g.time ? g.time.slice(0,5) : ''].filter(Boolean).join(' · ');
+                const groupClases = allClases
+                    .filter(c => c.groupId === g.id)
+                    .sort((a,b) => (b.date||'').localeCompare(a.date||''));
+                const claseItems = groupClases.slice(0, 5).map(c => {
+                    const dateLabel = new Date(c.date + 'T12:00').toLocaleDateString('es-AR', { day:'numeric', month:'short' });
+                    const statusDot = c.status === 'finalizada'
+                        ? `<span class="clase-status-dot finalizada"></span>`
+                        : `<span class="clase-status-dot programada"></span>`;
+                    return `<div class="clase-timeline-item" onclick="app.openClase('${c.id}')">
+                        ${statusDot}
+                        <span class="clase-timeline-date">${dateLabel}</span>
+                        <span class="clase-timeline-title">${this._escapeHtml(c.title || 'Clase')}</span>
+                        <span class="clase-timeline-members">${c.attendance ? Object.values(c.attendance).filter(v=>v==='presente').length : 0}/${members.length}</span>
+                    </div>`;
+                }).join('');
+
+                return `<div class="dash-group-card">
+                    <div class="dash-group-card-header">
+                        <div>
+                            <div class="dash-class-name">${this._escapeHtml(g.name)}</div>
+                            <div class="dash-class-meta">${dayTime}${dayTime&&members.length?' · ':''}${members.length} alumno${members.length!==1?'s':''}</div>
+                        </div>
+                        <button class="btn btn-primary btn-sm" onclick="app.createClase('${g.id}')">+ Nueva clase</button>
                     </div>
-                    <div class="tl-info">
-                        <div class="tl-group">${this._escapeHtml(g.name)}</div>
-                        <div class="tl-meta">${members.length} alumno${members.length!==1?'s':''}</div>
-                        <span class="tl-badge" style="background:rgba(78,48,64,.4);color:#8a6a6e">+ Iniciar clase</span>
-                    </div>
+                    <div class="clase-timeline">${claseItems || '<p class="text-muted" style="font-size:12px;padding:8px 0">Sin clases registradas</p>'}</div>
                 </div>`;
-            }
-            const { clase, group: g } = item;
-            const members = profiles.filter(p => (g.memberIds||[]).includes(p.id));
-            const color = statusColors[clase.status] || '#8a6a6e';
-            const label = statusLabels[clase.status] || clase.status;
-            const dateStr = item.type !== 'clase'
-                ? new Date(clase.date+'T12:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'})
-                : '';
-            const att = clase.attendance ? Object.values(clase.attendance).filter(v=>v==='presente').length : 0;
-            return `<div class="tl-item${item.type==='anterior'?' tl-item-past':''}" onclick="app.openClase('${clase.id}')">
-                <div class="tl-dot-col">
-                    <span class="tl-time">${g.time ? g.time.slice(0,5) : dateStr}</span>
-                    <div class="tl-dot" style="background:${color};border-color:${color};${clase.status==='iniciada'?'animation:tlPulse 2s infinite':''}"></div>
-                    <div class="tl-line"></div>
+            }).join('');
+
+            return `<div class="dash-section" style="border-top:1px solid var(--tb-border);margin-top:12px;padding-top:16px">
+                <div class="dash-section-header">
+                    <span class="dash-section-title" style="color:var(--tb-text-secondary)">Clases por Grupo</span>
                 </div>
-                <div class="tl-info">
-                    <div class="tl-group">${this._escapeHtml(g.name)}</div>
-                    <div class="tl-meta">${members.length} alumno${members.length!==1?'s':''} · ${att} presente${att!==1?'s':''}</div>
-                    <span class="tl-badge" style="background:${color}22;color:${color}">${label}</span>
+                <div class="dash-groups-grid">${cards}</div>
+            </div>`;
+        };
+
+        const renderSection = (title, color, group) => {
+            if (group.length === 0) return '';
+            return `<div class="dash-section">
+                <div class="dash-section-header">
+                    <div class="dash-section-dot" style="background:${color};${color==='var(--tb-success)'?'box-shadow:0 0 6px rgba(52,199,89,.4)':''}"></div>
+                    <span class="dash-section-title" style="color:${color}">${title}</span>
+                    <span class="dash-section-count">(${group.length})</span>
                 </div>
+                <div class="dash-rows">${group.map(renderRow).join('')}</div>
             </div>`;
         };
 
         const dateLabel = new Date().toLocaleDateString('es-AR', { weekday:'long', day:'numeric', month:'long' });
 
-        // Panel de actividad de alumnos (derecho cuando no hay clase seleccionada)
-        const todayPract = profileData.filter(p=>p.status==='today');
-        const yesterdayPract = profileData.filter(p=>p.status==='yesterday');
-        const inactivePract = profileData.filter(p=>p.status==='inactive');
-
-        const renderMiniProfile = (p) => {
-            const color = p.status==='today' ? '#34c759' : p.status==='yesterday' ? '#ff9500' : '#5e3a42';
-            return `<div class="dash-mini-row" onclick="app.selectProfileById('${p.id}')">
-                <div class="dash-avatar" style="background:${p.color||'#6366f1'}">${(p.name||'?')[0].toUpperCase()}</div>
-                <div style="flex:1;min-width:0">
-                    <div class="dash-name">${this._escapeHtml(p.name)}</div>
-                    <div style="font:400 10px Inter;color:#5e3a42">${p.lastLabel}</div>
-                </div>
-                ${p.streak>0 ? `<span style="font:600 11px Inter;color:#C8304A">🔥${p.streak}</span>` : ''}
-                <div style="display:flex;gap:3px">${p.todaySteps.map((d,i)=>`<div style="width:8px;height:8px;border-radius:2px;background:${d?['#a29bfe','#55efc4','#fdcb6e'][i]:'#2e1620'}"></div>`).join('')}</div>
-                <div style="font:500 10px Inter;color:${color};min-width:42px;text-align:right">${p.lastLabel}</div>
-            </div>`;
-        };
-
-        const hasTimeline = timelineItems.length > 0 || groups.length > 0;
-
         content.innerHTML = `
-        <div class="dash-shell">
-            <!-- SIDEBAR: Timeline de clases -->
-            <div class="dash-timeline-sidebar">
-                <div class="dash-tl-header">
-                    <div class="dash-tl-date">${dateLabel.charAt(0).toUpperCase()+dateLabel.slice(1)}</div>
-                    <button class="btn btn-primary btn-sm" onclick="app._showNewClaseDialog()" style="font-size:10px;padding:4px 10px">+ Nueva clase</button>
-                </div>
-                ${groups.length === 0
-                    ? `<div style="padding:20px 12px;text-align:center">
-                        <p style="font:400 12px Inter;color:#5e3a42;line-height:1.5">Creá grupos en Biblioteca para ver las clases acá</p>
-                        <button class="btn btn-ghost btn-sm" style="margin-top:8px;font-size:11px" onclick="app.navigateToView('library')">Ir a Biblioteca →</button>
-                       </div>`
-                    : timelineItems.length === 0
-                    ? `<div style="padding:20px 12px;text-align:center">
-                        <p style="font:400 12px Inter;color:#5e3a42">Sin clases registradas</p>
-                       </div>`
-                    : timelineItems.map(renderTimelineItem).join('')
-                }
-            </div>
-
-            <!-- MAIN: Panel vacío o clase seleccionada -->
-            <div class="dash-main-panel" id="dash-main-panel">
-                <div class="dash-empty-state">
-                    <div style="text-align:center;margin-bottom:28px">
-                        <svg viewBox="0 0 48 48" fill="none" style="width:56px;height:56px;opacity:.2;margin-bottom:12px" stroke="#C8304A" stroke-width="1"><circle cx="24" cy="24" r="20"/><path d="M24 14v10l6 4"/></svg>
-                        <p style="font:400 italic 14px 'Playfair Display',serif;color:#5e3a42">Seleccioná una clase del panel izquierdo</p>
-                        <p style="font:400 11px Inter;color:#3e2030;margin-top:4px">o creá una nueva con "+ Nueva clase"</p>
-                    </div>
-
-                    <!-- Actividad de alumnos -->
-                    ${profiles.length > 0 ? `
-                    <div class="dash-activity-panel">
-                        <div style="font:700 9px Inter;color:#5e3a42;text-transform:uppercase;letter-spacing:.12em;margin-bottom:10px">
-                            Actividad de alumnos · ${todayPract.length}/${profiles.length} practicaron hoy
-                        </div>
-                        <div style="display:flex;flex-direction:column;gap:4px">
-                            ${[...todayPract,...yesterdayPract,...inactivePract].map(renderMiniProfile).join('')}
-                        </div>
-                    </div>` : `
-                    <div class="dash-activity-panel" style="text-align:center;padding:20px">
-                        <p style="font:400 12px Inter;color:#5e3a42">No hay alumnos todavía.<br>Creá perfiles desde el selector de perfiles.</p>
-                    </div>`}
-                </div>
-            </div>
-        </div>`;
-    }
-
-    _renderClasesSection(profiles) {
-        const groups = this._getGroups();
-        if (groups.length === 0) return '';
-        const allClases = this.data.getAllClases();
-        const dayOrder = { 'Lunes':0,'Martes':1,'Miércoles':2,'Jueves':3,'Viernes':4,'Sábado':5,'Domingo':6 };
-        const today = new Date().getDay();
-        const sorted = [...groups].sort((a, b) => {
-            const da = ((dayOrder[a.day]??7) - (today===0?6:today-1) + 7) % 7;
-            const db = ((dayOrder[b.day]??7) - (today===0?6:today-1) + 7) % 7;
-            return da - db;
-        });
-        const statusDot = s => s==='finalizada'
-            ? `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#34c759;flex-shrink:0"></span>`
-            : s==='iniciada'
-            ? `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#C8304A;flex-shrink:0"></span>`
-            : `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#ff9500;flex-shrink:0"></span>`;
-
-        const cards = sorted.map(g => {
-            const members = profiles.filter(p => (g.memberIds||[]).includes(p.id));
-            const dayTime = [g.day, g.time ? g.time.slice(0,5):''].filter(Boolean).join(' · ');
-            const groupClases = allClases.filter(c=>c.groupId===g.id)
-                .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-            const claseItems = groupClases.slice(0,5).map(c => {
-                const dateLabel = new Date(c.date+'T12:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'});
-                const att = c.attendance ? Object.values(c.attendance).filter(v=>v==='presente').length : 0;
-                return `<div class="clase-tl-item" onclick="app.openClase('${c.id}')">
-                    ${statusDot(c.status)}
-                    <span class="clase-tl-date">${dateLabel}</span>
-                    <span class="clase-tl-title">${this._escapeHtml(c.title||'Clase')}</span>
-                    <span class="clase-tl-att">${att}/${members.length}</span>
-                </div>`;
-            }).join('');
-            return `<div class="dash-group-card">
-                <div class="dash-group-card-header">
+            <div class="dashboard-v2">
+                <div class="dash-summary-bar">
                     <div>
-                        <div class="dash-class-name">${this._escapeHtml(g.name)}</div>
-                        <div class="dash-class-meta">${dayTime}${dayTime&&members.length?' · ':''}${members.length} alumno${members.length!==1?'s':''}</div>
+                        <div class="dash-summary-date">${dateLabel.charAt(0).toUpperCase()+dateLabel.slice(1)}</div>
+                        <div class="dash-summary-stat"><strong>${todayGroup.length}</strong> de <strong>${profiles.length}</strong> practicaron hoy</div>
                     </div>
-                    <button class="btn btn-primary btn-sm" onclick="app.createClase('${g.id}')">+ Nueva clase</button>
+                    <div class="dash-legend">
+                        <div class="dash-legend-item"><div class="dash-legend-dot" style="background:var(--tb-success)"></div><span>${todayGroup.length} al día</span></div>
+                        <div class="dash-legend-item"><div class="dash-legend-dot" style="background:#ff9500"></div><span>${yesterdayGroup.length} ayer</span></div>
+                        <div class="dash-legend-item"><div class="dash-legend-dot" style="background:var(--tb-accent)"></div><span>${inactiveGroup.length} inactivos</span></div>
+                    </div>
                 </div>
-                <div class="clase-timeline">${claseItems||'<p class="text-muted" style="font-size:12px;padding:6px 0">Sin clases registradas</p>'}</div>
+                ${renderSection('Practicaron Hoy','var(--tb-success)',todayGroup)}
+                ${renderSection('Practicaron Ayer','#ff9500',yesterdayGroup)}
+                ${renderSection('Inactivos 2+ días','var(--tb-accent)',inactiveGroup)}
+                ${renderClasesSection()}
             </div>`;
-        }).join('');
-
-        return `<div class="dash-section" style="border-top:1px solid var(--tb-border);margin-top:12px;padding-top:16px">
-            <div class="dash-section-header">
-                <span class="dash-section-title" style="color:var(--tb-text-secondary)">Clases por Grupo</span>
-            </div>
-            <div class="dash-groups-grid">${cards}</div>
-        </div>`;
     }
-
     // =========================================================================
-    // Gestión de Clases — Phase 6
+    // Gestión de Clases
     // =========================================================================
 
     createClase(groupId) {
         const group = this._getGroups().find(g => g.id === groupId);
         if (!group) return;
-        const today = new Date().toISOString().slice(0,10);
+        const today = new Date().toISOString().slice(0, 10);
         const clase = {
             id: this.data.generateId('clase'),
             groupId,
-            title: `Clase ${new Date().toLocaleDateString('es-AR',{day:'numeric',month:'short'})}`,
+            title: `Clase ${new Date().toLocaleDateString('es-AR', { day:'numeric', month:'short' })}`,
             date: today,
             status: 'programada',
             attendance: {},
-            content: [],   // [{id, title, type, cat}]  cat: 0=técnica,1=lectura,2=repertorio
+            content: [],
             objetivos: [],
-            resumen: '',
-            notaAlumno: ''
+            resumen: ''
         };
         this.data.saveClase(clase);
         this.openClase(clase.id);
@@ -4072,7 +4077,6 @@ class GuitarStudioApp {
 
     openClase(claseId) {
         this._currentClaseId = claseId;
-        this._currentClaseTab = 0;
         this.renderDashboardView();
     }
 
@@ -4081,408 +4085,238 @@ class GuitarStudioApp {
         this.renderDashboardView();
     }
 
-    _showNewClaseDialog() {
-        const groups = this._getGroups();
-        if (groups.length === 0) {
-            alert('Creá un grupo en Biblioteca primero.');
-            return;
-        }
-        const opts = groups.map(g => `<option value="${g.id}">${this._escapeHtml(g.name)}</option>`).join('');
-        const todayStr = new Date().toISOString().slice(0,10);
-        const dlg = document.createElement('div');
-        dlg.className = 'modal-overlay';
-        dlg.innerHTML = `<div class="modal-box" style="max-width:340px">
-            <h3 style="margin:0 0 16px;font:700 16px 'Playfair Display',serif;color:var(--tb-text)">Nueva clase</h3>
-            <label style="font:600 11px Inter;color:#5e3a42;text-transform:uppercase;letter-spacing:.08em">Grupo</label>
-            <select id="dlg-group-sel" class="input-field" style="margin-bottom:12px">${opts}</select>
-            <label style="font:600 11px Inter;color:#5e3a42;text-transform:uppercase;letter-spacing:.08em">Fecha</label>
-            <input type="date" id="dlg-clase-date" class="input-field" value="${todayStr}" style="margin-bottom:20px">
-            <div style="display:flex;gap:8px;justify-content:flex-end">
-                <button class="btn btn-ghost" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
-                <button class="btn btn-primary" onclick="app._confirmNewClase(this)">Crear</button>
-            </div>
-        </div>`;
-        document.body.appendChild(dlg);
-        dlg.addEventListener('click', e => { if (e.target === dlg) dlg.remove(); });
-    }
-
-    _confirmNewClase(btn) {
-        const dlg = btn.closest('.modal-overlay');
-        const groupId = dlg.querySelector('#dlg-group-sel').value;
-        const date = dlg.querySelector('#dlg-clase-date').value;
-        if (!groupId) return;
-        const clase = {
-            id: this.data.generateId('clase'),
-            groupId,
-            title: `Clase ${new Date(date+'T12:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'})}`,
-            date,
-            status: 'programada',
-            attendance: {},
-            content: [],
-            objetivos: [],
-            resumen: '',
-            notaAlumno: ''
-        };
-        this.data.saveClase(clase);
-        dlg.remove();
-        this.openClase(clase.id);
-    }
-
     async _renderClaseDetail(claseId) {
         const content = document.getElementById('dashboard-content');
         if (!content) return;
+
         const clase = this.data.getClase(claseId);
         if (!clase) { this.closeClasetDetail(); return; }
 
-        const group = this._getGroups().find(g=>g.id===clase.groupId) || {};
+        const group = this._getGroups().find(g => g.id === clase.groupId) || {};
         const profiles = await this.data.getProfiles();
-        const members = profiles.filter(p=>(group.memberIds||[]).includes(p.id));
-
-        // Status
-        const statusLabels = { programada:'Programada', iniciada:'En curso', finalizada:'Finalizada' };
-        const statusColors = { programada:'#ff9500', iniciada:'#C8304A', finalizada:'#34c759' };
-        const statusLabel = statusLabels[clase.status] || clase.status;
-        const statusColor = statusColors[clase.status] || 'var(--tb-text-muted)';
-
-        // Action button
-        let actionBtn = '';
-        if (clase.status === 'programada') {
-            actionBtn = `<button class="btn btn-primary" onclick="app.iniciarClase('${claseId}')">▶ Iniciar clase</button>`;
-        } else if (clase.status === 'iniciada') {
-            actionBtn = `<button class="btn btn-success" onclick="app.finalizarClase('${claseId}')">✓ Finalizar y publicar</button>`;
-        } else {
-            actionBtn = `<span style="font:400 italic 12px 'Playfair Display',serif;color:#34c759">✓ Clase finalizada</span>`;
-        }
+        const members = profiles.filter(p => (group.memberIds||[]).includes(p.id));
 
         // Attendance chips
-        const attChips = members.length ? members.map(m => {
+        const attChips = members.map(m => {
             const state = clase.attendance[m.id] || 'sin-marcar';
-            const cfg = {
-                'presente':   { bg:'rgba(52,199,89,.1)',  border:'rgba(52,199,89,.3)',  dot:'#34c759', nameColor:'#34c759' },
-                'ausente':    { bg:'rgba(200,48,74,.1)',  border:'rgba(200,48,74,.25)', dot:'#C8304A', nameColor:'#C8304A' },
-                'sin-marcar': { bg:'#150a0e',             border:'#2e1620',             dot:'#3a3a40', nameColor:'#9e8a8e' }
-            }[state];
-            return `<div onclick="app.toggleAttendance('${claseId}','${m.id}')"
-                style="display:flex;align-items:center;gap:6px;padding:5px 10px 5px 5px;border-radius:20px;border:1px solid ${cfg.border};background:${cfg.bg};cursor:pointer;user-select:none;transition:all .15s">
-                <div style="width:22px;height:22px;border-radius:50%;background:${m.color||'#888'};display:flex;align-items:center;justify-content:center;font:700 10px Inter;color:#fff;flex-shrink:0">${(m.name||'?')[0].toUpperCase()}</div>
-                <span style="font:500 11px Inter;color:${cfg.nameColor};white-space:nowrap">${this._escapeHtml(m.name)}</span>
-                <div style="width:6px;height:6px;border-radius:50%;background:${cfg.dot};flex-shrink:0"></div>
-            </div>`;
-        }).join('') : '<p class="text-muted" style="font-size:12px">Sin alumnos en este grupo</p>';
+            const label = state === 'presente' ? 'Presente' : state === 'ausente' ? 'Ausente' : m.name;
+            return `<button class="att-chip ${state}" onclick="app.toggleAttendance('${claseId}','${m.id}')" title="${m.name}">${label}</button>`;
+        }).join('');
 
-        // Content tabs
-        const catNames = ['Técnica','Lectura','Repertorio'];
-        const catTabs = catNames.map((name,i) =>
-            `<button class="ctab${this._currentClaseTab===i?' active':''}" onclick="app.setClaseTab('${claseId}',${i})">${name}</button>`
-        ).join('');
-        const tabContent = (clase.content||[]).filter(c=>c.cat===this._currentClaseTab).map(c => {
-            const icons = { gp:'🎸', pdf:'📄', audio:'🎵', youtube:'▶', spotify:'🎵' };
-            return `<div class="content-item">
-                <span style="font-size:14px">${icons[c.type]||'📎'}</span>
-                <span class="ci-title">${this._escapeHtml(c.title||c.name||'')}</span>
-                <button class="ci-rm" onclick="app.removeContentFromClase('${claseId}','${c.id}')" title="Quitar">×</button>
-            </div>`;
-        }).join('') || `<p class="text-muted" style="font-size:12px;padding:6px 0">Sin contenido en esta categoría</p>`;
+        // Content items
+        const contentItems = (clase.content || []).map(c =>
+            `<div class="clase-content-item">
+                <span class="clase-content-icon">${c.fileType === 'gp' ? '🎸' : c.fileType === 'pdf' ? '📄' : c.fileType === 'audio' ? '🎵' : '📎'}</span>
+                <span class="clase-content-name">${this._escapeHtml(c.title || c.name)}</span>
+                <button class="btn-icon clase-content-remove" onclick="app.removeContentFromClase('${claseId}','${c.id}')" title="Quitar">×</button>
+            </div>`
+        ).join('') || '<p class="text-muted" style="font-size:12px">Sin contenido agregado</p>';
 
         // Objetivos
-        const objItems = (clase.objetivos||[]).map(o =>
-            `<div style="display:flex;align-items:center;gap:7px;padding:6px 10px;background:#150a0e;border:1px solid #2e1620;border-radius:7px;margin-bottom:3px">
-                <div style="width:14px;height:14px;border-radius:4px;border:1.5px solid #2e1620;flex-shrink:0"></div>
-                <span style="flex:1;font:400 12px Inter;color:#c8a0a4">${this._escapeHtml(o.text)}</span>
-                <button onclick="app.removeObjetivoFromClase('${claseId}','${o.id}')" style="background:transparent;border:none;cursor:pointer;color:#3e2030;padding:2px;font-size:14px">×</button>
+        const objItems = (clase.objetivos || []).map(o =>
+            `<div class="objetivo-item">
+                <span class="objetivo-text">${this._escapeHtml(o.text)}</span>
+                <button class="btn-icon" onclick="app.removeObjetivoFromClase('${claseId}','${o.id}')" title="Quitar">×</button>
             </div>`
-        ).join('') || `<p style="padding:8px 10px;font:400 italic 11px 'Playfair Display',serif;color:#3e2030;border:1px dashed #2e1620;border-radius:7px">Agregá objetivos para que el alumno practique…</p>`;
+        ).join('') || '<p class="text-muted" style="font-size:12px">Sin objetivos cargados</p>';
 
         // Meet bar
         const meetBar = group.meetLink ? `
-            <div style="display:flex;align-items:center;gap:6px;background:#150a0e;border:1px solid #2e1620;border-radius:8px;padding:5px 6px 5px 10px;margin-bottom:16px">
-                <svg viewBox="0 0 24 24" fill="none" style="width:11px;height:11px;flex-shrink:0" stroke="#4a9eff" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-                <span style="font:400 10px 'Courier New',monospace;color:#5e3a42;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${this._escapeHtml(group.meetLink)}</span>
-                <a href="${this._escapeHtml(group.meetLink)}" target="_blank" class="btn-meet-sm">Entrar</a>
-                <button onclick="app.sendMeetWhatsApp('${group.id}')" class="btn-wa-sm" title="WhatsApp">
-                    <svg viewBox="0 0 24 24" fill="#25d366" style="width:11px;height:11px"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
-                </button>
+            <div class="clase-meet-bar">
+                <span class="clase-meet-label">Meet</span>
+                <a href="${this._escapeHtml(group.meetLink)}" target="_blank" class="clase-meet-link">${this._escapeHtml(group.meetLink)}</a>
+                <button class="btn btn-outline btn-sm" onclick="app.copyMeetLink('${group.id}')">Copiar</button>
+                <button class="btn btn-sm group-whatsapp-btn" onclick="app.sendMeetWhatsApp('${group.id}')">WhatsApp</button>
             </div>` : '';
+
+        const statusBadge = clase.status === 'finalizada'
+            ? `<span class="clase-status-badge finalizada">Finalizada</span>`
+            : `<span class="clase-status-badge programada">En curso</span>`;
 
         content.innerHTML = `
         <div class="clase-detail-layout">
-            <!-- Panel izquierdo -->
+            <!-- Panel izquierdo: detalle de la clase -->
             <div class="clase-detail-left">
-                <button class="btn btn-ghost btn-sm" onclick="app.closeClasetDetail()" style="align-self:flex-start;margin-bottom:4px">← Volver</button>
-                <div>
-                    <div style="font:700 9px Inter;color:${statusColor};text-transform:uppercase;letter-spacing:.14em;margin-bottom:4px">${statusLabel}</div>
-                    <h2 class="clase-detail-title" contenteditable="true" onblur="app.saveClaseTitle('${claseId}',this.textContent.trim())">${this._escapeHtml(clase.title)}</h2>
-                    <div style="font:400 12px Inter;color:#8a6a6e;margin-top:4px">
-                        ${this._escapeHtml(group.name||'')} ·
-                        <input type="date" value="${clase.date}" onchange="app.saveClaseDate('${claseId}',this.value)" style="background:transparent;border:none;color:#8a6a6e;font:400 12px Inter;cursor:pointer;outline:none">
+                <div class="clase-detail-header">
+                    <button class="btn btn-ghost btn-sm" onclick="app.closeClasetDetail()">← Volver</button>
+                    <div class="clase-detail-title-row">
+                        <h2 class="clase-detail-title" contenteditable="true" onblur="app.saveClaseTitle('${claseId}',this.textContent)">${this._escapeHtml(clase.title)}</h2>
+                        ${statusBadge}
                     </div>
-                </div>
-
-                ${meetBar}
-
-                <div class="clase-section">
-                    <div class="clase-section-title">Asistencia
-                        <span style="font:400 10px Inter;color:#3e2030;font-weight:400;text-transform:none;letter-spacing:0;margin-left:8px">click = presente · doble = ausente</span>
+                    <div class="clase-detail-meta">
+                        <input type="date" class="form-input clase-date-input" value="${clase.date}" onchange="app.saveClaseDate('${claseId}',this.value)">
+                        <span class="clase-group-name">${this._escapeHtml(group.name || '')}</span>
                     </div>
-                    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px">${attChips}</div>
+                    ${meetBar}
                 </div>
 
                 <div class="clase-section">
-                    <div class="clase-section-title">Contenido de esta clase</div>
-                    <div class="content-tabs" style="display:flex;gap:4px;margin:8px 0">${catTabs}</div>
-                    <div class="content-list">${tabContent}</div>
+                    <div class="clase-section-title">Asistencia</div>
+                    <div class="att-chips-row">${attChips || '<p class="text-muted" style="font-size:12px">Sin alumnos en este grupo</p>'}</div>
                 </div>
 
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-                    <div class="clase-section">
-                        <label class="clase-section-title">Resumen
-                            <span style="font:400 9px Inter;color:#3e2030;background:#1a0c10;border:1px solid #2e1620;padding:1px 6px;border-radius:4px;font-weight:400;text-transform:none;letter-spacing:0;margin-left:4px">Solo el profesor</span>
-                        </label>
-                        <textarea class="form-input" style="resize:none;min-height:90px;width:100%;margin-top:6px;font-size:12px" placeholder="¿Qué se trabajó hoy?…" onchange="app.saveResumenClase('${claseId}',this.value)">${this._escapeHtml(clase.resumen||'')}</textarea>
-                    </div>
-                    <div class="clase-section">
-                        <label class="clase-section-title" style="color:var(--tb-accent)">Objetivos para ${this._escapeHtml(group.name||'el alumno')}
-                            <span style="font:400 9px Inter;color:var(--tb-accent);background:rgba(200,48,74,.06);border:1px solid rgba(200,48,74,.18);padding:1px 6px;border-radius:4px;font-weight:400;text-transform:none;letter-spacing:0;margin-left:4px">El alumno los ve</span>
-                        </label>
-                        <div style="margin-top:6px">${objItems}</div>
-                        <div style="display:flex;gap:5px;margin-top:6px">
-                            <input class="form-input" id="new-obj-${claseId}" style="flex:1;font-size:11px;padding:6px 10px" placeholder="+ Nuevo objetivo…" onkeydown="if(event.key==='Enter'){event.preventDefault();app.addObjetivoToClase('${claseId}')}">
-                            <button onclick="app.addObjetivoToClase('${claseId}')" style="padding:6px 12px;border-radius:7px;background:rgba(200,48,74,.12);border:1px solid rgba(200,48,74,.25);color:var(--tb-accent);font:600 11px Inter;cursor:pointer;white-space:nowrap">Agregar</button>
-                        </div>
+                <div class="clase-section">
+                    <div class="clase-section-title">Contenido</div>
+                    <div class="clase-content-list" id="clase-content-list-${claseId}">${contentItems}</div>
+                </div>
+
+                <div class="clase-section">
+                    <div class="clase-section-title">Objetivos</div>
+                    <div class="clase-objetivos-list" id="clase-obj-list-${claseId}">${objItems}</div>
+                    <div class="clase-add-obj-row">
+                        <input type="text" class="form-input" id="new-obj-input-${claseId}" placeholder="Nuevo objetivo..." onkeydown="if(event.key==='Enter')app.addObjetivoToClase('${claseId}')">
+                        <button class="btn btn-outline btn-sm" onclick="app.addObjetivoToClase('${claseId}')">Agregar</button>
                     </div>
                 </div>
 
-                <div style="padding-top:4px;margin-top:auto;display:flex;justify-content:flex-end">
-                    ${actionBtn}
+                <div class="clase-section">
+                    <div class="clase-section-title">Resumen de la clase</div>
+                    <textarea class="form-input clase-resumen-ta" id="clase-resumen-${claseId}" placeholder="Notas, observaciones, temas tratados..." rows="4" onchange="app.saveResumenClase('${claseId}',this.value)">${this._escapeHtml(clase.resumen || '')}</textarea>
                 </div>
+
+                ${clase.status !== 'finalizada' ? `
+                <div class="clase-finalizar-row">
+                    <button class="btn btn-primary" onclick="app.finalizarClase('${claseId}')">Finalizar clase</button>
+                </div>` : ''}
             </div>
 
-            <!-- Panel derecho: biblioteca + subir -->
+            <!-- Panel derecho: buscador de biblioteca -->
             <div class="clase-detail-right">
-                <div style="font:600 14px 'Playfair Display',serif;color:#f2e6e8;margin-bottom:10px">Agregar contenido</div>
-                <div class="lib-search" style="display:flex;align-items:center;gap:8px;background:#0d0709;border:1px solid #2e1620;border-radius:8px;padding:7px 11px;margin-bottom:8px">
-                    <svg viewBox="0 0 16 16" fill="none" style="width:12px;height:12px;flex-shrink:0" stroke="#5e3a42" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4.5"/><path d="M10.5 10.5l3 3" stroke-linecap="round"/></svg>
-                    <input placeholder="Buscar en biblioteca…" oninput="app._renderClaseLibPanel('${claseId}',this.value)" style="flex:1;background:transparent;border:none;outline:none;font:400 12px Inter;color:#f2e6e8" id="clase-lib-search">
+                <div class="clase-lib-header">
+                    <span class="clase-lib-title">Agregar contenido</span>
                 </div>
-                <div style="display:flex;gap:4px;margin-bottom:8px">
-                    ${['Todos','Técnica','Lectura','Repertorio'].map((l,i)=>`<button class="lcat${i===0?' active':''}" onclick="app._filterClaseLib('${claseId}',${i-1},this)">${l}</button>`).join('')}
-                </div>
-                <div class="clase-lib-results" id="clase-lib-results" style="flex:1;overflow-y:auto"></div>
-
-                <!-- Subir nuevo (fijo al fondo) -->
-                <div style="border-top:1px solid #2e1620;padding-top:10px;margin-top:10px">
-                    <div class="clase-section-title" style="margin-bottom:8px">Subir nuevo</div>
-                    <div id="clase-upload-area-${claseId}">
-                        <div class="dropzone" onclick="app._pickFile('${claseId}')" style="padding:14px;margin-bottom:8px;cursor:pointer">
-                            <svg viewBox="0 0 40 40" fill="none" style="width:28px;height:28px" stroke="var(--tb-accent)" stroke-width="1.3"><path d="M20 8v18M12 16l8-8 8 8"/><path d="M8 28v4a2 2 0 0 0 2 2h20a2 2 0 0 0 2-2v-4"/></svg>
-                            <div style="font:500 12px Inter;color:#8a6a6e;margin-top:6px">Arrastrá un archivo acá</div>
-                            <div style="font:400 10px Inter;color:#3e2030">.gp · .gp5 · .gpx · .pdf</div>
-                        </div>
-                        <div style="display:flex;gap:6px">
-                            <input class="form-input" id="clase-url-input-${claseId}" style="flex:1;font-size:11px" placeholder="O pegá link YouTube / Spotify…" oninput="app._onUrlInput('${claseId}',this.value)">
-                            <button id="clase-url-detect-${claseId}" onclick="app._detectUrl('${claseId}')" style="display:none;padding:6px 9px;border-radius:7px;background:#1a0c10;border:1px solid #2e1620;color:#8a6a6e;font:500 10px Inter;cursor:pointer">Detectar</button>
-                        </div>
-                    </div>
+                <input type="text" class="form-input" id="clase-lib-search" placeholder="Buscar en biblioteca..." oninput="app._renderClaseLibPanel('${claseId}',this.value)">
+                <div class="clase-lib-results" id="clase-lib-results">
+                    <!-- populated by _renderClaseLibPanel -->
                 </div>
             </div>
         </div>`;
 
-        this._renderClaseLibPanel(claseId, '', -1);
+        // Render lib panel initially
+        this._renderClaseLibPanel(claseId, '');
     }
 
-    setClaseTab(claseId, tabIdx) {
-        this._currentClaseTab = tabIdx;
-        // Re-render solo el panel izquierdo
-        const tabs = document.querySelectorAll('.ctab');
-        tabs.forEach((t,i) => t.classList.toggle('active', i===tabIdx));
-        const clase = this.data.getClase(claseId);
-        if (!clase) return;
-        const catContent = (clase.content||[]).filter(c=>c.cat===tabIdx);
-        const icons = { gp:'🎸', pdf:'📄', audio:'🎵', youtube:'▶', spotify:'🎵' };
-        const listEl = document.querySelector('.content-list');
-        if (listEl) {
-            listEl.innerHTML = catContent.map(c =>
-                `<div class="content-item">
-                    <span style="font-size:14px">${icons[c.type]||'📎'}</span>
-                    <span class="ci-title">${this._escapeHtml(c.title||c.name||'')}</span>
-                    <button class="ci-rm" onclick="app.removeContentFromClase('${claseId}','${c.id}')" title="Quitar">×</button>
-                </div>`
-            ).join('') || `<p class="text-muted" style="font-size:12px;padding:6px 0">Sin contenido en esta categoría</p>`;
-        }
-    }
-
-    async _renderClaseLibPanel(claseId, query, catFilter) {
+    async _renderClaseLibPanel(claseId, query) {
         const container = document.getElementById('clase-lib-results');
         if (!container) return;
+
         const clase = this.data.getClase(claseId);
         if (!clase) return;
+
         const items = await this.data.getLibraryItems();
-        const q = (query||'').toLowerCase();
-        const filtered = items.filter(it => {
-            if (q && !(it.title||it.name||'').toLowerCase().includes(q)) return false;
-            if (catFilter >= 0) {
-                const catMap = { technique:0, reading:1, repertoire:2 };
-                if (catMap[it.category] !== catFilter) return false;
-            }
-            return true;
-        });
-        if (!filtered.length) {
+        const q = (query || '').toLowerCase();
+        const filtered = items.filter(it =>
+            !q || (it.title||it.name||'').toLowerCase().includes(q) || (it.musicalStyle||'').toLowerCase().includes(q)
+        );
+
+        if (filtered.length === 0) {
             container.innerHTML = '<p class="text-muted" style="font-size:12px;padding:8px">Sin resultados</p>';
             return;
         }
-        const addedIds = new Set((clase.content||[]).map(c=>c.id));
-        const icons = { gp:'🎸', pdf:'📄', audio:'🎵', youtube:'▶', spotify:'🎵' };
+
+        const addedIds = new Set((clase.content||[]).map(c => c.id));
         container.innerHTML = filtered.map(it => {
-            const inClass = addedIds.has(it.id);
-            return `<div class="lib-item${inClass?' in-class':''}" onclick="${inClass?'':'`app.addContentToClase(\''+claseId+'\',\''+it.id+'\')`'}">
-                <span style="font-size:13px">${icons[it.fileType]||'📎'}</span>
-                <span class="li-title">${this._escapeHtml(it.title||it.name||'')}</span>
-                ${inClass
-                    ? `<div class="li-check"><svg viewBox="0 0 10 10" fill="none" style="width:9px;height:9px"><path d="M2 5l2 2 4-4" stroke="#34c759" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`
-                    : `<div class="li-add"><svg viewBox="0 0 10 10" fill="none" style="width:9px;height:9px"><path d="M5 2v6M2 5h6" stroke="var(--tb-accent)" stroke-width="1.5" stroke-linecap="round"/></svg></div>`}
+            const added = addedIds.has(it.id);
+            const icon = it.fileType === 'gp' ? '🎸' : it.fileType === 'pdf' ? '📄' : it.fileType === 'audio' ? '🎵' : '📎';
+            return `<div class="clase-lib-item ${added ? 'added' : ''}" onclick="${added ? '' : `app.addContentToClase('${claseId}','${it.id}')`}">
+                <span>${icon}</span>
+                <span class="clase-lib-item-name">${this._escapeHtml(it.title || it.name)}</span>
+                ${added ? '<span class="clase-lib-check">✓</span>' : ''}
             </div>`;
         }).join('');
-    }
-
-    _filterClaseLib(claseId, catFilter, btn) {
-        document.querySelectorAll('.lcat').forEach(b=>b.classList.remove('active'));
-        btn.classList.add('active');
-        const q = document.getElementById('clase-lib-search')?.value||'';
-        this._renderClaseLibPanel(claseId, q, catFilter);
-    }
-
-    _onUrlInput(claseId, val) {
-        const detectBtn = document.getElementById(`clase-url-detect-${claseId}`);
-        if (detectBtn) detectBtn.style.display = val.length > 5 ? 'block' : 'none';
-    }
-
-    _detectUrl(claseId) {
-        const input = document.getElementById(`clase-url-input-${claseId}`);
-        if (!input) return;
-        const url = input.value.toLowerCase();
-        const type = url.includes('spotify') ? 'spotify' : 'youtube';
-        const catMap = { youtube:2, spotify:2 };
-        const cat = catMap[type];
-        const title = type==='youtube' ? 'Video de referencia' : 'Playlist de referencia';
-        const clase = this.data.getClase(claseId);
-        if (!clase) return;
-        clase.content = clase.content||[];
-        const item = { id:this.data.generateId('url'), title, type, cat, url:input.value };
-        clase.content.push(item);
-        this.data.saveClase(clase);
-        input.value = '';
-        const detectBtn = document.getElementById(`clase-url-detect-${claseId}`);
-        if (detectBtn) detectBtn.style.display = 'none';
-        this._renderClaseLibPanel(claseId,'', -1);
-        this.setClaseTab(claseId, cat);
-        this.showToast('Contenido agregado', '🔗');
-    }
-
-    _pickFile(claseId) {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.gp,.gp5,.gpx,.pdf,.mp3,.mp4,.m4a';
-        input.onchange = async () => {
-            const file = input.files[0];
-            if (!file) return;
-            const ext = file.name.split('.').pop().toLowerCase();
-            const typeMap = { gp:'gp', gp5:'gp', gpx:'gp', pdf:'pdf', mp3:'audio', mp4:'audio', m4a:'audio' };
-            const type = typeMap[ext]||'pdf';
-            const catDefault = type==='gp'?0 : type==='pdf'?1 : 2;
-            const clase = this.data.getClase(claseId);
-            if (!clase) return;
-            const item = { id:this.data.generateId('file'), title:file.name.replace(/\.[^.]+$/, ''), type, cat:catDefault, name:file.name };
-            clase.content = clase.content||[];
-            clase.content.push(item);
-            this.data.saveClase(clase);
-            this._renderClaseLibPanel(claseId,'', -1);
-            this.setClaseTab(claseId, catDefault);
-            this.showToast('Archivo agregado', '📎');
-        };
-        input.click();
-    }
-
-    iniciarClase(claseId) {
-        const clase = this.data.getClase(claseId);
-        if (!clase) return;
-        clase.status = 'iniciada';
-        this.data.saveClase(clase);
-        this._renderClaseDetail(claseId);
-    }
-
-    finalizarClase(claseId) {
-        const clase = this.data.getClase(claseId);
-        if (!clase) return;
-        clase.status = 'finalizada';
-        this.data.saveClase(clase);
-        this.showToast('Clase finalizada y publicada', '✅');
-        this._renderClaseDetail(claseId);
     }
 
     toggleAttendance(claseId, profileId) {
         const clase = this.data.getClase(claseId);
         if (!clase) return;
-        const cycle = { 'sin-marcar':'presente', 'presente':'ausente', 'ausente':'sin-marcar' };
-        const cur = clase.attendance[profileId] || 'sin-marcar';
-        clase.attendance[profileId] = cycle[cur];
+        const current = clase.attendance[profileId] || 'sin-marcar';
+        const next = current === 'sin-marcar' ? 'presente' : current === 'presente' ? 'ausente' : 'sin-marcar';
+        clase.attendance[profileId] = next;
         this.data.saveClase(clase);
-        // Re-render solo el bloque de asistencia
-        const chips = document.querySelectorAll('[onclick*="toggleAttendance"]');
-        if (chips.length) {
-            this._renderClaseDetail(claseId);
+        // Update chip in place
+        const btn = document.querySelector(`.att-chip[onclick*="${profileId}"]`);
+        if (btn) {
+            btn.className = `att-chip ${next}`;
+            const profile = btn.getAttribute('title') || '';
+            btn.textContent = next === 'presente' ? 'Presente' : next === 'ausente' ? 'Ausente' : profile;
         }
     }
 
     async addContentToClase(claseId, libItemId) {
         const clase = this.data.getClase(claseId);
         if (!clase) return;
-        if ((clase.content||[]).some(c=>c.id===libItemId)) return;
+        if ((clase.content||[]).some(c => c.id === libItemId)) return;
         const item = await this.data.getLibraryItem(libItemId);
         if (!item) return;
-        const catMap = { technique:0, reading:1, repertoire:2 };
-        const cat = catMap[item.category] ?? this._currentClaseTab;
-        clase.content = clase.content||[];
-        clase.content.push({ id:item.id, title:item.title||item.name, type:item.fileType, cat, name:item.name });
+        clase.content = clase.content || [];
+        clase.content.push({ id: item.id, title: item.title || item.name, fileType: item.fileType, name: item.name });
         this.data.saveClase(clase);
-        this._currentClaseTab = cat;
-        const q = document.getElementById('clase-lib-search')?.value||'';
-        const activeLcat = document.querySelector('.lcat.active');
-        const catFilter = activeLcat ? parseInt(activeLcat.dataset.cat??'-1') : -1;
-        this._renderClaseLibPanel(claseId, q, catFilter);
-        this.setClaseTab(claseId, cat);
+        // Re-render left panel content section
+        const listEl = document.getElementById(`clase-content-list-${claseId}`);
+        if (listEl) {
+            listEl.innerHTML = clase.content.map(c =>
+                `<div class="clase-content-item">
+                    <span class="clase-content-icon">${c.fileType === 'gp' ? '🎸' : c.fileType === 'pdf' ? '📄' : c.fileType === 'audio' ? '🎵' : '📎'}</span>
+                    <span class="clase-content-name">${this._escapeHtml(c.title || c.name)}</span>
+                    <button class="btn-icon clase-content-remove" onclick="app.removeContentFromClase('${claseId}','${c.id}')" title="Quitar">×</button>
+                </div>`
+            ).join('');
+        }
+        this._renderClaseLibPanel(claseId, document.getElementById('clase-lib-search')?.value || '');
         this.showToast('Contenido agregado', '📎');
     }
 
     removeContentFromClase(claseId, itemId) {
         const clase = this.data.getClase(claseId);
         if (!clase) return;
-        clase.content = (clase.content||[]).filter(c=>c.id!==itemId);
+        clase.content = (clase.content||[]).filter(c => c.id !== itemId);
         this.data.saveClase(clase);
-        this.setClaseTab(claseId, this._currentClaseTab);
-        const q = document.getElementById('clase-lib-search')?.value||'';
-        this._renderClaseLibPanel(claseId, q, -1);
+        const listEl = document.getElementById(`clase-content-list-${claseId}`);
+        if (listEl) {
+            listEl.innerHTML = clase.content.length ? clase.content.map(c =>
+                `<div class="clase-content-item">
+                    <span class="clase-content-icon">${c.fileType === 'gp' ? '🎸' : c.fileType === 'pdf' ? '📄' : c.fileType === 'audio' ? '🎵' : '📎'}</span>
+                    <span class="clase-content-name">${this._escapeHtml(c.title || c.name)}</span>
+                    <button class="btn-icon clase-content-remove" onclick="app.removeContentFromClase('${claseId}','${c.id}')" title="Quitar">×</button>
+                </div>`
+            ).join('') : '<p class="text-muted" style="font-size:12px">Sin contenido agregado</p>';
+        }
+        this._renderClaseLibPanel(claseId, document.getElementById('clase-lib-search')?.value || '');
     }
 
     addObjetivoToClase(claseId) {
-        const input = document.getElementById(`new-obj-${claseId}`);
+        const input = document.getElementById(`new-obj-input-${claseId}`);
         if (!input) return;
         const text = input.value.trim();
         if (!text) return;
         const clase = this.data.getClase(claseId);
         if (!clase) return;
-        clase.objetivos = clase.objetivos||[];
-        clase.objetivos.push({ id:this.data.generateId('obj'), text });
+        clase.objetivos = clase.objetivos || [];
+        const obj = { id: this.data.generateId('obj'), text };
+        clase.objetivos.push(obj);
         this.data.saveClase(clase);
         input.value = '';
-        this._renderClaseDetail(claseId);
+        const listEl = document.getElementById(`clase-obj-list-${claseId}`);
+        if (listEl) {
+            const div = document.createElement('div');
+            div.className = 'objetivo-item';
+            div.innerHTML = `<span class="objetivo-text">${this._escapeHtml(text)}</span><button class="btn-icon" onclick="app.removeObjetivoFromClase('${claseId}','${obj.id}')" title="Quitar">×</button>`;
+            if (listEl.querySelector('.text-muted')) listEl.innerHTML = '';
+            listEl.appendChild(div);
+        }
     }
 
     removeObjetivoFromClase(claseId, objId) {
         const clase = this.data.getClase(claseId);
         if (!clase) return;
-        clase.objetivos = (clase.objetivos||[]).filter(o=>o.id!==objId);
+        clase.objetivos = (clase.objetivos||[]).filter(o => o.id !== objId);
         this.data.saveClase(clase);
-        this._renderClaseDetail(claseId);
+        const listEl = document.getElementById(`clase-obj-list-${claseId}`);
+        if (listEl) {
+            const item = listEl.querySelector(`[onclick*="${objId}"]`)?.closest('.objetivo-item');
+            if (item) item.remove();
+            if (!listEl.children.length) listEl.innerHTML = '<p class="text-muted" style="font-size:12px">Sin objetivos cargados</p>';
+        }
     }
 
     saveResumenClase(claseId, text) {
@@ -4495,7 +4329,7 @@ class GuitarStudioApp {
     saveClaseTitle(claseId, text) {
         const clase = this.data.getClase(claseId);
         if (!clase) return;
-        clase.title = text || clase.title;
+        clase.title = text.trim() || clase.title;
         this.data.saveClase(clase);
     }
 
@@ -4504,6 +4338,15 @@ class GuitarStudioApp {
         if (!clase) return;
         clase.date = date;
         this.data.saveClase(clase);
+    }
+
+    finalizarClase(claseId) {
+        const clase = this.data.getClase(claseId);
+        if (!clase) return;
+        clase.status = 'finalizada';
+        this.data.saveClase(clase);
+        this.showToast('Clase finalizada', '✅');
+        this._renderClaseDetail(claseId);
     }
 
     async renderMyLibraryView() {

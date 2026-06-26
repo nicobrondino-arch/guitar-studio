@@ -388,6 +388,21 @@ class DataService {
     }
 
     // ==========================================================================
+    // Plantillas de clase — localStorage gs-templates
+    // ==========================================================================
+    getTemplates() {
+        try { return JSON.parse(localStorage.getItem('gs-templates') || '[]'); } catch { return []; }
+    }
+    saveTemplate(tpl) {
+        const arr = this.getTemplates().filter(t => t.id !== tpl.id);
+        arr.push(tpl);
+        localStorage.setItem('gs-templates', JSON.stringify(arr));
+    }
+    deleteTemplate(id) {
+        localStorage.setItem('gs-templates', JSON.stringify(this.getTemplates().filter(t => t.id !== id)));
+    }
+
+    // ==========================================================================
     // Helper para generar IDs únicos
     // ==========================================================================
     generateId(prefix = 'id') {

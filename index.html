@@ -215,40 +215,6 @@
                 </div>
             </div>
 
-            <!-- Quick Tools (Metronome & Volume) -->
-            <div class="quick-tools-box">
-                <h4 class="quick-tools-title" data-i18n="quick-tools-title">Herramientas Rápidas</h4>
-                
-                <!-- Metronome -->
-                <div class="quick-metronome">
-                    <div class="metro-header">
-                        <span data-i18n="metro-title">Metrónomo</span>
-                        <span class="metro-bpm-val"><span id="metro-bpm-text">120</span> BPM</span>
-                    </div>
-                    <input type="range" class="slider" id="metro-bpm-slider" min="40" max="250" value="120">
-                    <div class="metro-controls">
-                        <button class="btn btn-outline btn-sm" id="btn-metro-decrement">-4</button>
-                        <button class="btn btn-primary btn-sm btn-metro-toggle" id="btn-metro-toggle">
-                            <span data-i18n="btn-play">Iniciar</span>
-                        </button>
-                        <button class="btn btn-outline btn-sm" id="btn-metro-increment">+4</button>
-                    </div>
-                    <div class="metro-visual">
-                        <span class="beat-indicator"></span>
-                        <span class="beat-indicator"></span>
-                        <span class="beat-indicator"></span>
-                        <span class="beat-indicator"></span>
-                    </div>
-                    <!-- Volume Control -->
-                    <div class="metro-volume-box" style="margin-top: 10px; display: flex; align-items: center; gap: 8px;">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px; color: var(--tb-text-secondary); flex-shrink: 0;">
-                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                        </svg>
-                        <input type="range" class="slider" id="metro-volume-slider" min="0" max="100" value="80" style="margin: 0; flex: 1;">
-                    </div>
-                </div>
-            </div>
             
             <!-- Selectores de Tema e Idioma -->
             <div class="sidebar-footer">
@@ -619,7 +585,60 @@
 
                 <!-- VIEW 3: CUADERNO DEL PROFESOR -->
                 <section id="view-notebook" class="app-view">
-                    <div class="view-header-flex">
+
+                    <!-- NUEVA SECCIÓN: Plantillas + Biblioteca -->
+                    <div class="notebook-split-layout" id="nb-split-layout">
+
+                        <!-- Sidebar izquierdo: Plantillas -->
+                        <div class="notebook-sidebar">
+                            <div class="nb-sidebar-header">
+                                <span class="nb-sidebar-title">Plantillas de Clase</span>
+                                <button class="btn btn-sm btn-outline" onclick="app.newTemplate()">+ Nueva</button>
+                            </div>
+                            <div class="nb-template-list" id="nb-template-list">
+                                <p class="text-muted" style="padding:12px;font-size:12px">Cargando plantillas…</p>
+                            </div>
+                            <div class="nb-sidebar-footer">
+                                <button class="btn btn-primary btn-sm" style="width:100%" onclick="document.getElementById('gp-file-input').click()">
+                                    ↑ Subir contenido
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Panel principal: Biblioteca -->
+                        <div class="notebook-main">
+                            <div class="nb-toolbar">
+                                <div class="nb-search-box">
+                                    <svg viewBox="0 0 16 16" fill="none" style="width:13px;height:13px;flex-shrink:0" stroke="var(--tb-text-muted)" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4.5"/><path d="M10.5 10.5l3 3" stroke-linecap="round"/></svg>
+                                    <input id="nb-search" placeholder="Buscar en biblioteca…" oninput="app.filterLibrary(this.value)" style="flex:1;background:transparent;border:none;outline:none;font:400 12px Inter,sans-serif;color:var(--tb-text-primary)">
+                                </div>
+                                <div class="nb-chips" id="nb-chips">
+                                    <button class="nb-chip active" onclick="app.setLibFilter('all',this)">Todos</button>
+                                    <button class="nb-chip" onclick="app.setLibFilter('gp',this)">Guitar Pro</button>
+                                    <button class="nb-chip" onclick="app.setLibFilter('pdf',this)">PDF</button>
+                                    <button class="nb-chip" onclick="app.setLibFilter('youtube',this)">YouTube</button>
+                                    <button class="nb-chip" onclick="app.setLibFilter('spotify',this)">Spotify</button>
+                                    <span class="nb-chip-div"></span>
+                                    <button class="nb-chip" onclick="app.setLibFilter('technique',this)">Técnica</button>
+                                    <button class="nb-chip" onclick="app.setLibFilter('reading',this)">Lectura</button>
+                                    <button class="nb-chip" onclick="app.setLibFilter('repertoire',this)">Repertorio</button>
+                                    <span class="nb-chip-div"></span>
+                                    <button class="nb-chip" id="chip-in-tpl" onclick="app.toggleInTplFilter(this)">En plantilla activa</button>
+                                </div>
+                            </div>
+                            <div class="nb-table-header">
+                                <span></span><span>Título</span><span>Tipo</span>
+                                <span>Categoría</span><span>Nivel</span><span>Estilo</span>
+                                <span>Plantilla</span><span></span>
+                            </div>
+                            <div class="nb-table-body" id="nb-library-table">
+                                <div style="padding:24px;text-align:center"><p class="text-muted">Cargando biblioteca…</p></div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="view-header-flex" style="margin-top:32px">
                         <div>
                             <h2 class="view-section-title" data-i18n="notebook-title">Cuaderno del Profesor</h2>
                             <p class="view-section-subtitle" data-i18n="notebook-subtitle">Anotaciones, semanas de trabajo y biblioteca de contenido</p>
