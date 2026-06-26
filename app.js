@@ -1002,21 +1002,21 @@ class GuitarStudioApp {
     // Próxima Clase — vista del alumno en Mi Estudio
     // ==========================================================================
     async renderProximaClase() {
-        const card = document.getElementById('proxima-clase-card');
-        const content = document.getElementById('proxima-clase-content');
-        if (!card || !content) return;
+        const wrap = document.getElementById('studio-proxima-clase');
+        if (!wrap) return;
 
-        if (!this.activeProfile) { card.style.display = 'none'; return; }
+        if (!this.activeProfile || this.isProfessorMode) { wrap.innerHTML = ''; return; }
 
         const groups = this._getGroups().filter(g => (g.memberIds || []).includes(this.activeProfile.id));
-        if (groups.length === 0) { card.style.display = 'none'; return; }
+        if (groups.length === 0) { wrap.innerHTML = ''; return; }
 
         const allClases = this.data.getAllClases();
         const myClases = allClases
-            .filter(c => groups.some(g => g.id === c.groupId) && c.status === 'finalizada')
-            .sort((a, b) => (b.finalizadaAt || 0) - (a.finalizadaAt || 0));
+            .filter(c => groups.some(g => g.id === c.groupId) && (c.status === 'finalizada' || c.status === 'iniciada'))
+            .sort((a, b) => (b.finalizadaAt || b.date || 0) > (a.finalizadaAt || a.date || 0) ? 1 : -1)
+            .reverse();
 
-        if (myClases.length === 0) { card.style.display = 'none'; return; }
+        if (myClases.length === 0) { wrap.innerHTML = ''; return; }
 
         const clase = myClases[0];
         const group = groups.find(g => g.id === clase.groupId) || {};
@@ -1025,12 +1025,19 @@ class GuitarStudioApp {
         const dateLabel = new Date((clase.date || '') + 'T12:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
         const dayTime = [dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1), group.time ? group.time.slice(0, 5) : ''].filter(Boolean).join(' · ');
 
-        const meetBar = group.meetLink ? `
-            <div class="proxima-meet-bar">
-                <span class="proxima-meet-url">${this._escapeHtml(group.meetLink)}</span>
-                <a href="https://${this._escapeHtml(group.meetLink)}" target="_blank" class="btn btn-outline btn-sm">Entrar al Meet</a>
-            </div>` : '';
+        // Contenido por categoría
+        const cats = { 'Técnica': [], 'Lectura': [], 'Repertorio': [], 'Otro': [] };
+        (clase.content || []).forEach(it => {
+            const cat = cats[it.cat] ? it.cat : 'Otro';
+            cats[cat].push(it);
+        });
+        const catHtml = Object.entries(cats).filter(([, items]) => items.length > 0).map(([cat, items]) => `
+            <div class="alm-proxima-cat">
+                <div class="alm-pc-label">${cat}</div>
+                <div class="alm-pc-items">${items.map(it => `<div class="alm-pc-item">${this._escapeHtml(it.title)}</div>`).join('')}</div>
+            </div>`).join('');
 
+        // Objetivos con checkboxes
         const objetivos = (clase.objetivos || []).map(obj => {
             const key = `${clase.id}__${obj.id}`;
             const done = !!completados[key];
@@ -1041,22 +1048,111 @@ class GuitarStudioApp {
             </div>`;
         }).join('');
 
-        card.style.display = 'block';
-        content.innerHTML = `
-            <div class="proxima-clase-header">
-                <div class="proxima-clase-info">
-                    <div class="proxima-clase-eyebrow">Preparación para la próxima clase</div>
-                    <div class="proxima-clase-title">${this._escapeHtml(group.name || 'Clase')}</div>
-                    <div class="proxima-clase-meta">${dayTime}</div>
+        // Canal de preguntas
+        const pregKey = `gs-preg-${this.activeProfile.id}-${clase.id}`;
+        const pregsKey = `gs-pregs-${this.activeProfile.id}-${clase.id}`;
+        const pregEnviada = localStorage.getItem(pregKey);
+        const pregsEnviadas = JSON.parse(localStorage.getItem(pregsKey) || '[]');
+        const pregHtml = pregEnviada
+            ? `<div class="alm-preg-enviada">
+                <div class="alm-preg-burbuja">${this._escapeHtml(pregEnviada)}</div>
+                <button class="btn btn-outline btn-sm" style="margin-top:8px" onclick="app._nuevaPreguntaAlumno('${clase.id}')">Nueva pregunta</button>
+               </div>`
+            : `<div class="alm-preg-form">
+                <textarea id="alm-preg-input-${clase.id}" class="alm-preg-textarea" rows="2" placeholder="Escribí tu pregunta al profesor..."></textarea>
+                <button class="btn btn-primary btn-sm" style="margin-top:6px" onclick="app._enviarPreguntaAlumno('${clase.id}')">Enviar pregunta</button>
+               </div>`;
+        const histPregs = pregsEnviadas.length > 1
+            ? `<div class="alm-preg-hist">${pregsEnviadas.slice(0,-1).map(p => `<div class="alm-preg-hist-item">${this._escapeHtml(p)}</div>`).join('')}</div>`
+            : '';
+
+        // Clases anteriores (hasta 3)
+        const anteriores = myClases.slice(1, 4);
+        const anterioresHtml = anteriores.length > 0
+            ? `<div class="card alm-preguntas-card" style="margin-top:12px">
+                <h4 style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--tb-text-secondary)">Clases anteriores</h4>
+                ${anteriores.map(c => {
+                    const dl = new Date((c.date || '') + 'T12:00').toLocaleDateString('es-AR', { day:'numeric', month:'short' });
+                    return `<div class="alm-prev-clase" onclick="app._abrirClaseAnteriorAlumno('${c.id}')">
+                        <span class="alm-prev-date">${dl}</span>
+                        <span class="alm-prev-title">${this._escapeHtml(c.title || 'Clase')}</span>
+                        <span class="alm-prev-count">${(c.content||[]).length} ítems</span>
+                    </div>`;
+                }).join('')}
+               </div>`
+            : '';
+
+        wrap.innerHTML = `
+            <div class="alm-proxima-wrap">
+                <div class="card alm-proxima-card">
+                    <div class="alm-proxima-header">
+                        <div>
+                            <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--tb-text-secondary);margin-bottom:4px">Última clase cargada</div>
+                            <div style="font-size:18px;font-weight:700">${this._escapeHtml(group.name || 'Clase')}</div>
+                            <div style="font-size:12px;color:var(--tb-text-secondary);margin-top:2px">${dayTime}</div>
+                        </div>
+                        ${group.meetLink ? `<a href="https://${this._escapeHtml(group.meetLink)}" target="_blank" class="btn btn-primary btn-sm">Entrar al Meet</a>` : ''}
+                    </div>
+                    <div class="alm-proxima-body">
+                        ${catHtml ? `<div style="margin-bottom:16px">${catHtml}</div>` : ''}
+                        ${clase.notaAlumno ? `<div class="alm-nota-profesor"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;color:var(--tb-accent)">Nota del profesor</div>${this._escapeHtml(clase.notaAlumno)}</div>` : ''}
+                        ${objetivos.length > 0 ? `<div style="margin-top:14px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;color:var(--tb-text-secondary)">Objetivos</div><div class="obj-check-list">${objetivos}</div></div>` : ''}
+                    </div>
                 </div>
+                <div class="card alm-preguntas-card">
+                    <h4 style="font-size:13px;font-weight:600;margin-bottom:10px">Canal de preguntas</h4>
+                    ${histPregs}
+                    ${pregHtml}
+                </div>
+                ${anterioresHtml}
+            </div>`;
+    }
+
+    _enviarPreguntaAlumno(claseId) {
+        if (!this.activeProfile) return;
+        const input = document.getElementById(`alm-preg-input-${claseId}`);
+        const text = input ? input.value.trim() : '';
+        if (!text) return;
+        const pregKey = `gs-preg-${this.activeProfile.id}-${claseId}`;
+        const pregsKey = `gs-pregs-${this.activeProfile.id}-${claseId}`;
+        const pregs = JSON.parse(localStorage.getItem(pregsKey) || '[]');
+        pregs.push(text);
+        localStorage.setItem(pregsKey, JSON.stringify(pregs));
+        localStorage.setItem(pregKey, text);
+        this.renderProximaClase();
+    }
+
+    _nuevaPreguntaAlumno(claseId) {
+        if (!this.activeProfile) return;
+        localStorage.removeItem(`gs-preg-${this.activeProfile.id}-${claseId}`);
+        this.renderProximaClase();
+    }
+
+    _abrirClaseAnteriorAlumno(claseId) {
+        const allClases = this.data.getAllClases();
+        const c = allClases.find(x => x.id === claseId);
+        if (!c) return;
+        const cats = { 'Técnica': [], 'Lectura': [], 'Repertorio': [], 'Otro': [] };
+        (c.content || []).forEach(it => { const cat = cats[it.cat] ? it.cat : 'Otro'; cats[cat].push(it); });
+        const catHtml = Object.entries(cats).filter(([, items]) => items.length > 0).map(([cat, items]) =>
+            `<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--tb-accent);margin-bottom:4px">${cat}</div>${items.map(it => `<div style="font-size:13px;padding:3px 0">${this._escapeHtml(it.title)}</div>`).join('')}</div>`
+        ).join('');
+        const dl = new Date((c.date || '') + 'T12:00').toLocaleDateString('es-AR', { weekday:'long', day:'numeric', month:'long' });
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `<div class="modal-box" style="max-width:480px;width:90%">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                <div>
+                    <div style="font-size:16px;font-weight:700">${this._escapeHtml(c.title || 'Clase')}</div>
+                    <div style="font-size:12px;color:var(--tb-text-secondary)">${dl}</div>
+                </div>
+                <button class="btn btn-outline btn-sm" onclick="this.closest('.modal-overlay').remove()">✕</button>
             </div>
-            ${meetBar}
-            ${objetivos.length > 0 ? `
-            <div class="proxima-clase-body">
-                <div class="proxima-clase-section-label">Objetivos</div>
-                <div class="obj-check-list">${objetivos}</div>
-            </div>` : '<p class="text-muted" style="padding:8px 0">El profesor aún no cargó objetivos para esta clase.</p>'}
-        `;
+            ${catHtml || '<p style="color:var(--tb-text-secondary);font-size:13px">Sin contenido registrado.</p>'}
+            ${c.notaAlumno ? `<div class="alm-nota-profesor" style="margin-top:14px"><div style="font-size:11px;font-weight:600;margin-bottom:4px;color:var(--tb-accent)">Nota del profesor</div>${this._escapeHtml(c.notaAlumno)}</div>` : ''}
+        </div>`;
+        overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+        document.body.appendChild(overlay);
     }
 
     toggleObjetivo(claseId, objId) {
@@ -1185,70 +1281,55 @@ class GuitarStudioApp {
         document.getElementById("btn-lang-es").addEventListener("click", () => this.changeLanguage("es"));
         document.getElementById("btn-lang-en").addEventListener("click", () => this.changeLanguage("en"));
 
-        // Metrónomo UI independiente
+        // Metrónomo UI independiente (desactivado — bloque removido del HTML)
         const bpmSlider = document.getElementById("metro-bpm-slider");
-        const bpmText = document.getElementById("metro-bpm-text");
-        const metroToggle = document.getElementById("btn-metro-toggle");
-        const metroDec = document.getElementById("btn-metro-decrement");
-        const metroInc = document.getElementById("btn-metro-increment");
+        if (bpmSlider) {
+            const bpmText = document.getElementById("metro-bpm-text");
+            const metroToggle = document.getElementById("btn-metro-toggle");
+            const metroDec = document.getElementById("btn-metro-decrement");
+            const metroInc = document.getElementById("btn-metro-increment");
+            const metroVolSlider = document.getElementById("metro-volume-slider");
 
-        bpmSlider.addEventListener("input", (e) => {
-            const bpm = parseInt(e.target.value, 10);
-            bpmText.textContent = bpm;
-            this.metronome.setBpm(bpm);
-        });
-
-        // Control de volumen del metrónomo
-        const metroVolSlider = document.getElementById("metro-volume-slider");
-        metroVolSlider.addEventListener("input", (e) => {
-            const vol = parseInt(e.target.value, 10) / 100.0;
-            this.metronome.volume = vol;
-        });
-
-        metroDec.addEventListener("click", () => {
-            let bpm = parseInt(bpmSlider.value, 10) - 4;
-            bpm = Math.max(40, bpm);
-            bpmSlider.value = bpm;
-            bpmText.textContent = bpm;
-            this.metronome.setBpm(bpm);
-        });
-
-        metroInc.addEventListener("click", () => {
-            let bpm = parseInt(bpmSlider.value, 10) + 4;
-            bpm = Math.min(250, bpm);
-            bpmSlider.value = bpm;
-            bpmText.textContent = bpm;
-            this.metronome.setBpm(bpm);
-        });
-
-        metroToggle.addEventListener("click", () => {
-            const isPlaying = this.metronome.toggle();
-            if (isPlaying) {
-                metroToggle.querySelector("span").setAttribute("data-i18n", "btn-stop");
-                metroToggle.querySelector("span").textContent = this.lang === "es" ? "Detener" : "Stop";
-                metroToggle.classList.add("btn-outline");
-                metroToggle.classList.remove("btn-primary");
-            } else {
-                metroToggle.querySelector("span").setAttribute("data-i18n", "btn-play");
-                metroToggle.querySelector("span").textContent = this.lang === "es" ? "Iniciar" : "Start";
-                metroToggle.classList.add("btn-primary");
-                metroToggle.classList.remove("btn-outline");
-                // Apagar visuales del metrónomo
-                this.resetMetronomeVisuals();
-            }
-        });
-
-        // Configurar callback del pulso del metrónomo
-        const indicators = document.querySelectorAll(".beat-indicator");
-        this.metronome.onBeat((beatNumber) => {
-            indicators.forEach((ind, index) => {
-                if (index === beatNumber) {
-                    ind.classList.add("active");
+            bpmSlider.addEventListener("input", (e) => {
+                const bpm = parseInt(e.target.value, 10);
+                bpmText.textContent = bpm;
+                this.metronome.setBpm(bpm);
+            });
+            if (metroVolSlider) metroVolSlider.addEventListener("input", (e) => {
+                this.metronome.volume = parseInt(e.target.value, 10) / 100.0;
+            });
+            if (metroDec) metroDec.addEventListener("click", () => {
+                let bpm = Math.max(40, parseInt(bpmSlider.value, 10) - 4);
+                bpmSlider.value = bpm; bpmText.textContent = bpm; this.metronome.setBpm(bpm);
+            });
+            if (metroInc) metroInc.addEventListener("click", () => {
+                let bpm = Math.min(250, parseInt(bpmSlider.value, 10) + 4);
+                bpmSlider.value = bpm; bpmText.textContent = bpm; this.metronome.setBpm(bpm);
+            });
+            if (metroToggle) metroToggle.addEventListener("click", () => {
+                const isPlaying = this.metronome.toggle();
+                if (isPlaying) {
+                    metroToggle.querySelector("span").setAttribute("data-i18n", "btn-stop");
+                    metroToggle.querySelector("span").textContent = this.lang === "es" ? "Detener" : "Stop";
+                    metroToggle.classList.add("btn-outline");
+                    metroToggle.classList.remove("btn-primary");
                 } else {
-                    ind.classList.remove("active");
+                    metroToggle.querySelector("span").setAttribute("data-i18n", "btn-play");
+                    metroToggle.querySelector("span").textContent = this.lang === "es" ? "Iniciar" : "Start";
+                    metroToggle.classList.add("btn-primary");
+                    metroToggle.classList.remove("btn-outline");
+                    this.resetMetronomeVisuals();
                 }
             });
-        });
+            const indicators = document.querySelectorAll(".beat-indicator");
+            if (typeof this.metronome.onBeat === 'function') {
+                this.metronome.onBeat((beatNumber) => {
+                    indicators.forEach((ind, index) => {
+                        ind.classList.toggle("active", index === beatNumber);
+                    });
+                });
+            }
+        }
 
         // Tabs de categoría dentro de la vista práctica (incluye supplementary)
         [...this.categoryIds, 'supplementary'].forEach(cat => {
