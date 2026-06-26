@@ -215,41 +215,6 @@
                 </div>
             </div>
 
-            <!-- Quick Tools (Metronome & Volume) -->
-            <div class="quick-tools-box">
-                <h4 class="quick-tools-title" data-i18n="quick-tools-title">Herramientas Rápidas</h4>
-                
-                <!-- Metronome -->
-                <div class="quick-metronome">
-                    <div class="metro-header">
-                        <span data-i18n="metro-title">Metrónomo</span>
-                        <span class="metro-bpm-val"><span id="metro-bpm-text">120</span> BPM</span>
-                    </div>
-                    <input type="range" class="slider" id="metro-bpm-slider" min="40" max="250" value="120">
-                    <div class="metro-controls">
-                        <button class="btn btn-outline btn-sm" id="btn-metro-decrement">-4</button>
-                        <button class="btn btn-primary btn-sm btn-metro-toggle" id="btn-metro-toggle">
-                            <span data-i18n="btn-play">Iniciar</span>
-                        </button>
-                        <button class="btn btn-outline btn-sm" id="btn-metro-increment">+4</button>
-                    </div>
-                    <div class="metro-visual">
-                        <span class="beat-indicator"></span>
-                        <span class="beat-indicator"></span>
-                        <span class="beat-indicator"></span>
-                        <span class="beat-indicator"></span>
-                    </div>
-                    <!-- Volume Control -->
-                    <div class="metro-volume-box" style="margin-top: 10px; display: flex; align-items: center; gap: 8px;">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px; color: var(--tb-text-secondary); flex-shrink: 0;">
-                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                        </svg>
-                        <input type="range" class="slider" id="metro-volume-slider" min="0" max="100" value="80" style="margin: 0; flex: 1;">
-                    </div>
-                </div>
-            </div>
-            
             <!-- Selectores de Tema e Idioma -->
             <div class="sidebar-footer">
                 <!-- Selector de tema visual -->
@@ -611,8 +576,6 @@
                              </div>
                         </div>
                         
-                        <!-- Mobile container for quick tools -->
-                        <div id="mobile-quick-tools-container" class="mobile-only-container"></div>
                     </div>
 
                 </section>
@@ -929,9 +892,6 @@
         </main>
     </div>
 
-    <!-- Metronome Sound Effect (Beeps fallback if Web Audio is blocked initially) -->
-    <audio id="audio-tick" src="https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav" preload="auto"></audio>
-    
     <template id="at-track-template">
       <div class="at-track">
         <div class="at-track-icon-container">

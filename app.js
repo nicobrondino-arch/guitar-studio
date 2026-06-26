@@ -704,10 +704,6 @@ class GuitarStudioApp {
         // Cargar tema visual guardado
         this.loadSavedTheme();
 
-        // Reubicar metrónomo según resolución
-        this.adjustQuickToolsLocation();
-        window.addEventListener("resize", () => this.adjustQuickToolsLocation());
-
         // Inicializar traducción
         this.updateLanguageUI();
 
@@ -1257,71 +1253,6 @@ class GuitarStudioApp {
         document.getElementById("btn-lang-es").addEventListener("click", () => this.changeLanguage("es"));
         document.getElementById("btn-lang-en").addEventListener("click", () => this.changeLanguage("en"));
 
-        // Metrónomo UI independiente
-        const bpmSlider = document.getElementById("metro-bpm-slider");
-        const bpmText = document.getElementById("metro-bpm-text");
-        const metroToggle = document.getElementById("btn-metro-toggle");
-        const metroDec = document.getElementById("btn-metro-decrement");
-        const metroInc = document.getElementById("btn-metro-increment");
-
-        bpmSlider.addEventListener("input", (e) => {
-            const bpm = parseInt(e.target.value, 10);
-            bpmText.textContent = bpm;
-            this.metronome.setBpm(bpm);
-        });
-
-        // Control de volumen del metrónomo
-        const metroVolSlider = document.getElementById("metro-volume-slider");
-        metroVolSlider.addEventListener("input", (e) => {
-            const vol = parseInt(e.target.value, 10) / 100.0;
-            this.metronome.volume = vol;
-        });
-
-        metroDec.addEventListener("click", () => {
-            let bpm = parseInt(bpmSlider.value, 10) - 4;
-            bpm = Math.max(40, bpm);
-            bpmSlider.value = bpm;
-            bpmText.textContent = bpm;
-            this.metronome.setBpm(bpm);
-        });
-
-        metroInc.addEventListener("click", () => {
-            let bpm = parseInt(bpmSlider.value, 10) + 4;
-            bpm = Math.min(250, bpm);
-            bpmSlider.value = bpm;
-            bpmText.textContent = bpm;
-            this.metronome.setBpm(bpm);
-        });
-
-        metroToggle.addEventListener("click", () => {
-            const isPlaying = this.metronome.toggle();
-            if (isPlaying) {
-                metroToggle.querySelector("span").setAttribute("data-i18n", "btn-stop");
-                metroToggle.querySelector("span").textContent = this.lang === "es" ? "Detener" : "Stop";
-                metroToggle.classList.add("btn-outline");
-                metroToggle.classList.remove("btn-primary");
-            } else {
-                metroToggle.querySelector("span").setAttribute("data-i18n", "btn-play");
-                metroToggle.querySelector("span").textContent = this.lang === "es" ? "Iniciar" : "Start";
-                metroToggle.classList.add("btn-primary");
-                metroToggle.classList.remove("btn-outline");
-                // Apagar visuales del metrónomo
-                this.resetMetronomeVisuals();
-            }
-        });
-
-        // Configurar callback del pulso del metrónomo
-        const indicators = document.querySelectorAll(".beat-indicator");
-        this.metronome.onBeat((beatNumber) => {
-            indicators.forEach((ind, index) => {
-                if (index === beatNumber) {
-                    ind.classList.add("active");
-                } else {
-                    ind.classList.remove("active");
-                }
-            });
-        });
-
         // Tabs de categoría dentro de la vista práctica (incluye supplementary)
         [...this.categoryIds, 'supplementary'].forEach(cat => {
             const tab = document.getElementById(`pcat-${cat}`);
@@ -1662,10 +1593,7 @@ class GuitarStudioApp {
         if (this._pdfBlobUrl) this.closePDFViewer();
         if (document.getElementById('yt-viewer-panel')?.style.display === 'flex') this.closeYouTubeViewer();
 
-        // Pausar metrónomo si cambiamos de vista
-        if (this.metronome.isPlaying && viewId !== 'practice') {
-            document.getElementById("btn-metro-toggle").click();
-        }
+
 
         // Pausar timer activo si salimos de práctica
         if (viewId !== 'practice' && this.activeTimerStep !== null) {
