@@ -1,0 +1,9 @@
+screenshots/
+_check/
+*.tmp
+*.bak
+*-v2.*
+*-final.*
+*-backup.*
+Thumbs.db
+.DS_Store
