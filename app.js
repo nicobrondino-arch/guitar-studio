@@ -667,7 +667,9 @@ class GuitarStudioApp {
         this.activeProfile = null; // { id, name, color } o null
         this.isProfessorMode = false;
         this._currentClaseId = null; // clase abierta en el tablero
-        this._claseContentTab = 0;  // tab activo en el panel de clase (0=técnica, 1=lectura, 2=repertorio)
+        this._timelineTab = 'hoy';   // tab activo del timeline: 'hoy' | 'manana' | 'semana'
+        this._libSearch = '';        // búsqueda en biblioteca col 3
+        this._libCatFilter = 'todos'; // filtro categoría biblioteca col 3
 
         // Estado de práctica: categoría activa y player
         this.currentCategory = 'technique';
@@ -3880,11 +3882,7 @@ class GuitarStudioApp {
         const content = document.getElementById("dashboard-content");
         if (!content) return;
 
-        const [profiles, weeks, allProfileWeeks] = await Promise.all([
-            this.data.getProfiles(),
-            this.data.getWeeks(),
-            this.data.getAllProfileWeeks(),
-        ]);
+        const profiles = await this.data.getProfiles();
 
         if (profiles.length === 0) {
             content.innerHTML = `<div class="dashboard-empty">
@@ -3895,64 +3893,95 @@ class GuitarStudioApp {
         }
 
         const todayStr = this.getTodayString();
+        const tomorrowStr = new Date(new Date(todayStr+'T12:00').getTime() + 86400000).toISOString().slice(0,10);
+        const allClases = this.data.getAllClases();
+        const groups = this._getGroups();
+        const dayNames = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+        const todayName = dayNames[new Date(todayStr+'T12:00').getDay()];
+        const tomorrowName = dayNames[new Date(tomorrowStr+'T12:00').getDay()];
 
-        const dateLabel = new Date().toLocaleDateString('es-AR', { weekday:'long', day:'numeric', month:'long' });
+        const tab = this._timelineTab;
+        const targetDate = tab === 'manana' ? tomorrowStr : todayStr;
+        const targetDayName = tab === 'manana' ? tomorrowName : todayName;
 
-        const allClasesTl = this.data.getAllClases();
-        const groupsTl = this._getGroups();
-        const dayNamesTl = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
-        const todayName = dayNamesTl[new Date(todayStr + 'T12:00').getDay()];
-        const statusMapTl = { pendiente:'Pendiente', iniciada:'En curso', finalizada:'Finalizada' };
+        const buildTlItems = (dateStr, dayName) => {
+            const existing = allClases.filter(c => c.date === dateStr);
+            const existingGroupIds = new Set(existing.map(c => c.groupId));
+            const items = [];
+            existing.forEach(c => {
+                const g = groups.find(x => x.id === c.groupId) || {};
+                const st = c.status === 'finalizada' ? 'finalizada' : c.status === 'en-curso' ? 'iniciada' : 'pendiente';
+                const count = (g.memberIds||[]).length;
+                items.push({ claseId:c.id, click:`app.openClase('${c.id}')`, time:(g.time||c.time||'').slice(0,5)||'—', name:g.name||c.title||'Clase', count, type:count>1?'Grupal':'Individual', status:st, sel:c.id===this._currentClaseId, isNew:false });
+            });
+            groups.filter(g => g.day === dayName && !existingGroupIds.has(g.id)).forEach(g => {
+                const count = (g.memberIds||[]).length;
+                items.push({ claseId:null, click:`app.createClase('${g.id}')`, time:(g.time||'').slice(0,5)||'—', name:g.name, count, type:count>1?'Grupal':'Individual', status:'pendiente', sel:false, isNew:true });
+            });
+            items.sort((a,b) => String(a.time).localeCompare(String(b.time)));
+            return items;
+        };
 
-        const todayClaseGroupIds = new Set(allClasesTl.filter(c => c.date === todayStr).map(c => c.groupId));
-        const tlItems = [];
-        allClasesTl.filter(c => c.date === todayStr).forEach(c => {
-            const g = groupsTl.find(x => x.id === c.groupId) || {};
-            const st = c.status === 'finalizada' ? 'finalizada' : c.status === 'en-curso' ? 'iniciada' : 'pendiente';
-            const count = (g.memberIds||[]).length;
-            tlItems.push({ click:`app.openClase('${c.id}')`, time:(g.time||'').slice(0,5)||'—', name:g.name||c.title||'Clase', count, type:count>1?'Grupal':'Individual', status:st, sel:c.id===this._currentClaseId, isNew:false });
-        });
-        groupsTl.filter(g => g.day === todayName && !todayClaseGroupIds.has(g.id)).forEach(g => {
-            const count = (g.memberIds||[]).length;
-            tlItems.push({ click:`app.createClase('${g.id}')`, time:(g.time||'').slice(0,5)||'—', name:g.name, count, type:count>1?'Grupal':'Individual', status:'pendiente', sel:false, isNew:true });
-        });
-        tlItems.sort((a,b) => String(a.time).localeCompare(String(b.time)));
+        const tlItems = tab === 'semana' ? [] : buildTlItems(targetDate, targetDayName);
 
-        const tlHtml = tlItems.map(it => `
-                    <div class="timeline-item ${it.sel?'selected':''} ${it.status}" onclick="${it.click}">
-                        <div class="tl-time-col">
-                            <span class="tl-time">${it.time}</span>
-                            <div class="tl-dot ${it.status}"></div>
-                            <div class="tl-line"></div>
+        const tlHtml = tab === 'semana'
+            ? `<div class="tl-week-grid">
+                ${['L','M','X','J','V'].map(d=>`<div class="tl-week-day"><span class="tl-week-label">${d}</span></div>`).join('')}
+               </div>
+               <div class="dash-tl-empty" style="margin-top:12px">Vista semanal próximamente</div>`
+            : tlItems.length
+                ? tlItems.map(it => `
+                    <div class="tl3-item ${it.sel?'selected':''} ${it.status}" onclick="${it.click}">
+                        <div class="tl3-time-col">
+                            <span class="tl3-time ${it.status==='iniciada'?'active':''}">${it.time}</span>
+                            <div class="tl3-dot ${it.status} ${it.status==='iniciada'?'pulse':''}"></div>
+                            <div class="tl3-line"></div>
                         </div>
-                        <div class="tl-info">
-                            <div class="tl-group">${this._escapeHtml(it.name)}</div>
-                            <div class="tl-meta">${it.type} · ${it.count} alumno${it.count!==1?'s':''}</div>
-                            <span class="tl-status ${it.status}">${it.isNew?'Programar clase':statusMapTl[it.status]}</span>
+                        <div class="tl3-info">
+                            <div class="tl3-group">${this._escapeHtml(it.name)}</div>
+                            <div class="tl3-meta">${it.type} · ${it.count} alumno${it.count!==1?'s':''}</div>
+                            <span class="tl3-pill ${it.isNew?'new':it.status}">${it.isNew?'+ Crear clase':it.status==='iniciada'?'En curso':it.status==='finalizada'?'Finalizada':'Pendiente'}</span>
                         </div>
-                    </div>`).join('');
-
-        const capDate = dateLabel.charAt(0).toUpperCase()+dateLabel.slice(1);
+                    </div>`).join('')
+                : `<div class="dash-tl-empty">No hay clases ${tab==='manana'?'mañana':'hoy'}.<br><span>Asigná un día a tus grupos en el Cuaderno.</span></div>`;
 
         content.innerHTML = `
-            <div class="prof-layout">
-                <div class="timeline-sidebar">
-                    <div class="dash-day-head">
-                        <div class="dash-day-label">Clases de hoy</div>
-                        <div class="dash-day-date">${capDate}</div>
+            <div class="prof-layout-3col">
+
+                <!-- COL 1: TIMELINE -->
+                <div class="tl3-col">
+                    <div class="tl3-tabs">
+                        <button class="tl3-tab ${tab==='hoy'?'active':''}" onclick="app.switchTimelineTab('hoy')">Hoy</button>
+                        <button class="tl3-tab ${tab==='manana'?'active':''}" onclick="app.switchTimelineTab('manana')">Mañana</button>
+                        <button class="tl3-tab ${tab==='semana'?'active':''}" onclick="app.switchTimelineTab('semana')">Semana</button>
                     </div>
-                    ${tlHtml || '<div class="dash-tl-empty">No hay clases para hoy.<br><span>Asigná un día a tus grupos en el Cuaderno para verlas acá.</span></div>'}
+                    <div class="tl3-list">
+                        ${tlHtml}
+                    </div>
                 </div>
-                <div class="class-panel ${this._currentClaseId?'':'empty'}" id="dash-class-panel">
+
+                <!-- COL 2: PANEL DE CLASE -->
+                <div class="clase3-col" id="dash-class-panel">
                     ${this._currentClaseId ? '' : `
                     <div class="empty-hint">
-                        <svg viewBox="0 0 48 48" fill="none" style="width:60px;height:60px;display:block;margin:0 auto 16px" stroke="var(--tb-accent)" stroke-width="1"><circle cx="24" cy="24" r="20"/><path d="M24 14v10l6 4"/></svg>
+                        <svg viewBox="0 0 48 48" fill="none" style="width:56px;height:56px;display:block;margin:0 auto 14px" stroke="var(--tb-accent)" stroke-width="1"><circle cx="24" cy="24" r="20"/><path d="M24 14v10l6 4"/></svg>
                         <p>Seleccioná una clase del panel izquierdo</p>
                     </div>`}
                 </div>
+
+                <!-- COL 3: BIBLIOTECA -->
+                <div class="bib3-col" id="dash-bib-panel">
+                    <div class="bib3-header">Biblioteca</div>
+                    <div class="bib3-body" id="dash-bib-body">
+                        <div class="bib3-loading">Cargando…</div>
+                    </div>
+                </div>
+
             </div>`;
 
+        const libRender = this._renderBibliotecaPanel();
         if (this._currentClaseId) await this._renderClaseDetail(this._currentClaseId);
+        await libRender;
     }
     // =========================================================================
     // Gestión de Clases
@@ -3979,7 +4008,6 @@ class GuitarStudioApp {
 
     openClase(claseId) {
         this._currentClaseId = claseId;
-        this._claseContentTab = 0;
         this.renderDashboardView();
     }
 
@@ -4001,218 +4029,197 @@ class GuitarStudioApp {
         const type = members.length > 1 ? 'Grupal' : 'Individual';
         const timeLabel = (group.time||'').slice(0,5) || '—';
         const status = clase.status === 'finalizada' ? 'finalizada' : clase.status === 'en-curso' ? 'iniciada' : 'pendiente';
-
-        panel.className = 'class-panel';
-
         const todayStr = this.getTodayString();
-        const catColors = ['#a29bfe','#55efc4','#fdcb6e'];
-        const catLabels = ['Técnica','Lectura','Repertorio'];
 
-        const studentRows = members.map(m => {
-            const streak = this.data.getProfileStreak(m.id);
-            const lastReset = this.data.getProfileLastResetCheck ? this.data.getProfileLastResetCheck(m.id) : null;
-            const raw = this.data.getProfileCompletedSteps ? this.data.getProfileCompletedSteps(m.id) : [false,false,false];
-            const steps = lastReset === todayStr ? (raw || [false,false,false]) : [false,false,false];
-            const lastP = this.data.getProfileLastPracticed(m.id);
-            let lastLabel = 'Nunca', isToday = false;
-            const lastNum = lastP ? Number(lastP) : 0;
-            if (lastNum && !isNaN(lastNum)) {
-                const dObj = new Date(lastNum);
-                if (!isNaN(dObj.getTime())) {
-                    const d = dObj.toISOString().split('T')[0];
-                    if (d === todayStr) { isToday = true; lastLabel = dObj.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}); }
-                    else { const days = Math.max(1, Math.round((Date.now()-lastNum)/86400000)); lastLabel = days===1 ? 'Ayer' : `Hace ${days} días`; }
-                }
-            }
-            const cats = steps.map((done,i) => `<div class="cat-chip ${done?'done':'undone'}" title="${catLabels[i]}">${done?`<svg viewBox="0 0 10 10" fill="none"><path d="M2 5l2 2 4-4" stroke="${catColors[i]}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`:''}</div>`).join('');
-            const att = clase.attendance[m.id] || 'sin-marcar';
-            const attLabel = att==='presente'?'Presente':att==='ausente'?'Ausente':this._escapeHtml(m.name);
-            return `<div class="student-row">
-                <div class="student-avatar" style="background:${m.color||'#6366f1'}">${(m.name||'?')[0].toUpperCase()}</div>
-                <span class="student-name">${this._escapeHtml(m.name)}</span>
-                <div class="student-cats">${cats}</div>
-                <div class="student-streak">${streak>0?'🔥 '+streak:'<span style="color:var(--tb-text-muted)">—</span>'}</div>
-                <span class="student-last ${isToday?'today':''}">${lastLabel}</span>
-                <button class="att-chip ${att}" onclick="app.toggleAttendance('${claseId}','${m.id}')" title="${this._escapeHtml(m.name)}">${attLabel}</button>
-            </div>`;
-        }).join('') || '<p class="text-muted" style="font-size:12px">Sin alumnos en este grupo</p>';
+        // Migración backward compat: cat numérico → string
+        const catNumToStr = { 0:'Técnica', 1:'Lectura', 2:'Repertorio' };
+        (clase.content||[]).forEach(c => {
+            if (typeof c.cat === 'number') c.cat = catNumToStr[c.cat] || 'Técnica';
+        });
 
-        const iconFor = (ft) => ft==='gp'?'🎸':ft==='pdf'?'📄':ft==='audio'?'🎵':ft==='youtube'?'▶️':'📎';
-        const tab = this._claseContentTab;
-        const tabContent = (clase.content || []).filter(c => c.cat === tab || (tab === 0 && (c.cat === undefined || c.cat === null)));
-        const contentItems = tabContent.map(c => `
-                <div class="content-item">
-                    <span class="ci-emoji">${iconFor(c.fileType)}</span>
-                    <span class="ci-title">${this._escapeHtml(c.title || c.name)}</span>
-                    <button class="ci-remove" onclick="app.removeContentFromClase('${claseId}','${c.id}')" title="Quitar">×</button>
-                </div>`).join('') || '<p class="text-muted" style="font-size:12px">Sin contenido en esta categoría</p>';
-
-        const objItems = (clase.objetivos || []).map(o => `
-                <div class="objetivo-item">
-                    <span class="objetivo-text">${this._escapeHtml(o.text)}</span>
-                    <button class="btn-icon" onclick="app.removeObjetivoFromClase('${claseId}','${o.id}')" title="Quitar">×</button>
-                </div>`).join('') || '<p class="text-muted" style="font-size:12px">Sin objetivos cargados</p>';
-
-        const meetHref = /^https?:/.test(group.meetLink||'') ? group.meetLink : 'https://' + (group.meetLink||'');
-        const meetBar = group.meetLink ? `
-            <div class="meet-bar">
-                <svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px;flex-shrink:0" stroke="#4a9eff" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-                <span class="meet-url">${this._escapeHtml(group.meetLink)}</span>
-                <div class="meet-actions">
-                    <a href="${this._escapeHtml(meetHref)}" target="_blank" class="btn-pill btn-meet">Entrar al Meet</a>
-                    <button class="btn-pill btn-wa" onclick="app.sendMeetWhatsApp('${group.id}')">WhatsApp</button>
-                </div>
-            </div>` : '';
-
-        const actionBtn = status==='pendiente'
-            ? `<button class="btn-pill btn-primary-pill" onclick="app.iniciarClase('${claseId}')">▶ Iniciar clase</button>`
-            : status==='iniciada'
-            ? `<button class="btn-pill btn-success-pill" onclick="app.finalizarClase('${claseId}')">✓ Finalizar clase</button>`
-            : `<span class="finalizada-tag">✓ Clase finalizada</span>`;
-
-        panel.innerHTML = `
-            <div class="panel-header">
-                <div>
-                    <h2 class="panel-title" contenteditable="true" onblur="app.saveClaseTitle('${claseId}',this.textContent)">${this._escapeHtml(group.name || clase.title || 'Clase')}</h2>
-                    <div class="panel-subtitle">${timeLabel} · ${type} · ${members.length} alumno${members.length!==1?'s':''} · <input type="date" class="clase-date-inline" value="${clase.date}" onchange="app.saveClaseDate('${claseId}',this.value)"></div>
-                </div>
-                <div class="panel-actions">${actionBtn}</div>
-            </div>
-            ${meetBar}
-            <div class="dash-block">
-                <div class="section-label">Estado de los alumnos</div>
-                <div class="students-grid">${studentRows}</div>
-            </div>
-            <div class="dash-block">
-                <div class="section-label">Contenido de esta clase</div>
-                <div class="clase-content-tabs" id="clase-content-tabs-${claseId}">
-                    <button class="ctab ${tab===0?'active':''}" onclick="app.setClaseTab('${claseId}',0)">Técnica</button>
-                    <button class="ctab ${tab===1?'active':''}" onclick="app.setClaseTab('${claseId}',1)">Lectura</button>
-                    <button class="ctab ${tab===2?'active':''}" onclick="app.setClaseTab('${claseId}',2)">Repertorio</button>
-                </div>
-                <div class="content-items" id="clase-content-list-${claseId}">${contentItems}</div>
-                <div class="lib-add-wrap">
-                    <input type="text" class="lib-add-input" id="clase-lib-search" placeholder="Buscar contenido en la biblioteca para agregar…" oninput="app._renderClaseLibPanel('${claseId}',this.value)">
-                    <div class="lib-add-results" id="clase-lib-results"></div>
-                </div>
-            </div>
-            <div class="dash-block">
-                <div class="section-label">Objetivos</div>
-                <div class="objetivos-list" id="clase-obj-list-${claseId}">${objItems}</div>
-                <div class="obj-add-row">
-                    <input type="text" class="lib-add-input" id="new-obj-input-${claseId}" placeholder="Nuevo objetivo…" onkeydown="if(event.key==='Enter')app.addObjetivoToClase('${claseId}')">
-                    <button class="btn-pill btn-ghost-pill" onclick="app.addObjetivoToClase('${claseId}')">Agregar</button>
-                </div>
-            </div>
-            <div class="dash-block notes-area">
-                <div class="section-label">Resumen de la clase <span class="note-tag">Solo el profesor</span></div>
-                <textarea class="notes-ta" id="clase-resumen-${claseId}" placeholder="¿Qué se trabajó hoy? Notas, observaciones, temas tratados…" rows="3" onchange="app.saveResumenClase('${claseId}',this.value)">${this._escapeHtml(clase.resumen || '')}</textarea>
-            </div>
-            <div class="dash-block notes-area nota-alumno-area">
-                <div class="section-label">Nota para el alumno <span class="note-tag note-tag-visible">El alumno la verá</span></div>
-                <textarea class="notes-ta" id="clase-nota-alumno-${claseId}" placeholder="Escribí el enfoque para que el alumno practique esta semana…" rows="2" onchange="app.saveNotaAlumnoClase('${claseId}',this.value)">${this._escapeHtml(clase.notaAlumno || '')}</textarea>
-            </div>
-            <div class="dash-block dudas-section">
-                <div class="section-label">Dudas del alumno <span class="note-tag note-tag-info">Canal abierto</span></div>
-                <div id="dudas-prof-${claseId}">${(() => {
-                    const dudasData = this.data.getAllPreguntasForClase(claseId, members.map(m => m.id))
-                        .sort((a, b) => b.timestamp - a.timestamp);
-                    if (!dudasData.length) return '<p class="text-muted" style="font-size:12px">Sin preguntas por el momento.</p>';
-                    return dudasData.map(d => {
-                        const prof = members.find(m => m.id === d.profileId);
-                        const name = prof ? prof.name : 'Alumno';
-                        const color = prof ? (prof.color || '#6c63ff') : '#6c63ff';
-                        const init = name[0].toUpperCase();
-                        const timeStr = new Date(d.timestamp).toLocaleString('es-AR', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
-                        return `<div class="duda-prof-item">
-                            <div class="student-avatar" style="background:${color};width:26px;height:26px;min-width:26px;font-size:11px">${init}</div>
-                            <div style="flex:1;min-width:0">
-                                <div style="font:500 11px Inter,sans-serif;color:var(--tb-text-muted);margin-bottom:4px">${this._escapeHtml(name)} · ${timeStr}</div>
-                                <p style="font:italic 400 13px/1.6 var(--font-heading,serif);color:var(--tb-text-secondary)">"${this._escapeHtml(d.text)}"</p>
-                            </div>
-                        </div>`;
-                    }).join('');
-                })()}</div>
-            </div>
-            ${status==='iniciada' ? `
-            <div class="finalizar-bar">
-                <span class="finalizar-hint">El contenido quedará disponible para <strong>${members.length} alumno${members.length!==1?'s':''}</strong> al finalizar</span>
-                <button class="btn-pill btn-success-pill" onclick="app.finalizarClase('${claseId}')">✓ Finalizar y publicar</button>
-            </div>` : ''}
-        `;
-
-        this._renderClaseLibPanel(claseId, '');
-    }
-
-    async _renderClaseLibPanel(claseId, query) {
-        const container = document.getElementById('clase-lib-results');
-        if (!container) return;
-
-        const clase = this.data.getClase(claseId);
-        if (!clase) return;
-
-        const items = await this.data.getLibraryItems();
-        const q = (query || '').toLowerCase();
-        if (!q.trim()) { container.innerHTML = ''; return; }
-        const filtered = items.filter(it =>
-            !q || (it.title||it.name||'').toLowerCase().includes(q) || (it.musicalStyle||'').toLowerCase().includes(q)
-        );
-
-        if (filtered.length === 0) {
-            container.innerHTML = '<p class="text-muted" style="font-size:12px;padding:8px">Sin resultados</p>';
-            return;
+        // Categorías activas de la clase (con defaults)
+        if (!clase.categories || !clase.categories.length) {
+            clase.categories = ['Técnica','Lectura','Repertorio','Cont. Complementario'];
         }
 
-        const addedIds = new Set((clase.content||[]).map(c => c.id));
-        container.innerHTML = filtered.map(it => {
-            const added = addedIds.has(it.id);
-            const icon = it.fileType === 'gp' ? '🎸' : it.fileType === 'pdf' ? '📄' : it.fileType === 'audio' ? '🎵' : '📎';
-            return `<div class="clase-lib-item ${added ? 'added' : ''}" onclick="${added ? '' : `app.addContentToClase('${claseId}','${it.id}')`}">
-                <span>${icon}</span>
-                <span class="clase-lib-item-name">${this._escapeHtml(it.title || it.name)}</span>
-                ${added ? '<span class="clase-lib-check">✓</span>' : ''}
+        // ── A) HEADER ──
+        const meetHref = group.meetLink ? (/^https?:/.test(group.meetLink) ? group.meetLink : 'https://'+group.meetLink) : '';
+        const meetBarHtml = group.meetLink ? `
+            <div class="h3-meet-bar">
+                <span class="h3-meet-icon">▣</span>
+                <span class="h3-meet-url">${this._escapeHtml(group.meetLink)}</span>
+                <a href="${this._escapeHtml(meetHref)}" target="_blank" class="h3-btn h3-btn-meet">Entrar</a>
+                <button class="h3-btn h3-btn-wa" onclick="app.sendMeetWhatsApp('${group.id}')">W</button>
+            </div>` : `<div class="h3-meet-bar h3-meet-empty"></div>`;
+
+        // ── B) RESUMEN CLASE ANTERIOR ──
+        const claseAnt = this.data.getClaseAnterior(clase.groupId, clase.date);
+        const resumenAntHtml = (claseAnt && claseAnt.resumenProfesor) ? `
+            <div class="sec3-resumen-ant">
+                <div class="sec3-resumen-ant-title">${this._escapeHtml(group.name||'Clase')} · Clase del ${new Date(claseAnt.date+'T12:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'})}</div>
+                <div class="sec3-resumen-ant-body">${this._escapeHtml(claseAnt.resumenProfesor)}</div>
+            </div>` : '';
+
+        // ── C) TABLERO DE CONTROL ──
+        const buildAttGroup = (label, colorKey, mlist) => {
+            if (!mlist.length) return '';
+            const rows = mlist.map(m => {
+                const streak = this.data.getProfileStreak(m.id);
+                const lastReset = this.data.getProfileLastResetCheck(m.id);
+                const raw = this.data.getProfileCompletedSteps(m.id);
+                const steps = lastReset === todayStr ? (raw||[false,false,false]) : [false,false,false];
+                const done = steps.filter(Boolean).length;
+                const pracDot = done === 3 ? 'full' : done > 0 ? 'partial' : 'none';
+
+                const claseAntAtt = claseAnt ? (claseAnt.attendance||{})[m.id] : null;
+                const claseAntAttLabel = claseAntAtt === 'presente' ? 'Asistió' : claseAntAtt === 'ausente' ? 'Faltó' : '—';
+                const claseAntAttDot = claseAntAtt === 'presente' ? 'present' : claseAntAtt === 'ausente' ? 'absent' : '';
+
+                const dudas = claseAnt ? this.data.getPreguntasAlumno(m.id, claseAnt.id) : [];
+                const lastDuda = dudas.sort((a,b)=>b.timestamp-a.timestamp)[0];
+                const dudaHtml = lastDuda ? `
+                    <div class="hc-duda">
+                        <div class="hc-duda-label">💬 Duda pendiente</div>
+                        <div class="hc-duda-text">"${this._escapeHtml(lastDuda.text)}"</div>
+                    </div>` : '';
+
+                const hoverCard = `
+                    <div class="hc-card" id="hc-${m.id}">
+                        <div class="hc-meta-row">
+                            <div class="hc-prac-dot ${pracDot}"></div>
+                            <span class="hc-prac-label ${pracDot}">${pracDot==='full'?'Completo':pracDot==='partial'?'Parcial':'Sin práctica'}</span>
+                            <span class="hc-sep">·</span>
+                            <span class="hc-streak">${streak>0?'🔥 '+streak+'d':'—'}</span>
+                            <span class="hc-sep">·</span>
+                            <div class="hc-att-dot ${claseAntAttDot}"></div>
+                            <span class="hc-att-label">${claseAntAttLabel}</span>
+                        </div>
+                        ${dudaHtml}
+                    </div>`;
+
+                const att = (clase.attendance||{})[m.id] || null;
+                const attPill = att === 'presente'
+                    ? `<div class="att3-pill present"><div class="att3-dot present"></div>Presente</div>`
+                    : att === 'ausente'
+                    ? `<div class="att3-pill absent"><div class="att3-dot absent"></div>Ausente</div>`
+                    : `<div class="att3-pill" onclick="app.cycleAttendance('${claseId}','${m.id}')"><div class="att3-dot"></div>Marcar</div>`;
+
+                const nameColor = pracDot === 'full' ? '#34c759' : pracDot === 'partial' ? '#f5a623' : '#c0392b';
+
+                return `<div class="stu3-row" id="stu3-${m.id}">
+                    <div class="stu3-av" style="background:${m.color||'#6366f1'}">${(m.name||'?')[0].toUpperCase()}</div>
+                    <span class="stu3-name" style="color:${nameColor}" onmouseenter="app._showHoverCard('${m.id}')" onmouseleave="app._hideHoverCard('${m.id}')" onclick="app.cycleAttendance('${claseId}','${m.id}')">${this._escapeHtml(m.name)}</span>
+                    <div style="flex:1"></div>
+                    <div onclick="app.cycleAttendance('${claseId}','${m.id}')" id="att3-pill-${m.id}">${attPill}</div>
+                    ${hoverCard}
+                </div>`;
+            }).join('');
+            return `<div class="tab3-group">
+                <div class="tab3-group-header ${colorKey}">${label} — ${mlist.length}</div>
+                <div class="tab3-group-body">${rows}</div>
             </div>`;
-        }).join('');
+        };
+
+        const presentes = members.filter(m => (clase.attendance||{})[m.id] === 'presente');
+        const ausentes  = members.filter(m => (clase.attendance||{})[m.id] === 'ausente');
+        const sinMarcar = members.filter(m => !(clase.attendance||{})[m.id]);
+
+        const tableroHtml = [
+            buildAttGroup('Presentes', 'green', presentes),
+            buildAttGroup('Sin marcar', 'gray', sinMarcar),
+            buildAttGroup('Ausentes', 'red', ausentes),
+        ].join('') || '<p class="text3-muted">Sin alumnos en este grupo</p>';
+
+        // ── E) CONTENIDO ──
+        const catChips = clase.categories.map(cat => `
+            <div class="cat3-chip">
+                <span>${this._escapeHtml(cat)}</span>
+                <span class="cat3-rm" onclick="app.removeCategory('${claseId}','${this._escapeHtml(cat)}')">×</span>
+            </div>`).join('');
+
+        const iconFor = ft => ft==='gp'?'🎸':ft==='pdf'?'📄':ft==='audio'?'🎵':ft==='youtube'?'▶️':'📎';
+        const contentItems = (clase.content||[]).map(c => `
+            <div class="ci3-item">
+                <div class="ci3-ico">${iconFor(c.fileType)}</div>
+                <span class="ci3-title">${this._escapeHtml(c.title||c.name)}</span>
+                <span class="ci3-cat">${this._escapeHtml(c.cat||'')}</span>
+                <span class="ci3-rm" onclick="app.removeContentFromClase('${claseId}','${c.id}')">×</span>
+            </div>`).join('') || '<p class="text3-muted">Sin contenido. Agregá desde la Biblioteca →</p>';
+
+        // ── G) OBJETIVOS ──
+        const objItems = (clase.objetivos||[]).map(o => `
+            <div class="obj3-item">
+                <div class="obj3-box"></div>
+                <span class="obj3-text">${this._escapeHtml(o.text)}</span>
+                <span class="obj3-rm" onclick="app.removeObjetivoFromClase('${claseId}','${o.id}')">×</span>
+            </div>`).join('');
+
+        panel.className = 'clase3-col';
+        panel.innerHTML = `
+            <div class="clase3-scroll">
+
+                <!-- A: HEADER -->
+                <div class="h3-header">
+                    <div class="h3-title-block">
+                        <div class="h3-title">${this._escapeHtml(group.name||clase.title||'Clase')}</div>
+                        <div class="h3-sub">${timeLabel} · ${type} · ${members.length} alumno${members.length!==1?'s':''}</div>
+                    </div>
+                    ${meetBarHtml}
+                    <button class="h3-btn h3-btn-edit" onclick="app._openEditClaseModal('${claseId}')">Editar</button>
+                </div>
+
+                ${resumenAntHtml}
+
+                <!-- C: TABLERO -->
+                <div class="sec3-block">
+                    <div class="sec3-label">C — Tablero de control</div>
+                    <div class="tab3-wrap" id="tablero-${claseId}">
+                        ${tableroHtml}
+                    </div>
+                    <div class="prac-legend">
+                        <div class="hc-prac-dot full"></div><span>Completo</span>
+                        <div class="hc-prac-dot partial"></div><span>Parcial</span>
+                        <div class="hc-prac-dot none"></div><span>Sin práctica</span>
+                    </div>
+                </div>
+
+                <!-- E: CONTENIDO -->
+                <div class="sec3-block">
+                    <div class="sec3-label">E — Contenido de la clase <span class="sec3-hint">agregá desde Biblioteca →</span></div>
+                    <div class="cat3-chips" id="cat3-chips-${claseId}">
+                        ${catChips}
+                        <div class="cat3-add" onclick="app._promptAddCategory('${claseId}')"><span>+</span> Agregar</div>
+                    </div>
+                    <div class="ci3-list" id="ci3-list-${claseId}">${contentItems}</div>
+                </div>
+
+                <!-- F+G: RESUMEN + OBJETIVOS -->
+                <div class="sec3-fg-grid">
+                    <div class="sec3-block">
+                        <div class="sec3-label">F — Resumen privado</div>
+                        <textarea class="sec3-ta" id="resumen-prof-${claseId}" placeholder="¿Qué se trabajó hoy?…" rows="4" onblur="app.saveResumenProfesor('${claseId}',this.value)">${this._escapeHtml(clase.resumenProfesor||clase.resumen||'')}</textarea>
+                    </div>
+                    <div class="sec3-block">
+                        <div class="sec3-label">G — Objetivos <span class="sec3-hint">el alumno los ve</span></div>
+                        <div class="obj3-list" id="obj3-list-${claseId}">${objItems||'<p class="text3-muted">Sin objetivos</p>'}</div>
+                        <div class="obj3-add-row">
+                            <input type="text" class="obj3-input" id="new-obj-${claseId}" placeholder="Nuevo objetivo…" onkeydown="if(event.key==='Enter')app.addObjetivoToClase('${claseId}')">
+                            <button class="h3-btn h3-btn-pri" onclick="app.addObjetivoToClase('${claseId}')">+ Agregar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- H: FINALIZAR -->
+                <div class="finalizar3-bar">
+                    <span class="finalizar3-hint">Disponible para <strong>${members.length} alumno${members.length!==1?'s':''}</strong> al finalizar</span>
+                    <button class="finalizar3-btn ${status==='finalizada'?'done':''}" onclick="${status!=='finalizada'?`app.finalizarClase('${claseId}')`:''}">${status==='finalizada'?'✓ Finalizada':'✓ Finalizar y publicar'}</button>
+                </div>
+
+            </div>`;
     }
 
     toggleAttendance(claseId, profileId) {
-        const clase = this.data.getClase(claseId);
-        if (!clase) return;
-        const current = clase.attendance[profileId] || 'sin-marcar';
-        const next = current === 'sin-marcar' ? 'presente' : current === 'presente' ? 'ausente' : 'sin-marcar';
-        clase.attendance[profileId] = next;
-        this.data.saveClase(clase);
-        // Update chip in place
-        const btn = document.querySelector(`.att-chip[onclick*="${profileId}"]`);
-        if (btn) {
-            btn.className = `att-chip ${next}`;
-            const profile = btn.getAttribute('title') || '';
-            btn.textContent = next === 'presente' ? 'Presente' : next === 'ausente' ? 'Ausente' : profile;
-        }
-    }
-
-    async addContentToClase(claseId, libItemId) {
-        const clase = this.data.getClase(claseId);
-        if (!clase) return;
-        if ((clase.content||[]).some(c => c.id === libItemId)) return;
-        const item = await this.data.getLibraryItem(libItemId);
-        if (!item) return;
-        clase.content = clase.content || [];
-        clase.content.push({ id: item.id, title: item.title || item.name, fileType: item.fileType, name: item.name, cat: this._claseContentTab });
-        this.data.saveClase(clase);
-        // Re-render left panel content section
-        const listEl = document.getElementById(`clase-content-list-${claseId}`);
-        if (listEl) {
-            listEl.innerHTML = clase.content.map(c =>
-                `<div class="clase-content-item">
-                    <span class="clase-content-icon">${c.fileType === 'gp' ? '🎸' : c.fileType === 'pdf' ? '📄' : c.fileType === 'audio' ? '🎵' : '📎'}</span>
-                    <span class="clase-content-name">${this._escapeHtml(c.title || c.name)}</span>
-                    <button class="btn-icon clase-content-remove" onclick="app.removeContentFromClase('${claseId}','${c.id}')" title="Quitar">×</button>
-                </div>`
-            ).join('');
-        }
-        this._renderClaseLibPanel(claseId, document.getElementById('clase-lib-search')?.value || '');
-        this.showToast('Contenido agregado', '📎');
+        this.cycleAttendance(claseId, profileId);
     }
 
     removeContentFromClase(claseId, itemId) {
@@ -4220,21 +4227,24 @@ class GuitarStudioApp {
         if (!clase) return;
         clase.content = (clase.content||[]).filter(c => c.id !== itemId);
         this.data.saveClase(clase);
-        const listEl = document.getElementById(`clase-content-list-${claseId}`);
+        const iconFor = ft => ft==='gp'?'🎸':ft==='pdf'?'📄':ft==='audio'?'🎵':ft==='youtube'?'▶️':'📎';
+        const listEl = document.getElementById(`ci3-list-${claseId}`);
         if (listEl) {
-            listEl.innerHTML = clase.content.length ? clase.content.map(c =>
-                `<div class="clase-content-item">
-                    <span class="clase-content-icon">${c.fileType === 'gp' ? '🎸' : c.fileType === 'pdf' ? '📄' : c.fileType === 'audio' ? '🎵' : '📎'}</span>
-                    <span class="clase-content-name">${this._escapeHtml(c.title || c.name)}</span>
-                    <button class="btn-icon clase-content-remove" onclick="app.removeContentFromClase('${claseId}','${c.id}')" title="Quitar">×</button>
-                </div>`
-            ).join('') : '<p class="text-muted" style="font-size:12px">Sin contenido agregado</p>';
+            listEl.innerHTML = clase.content.length
+                ? clase.content.map(c => `
+                    <div class="ci3-item">
+                        <div class="ci3-ico">${iconFor(c.fileType)}</div>
+                        <span class="ci3-title">${this._escapeHtml(c.title||c.name)}</span>
+                        <span class="ci3-cat">${this._escapeHtml(c.cat||'')}</span>
+                        <span class="ci3-rm" onclick="app.removeContentFromClase('${claseId}','${c.id}')">×</span>
+                    </div>`).join('')
+                : '<p class="text3-muted">Sin contenido. Agregá desde la Biblioteca →</p>';
         }
-        this._renderClaseLibPanel(claseId, document.getElementById('clase-lib-search')?.value || '');
+        this._renderBibliotecaPanel();
     }
 
     addObjetivoToClase(claseId) {
-        const input = document.getElementById(`new-obj-input-${claseId}`);
+        const input = document.getElementById(`new-obj-${claseId}`);
         if (!input) return;
         const text = input.value.trim();
         if (!text) return;
@@ -4245,12 +4255,12 @@ class GuitarStudioApp {
         clase.objetivos.push(obj);
         this.data.saveClase(clase);
         input.value = '';
-        const listEl = document.getElementById(`clase-obj-list-${claseId}`);
+        const listEl = document.getElementById(`obj3-list-${claseId}`);
         if (listEl) {
+            if (listEl.querySelector('.text3-muted')) listEl.innerHTML = '';
             const div = document.createElement('div');
-            div.className = 'objetivo-item';
-            div.innerHTML = `<span class="objetivo-text">${this._escapeHtml(text)}</span><button class="btn-icon" onclick="app.removeObjetivoFromClase('${claseId}','${obj.id}')" title="Quitar">×</button>`;
-            if (listEl.querySelector('.text-muted')) listEl.innerHTML = '';
+            div.className = 'obj3-item';
+            div.innerHTML = `<div class="obj3-box"></div><span class="obj3-text">${this._escapeHtml(text)}</span><span class="obj3-rm" onclick="app.removeObjetivoFromClase('${claseId}','${obj.id}')">×</span>`;
             listEl.appendChild(div);
         }
     }
@@ -4260,11 +4270,11 @@ class GuitarStudioApp {
         if (!clase) return;
         clase.objetivos = (clase.objetivos||[]).filter(o => o.id !== objId);
         this.data.saveClase(clase);
-        const listEl = document.getElementById(`clase-obj-list-${claseId}`);
+        const listEl = document.getElementById(`obj3-list-${claseId}`);
         if (listEl) {
-            const item = listEl.querySelector(`[onclick*="${objId}"]`)?.closest('.objetivo-item');
+            const item = listEl.querySelector(`[onclick*="${objId}"]`)?.closest('.obj3-item');
             if (item) item.remove();
-            if (!listEl.children.length) listEl.innerHTML = '<p class="text-muted" style="font-size:12px">Sin objetivos cargados</p>';
+            if (!listEl.children.length) listEl.innerHTML = '<p class="text3-muted">Sin objetivos</p>';
         }
     }
 
@@ -4666,25 +4676,244 @@ class GuitarStudioApp {
     }
 
     // ==========================================================================
-    // Pantalla de Clases — nuevas funciones
+    // Pantalla de Clases — handlers 3 columnas
     // ==========================================================================
 
-    setClaseTab(claseId, tab) {
-        this._claseContentTab = tab;
-        const tabsEl = document.getElementById(`clase-content-tabs-${claseId}`);
-        if (tabsEl) tabsEl.querySelectorAll('.ctab').forEach((t, i) => t.classList.toggle('active', i === tab));
+    switchTimelineTab(tab) {
+        this._timelineTab = tab;
+        this.renderDashboardView();
+    }
+
+    cycleAttendance(claseId, profileId) {
         const clase = this.data.getClase(claseId);
         if (!clase) return;
-        const iconFor = (ft) => ft==='gp'?'🎸':ft==='pdf'?'📄':ft==='audio'?'🎵':ft==='youtube'?'▶️':'📎';
-        const items = (clase.content || []).filter(c => c.cat === tab || (tab === 0 && (c.cat === undefined || c.cat === null)));
-        const listEl = document.getElementById(`clase-content-list-${claseId}`);
-        if (!listEl) return;
-        listEl.innerHTML = items.length ? items.map(c => `
-            <div class="content-item">
-                <span class="ci-emoji">${iconFor(c.fileType)}</span>
-                <span class="ci-title">${this._escapeHtml(c.title || c.name)}</span>
-                <button class="ci-remove" onclick="app.removeContentFromClase('${claseId}','${c.id}')" title="Quitar">×</button>
-            </div>`).join('') : '<p class="text-muted" style="font-size:12px">Sin contenido en esta categoría</p>';
+        clase.attendance = clase.attendance || {};
+        const cur = clase.attendance[profileId] || null;
+        clase.attendance[profileId] = cur === null ? 'presente' : cur === 'presente' ? 'ausente' : null;
+        this.data.saveClase(clase);
+        // re-render tablero inline sin full refresh
+        const pillEl = document.getElementById(`att3-pill-${profileId}`);
+        if (pillEl) {
+            const next = clase.attendance[profileId];
+            pillEl.innerHTML = next === 'presente'
+                ? `<div class="att3-pill present"><div class="att3-dot present"></div>Presente</div>`
+                : next === 'ausente'
+                ? `<div class="att3-pill absent"><div class="att3-dot absent"></div>Ausente</div>`
+                : `<div class="att3-pill" onclick="app.cycleAttendance('${claseId}','${profileId}')"><div class="att3-dot"></div>Marcar</div>`;
+        }
+    }
+
+    removeCategory(claseId, cat) {
+        const clase = this.data.getClase(claseId);
+        if (!clase) return;
+        clase.categories = (clase.categories||[]).filter(c => c !== cat);
+        this.data.saveClase(clase);
+        const chipsEl = document.getElementById(`cat3-chips-${claseId}`);
+        if (chipsEl) {
+            const chip = [...chipsEl.querySelectorAll('.cat3-chip')].find(el => el.querySelector('span')?.textContent === cat);
+            if (chip) chip.remove();
+        }
+    }
+
+    _promptAddCategory(claseId) {
+        const cat = prompt('Nombre de la categoría:');
+        if (!cat || !cat.trim()) return;
+        const clase = this.data.getClase(claseId);
+        if (!clase) return;
+        clase.categories = clase.categories || [];
+        if (clase.categories.includes(cat.trim())) return;
+        clase.categories.push(cat.trim());
+        this.data.saveClase(clase);
+        const chipsEl = document.getElementById(`cat3-chips-${claseId}`);
+        if (chipsEl) {
+            const addBtn = chipsEl.querySelector('.cat3-add');
+            const chip = document.createElement('div');
+            chip.className = 'cat3-chip';
+            chip.innerHTML = `<span>${this._escapeHtml(cat.trim())}</span><span class="cat3-rm" onclick="app.removeCategory('${claseId}','${this._escapeHtml(cat.trim())}')">×</span>`;
+            chipsEl.insertBefore(chip, addBtn);
+        }
+    }
+
+    saveResumenProfesor(claseId, text) {
+        const clase = this.data.getClase(claseId);
+        if (!clase) return;
+        clase.resumenProfesor = text;
+        clase.resumen = text; // backward compat
+        this.data.saveClase(clase);
+    }
+
+    _showHoverCard(profileId) {
+        const card = document.getElementById(`hc-${profileId}`);
+        if (card) card.classList.add('visible');
+    }
+
+    _hideHoverCard(profileId) {
+        const card = document.getElementById(`hc-${profileId}`);
+        if (card) card.classList.remove('visible');
+    }
+
+    async _renderBibliotecaPanel() {
+        const body = document.getElementById('dash-bib-body');
+        if (!body) return;
+
+        const allItems = await this.data.getLibraryItems();
+        const claseId = this._currentClaseId;
+        const clase = claseId ? this.data.getClase(claseId) : null;
+        const addedIds = new Set((clase?.content||[]).map(c => c.id));
+
+        const q = (this._libSearch||'').toLowerCase().trim();
+        const catF = this._libCatFilter || 'todos';
+
+        const catMap = { 'Técnica':'Técnica', 'Lectura':'Lectura', 'Repertorio':'Repertorio' };
+        let items = allItems;
+        if (q) items = items.filter(it => (it.title||it.name||'').toLowerCase().includes(q));
+        if (catF !== 'todos' && catMap[catF]) {
+            items = items.filter(it => (it.musicalStyle||it.category||'').toLowerCase().includes(catF.toLowerCase()) || (it.type||'').toLowerCase().includes(catF.toLowerCase()));
+        }
+
+        const iconFor = ft => ft==='gp'?'🎸':ft==='pdf'?'📄':ft==='audio'?'🎵':ft==='youtube'?'▶️':'📎';
+
+        const catChips = ['todos','Técnica','Lectura','Repertorio'].map(c =>
+            `<div class="bib3-chip ${catF===c?'active':''}" onclick="app.filterBiblioteca('${c}')">${c==='todos'?'Todos':c}</div>`
+        ).join('');
+
+        const listHtml = items.length
+            ? items.map(it => {
+                const added = addedIds.has(it.id);
+                return `<div class="bib3-item ${added?'added':''}">
+                    <div class="bib3-ico">${iconFor(it.fileType||it.type)}</div>
+                    <span class="bib3-title">${this._escapeHtml(it.title||it.name)}</span>
+                    ${added
+                        ? `<div class="bib3-check">✓</div>`
+                        : `<div class="bib3-add" onclick="app.addContentFromBib('${it.id}')">+</div>`}
+                </div>`;
+              }).join('')
+            : '<p class="text3-muted" style="padding:10px 0">Sin resultados</p>';
+
+        body.innerHTML = `
+            <div class="bib3-search-wrap">
+                <span class="bib3-search-icon">🔍</span>
+                <input type="text" class="bib3-search" placeholder="Buscar en biblioteca…" value="${this._escapeHtml(q)}" oninput="app.searchBiblioteca(this.value)">
+            </div>
+            <div class="bib3-chips">${catChips}</div>
+            <div class="bib3-list">${listHtml}</div>
+            <div class="bib3-upload">
+                <div class="bib3-upload-title">Subir nuevo</div>
+                <div class="bib3-dz" ondragover="event.preventDefault()" ondrop="app._handleLibDrop(event)">
+                    <div class="bib3-dz-icon">📁</div>
+                    <div class="bib3-dz-label">Arrastrá .gp · .pdf · .gpx</div>
+                    <div class="bib3-dz-sub">o <label style="color:var(--tb-accent);cursor:pointer"><input type="file" style="display:none" accept=".gp,.gp4,.gp5,.gpx,.pdf" onchange="app._handleLibFileInput(event)">elegir archivo</label></div>
+                </div>
+                <div class="bib3-link-row">
+                    <input type="text" class="bib3-link-input" id="bib3-link-input" placeholder="Link YouTube / Spotify…">
+                    <button class="h3-btn" onclick="app._detectLibLink()">Detectar</button>
+                </div>
+            </div>`;
+    }
+
+    filterBiblioteca(cat) {
+        this._libCatFilter = cat;
+        this._renderBibliotecaPanel();
+    }
+
+    searchBiblioteca(q) {
+        this._libSearch = q;
+        this._renderBibliotecaPanel();
+    }
+
+    async addContentFromBib(libItemId) {
+        if (!this._currentClaseId) { this.showToast('Seleccioná una clase primero', '⚠️'); return; }
+        const claseId = this._currentClaseId;
+        const clase = this.data.getClase(claseId);
+        if (!clase) return;
+        if ((clase.content||[]).some(c => c.id === libItemId)) return;
+        const item = await this.data.getLibraryItem(libItemId);
+        if (!item) return;
+        const cat = (clase.categories||['Técnica'])[0];
+        clase.content = clase.content || [];
+        clase.content.push({ id: item.id, title: item.title||item.name, fileType: item.fileType||item.type, name: item.name, cat });
+        this.data.saveClase(clase);
+        // actualizar lista de contenido en panel
+        const iconFor = ft => ft==='gp'?'🎸':ft==='pdf'?'📄':ft==='audio'?'🎵':ft==='youtube'?'▶️':'📎';
+        const listEl = document.getElementById(`ci3-list-${claseId}`);
+        if (listEl) {
+            listEl.innerHTML = clase.content.map(c => `
+                <div class="ci3-item">
+                    <div class="ci3-ico">${iconFor(c.fileType)}</div>
+                    <span class="ci3-title">${this._escapeHtml(c.title||c.name)}</span>
+                    <span class="ci3-cat">${this._escapeHtml(c.cat||'')}</span>
+                    <span class="ci3-rm" onclick="app.removeContentFromClase('${claseId}','${c.id}')">×</span>
+                </div>`).join('');
+        }
+        this._renderBibliotecaPanel();
+        this.showToast('Contenido agregado', '📎');
+    }
+
+    _openEditClaseModal(claseId) {
+        // placeholder — reutiliza el flujo existente de edición si existe, o abre modal básico
+        const clase = this.data.getClase(claseId);
+        if (!clase) return;
+        const newTitle = prompt('Nombre de la clase:', clase.title||'');
+        if (newTitle === null) return;
+        clase.title = newTitle.trim() || clase.title;
+        this.data.saveClase(clase);
+        this.renderDashboardView();
+    }
+
+    async _handleLibDrop(event) {
+        event.preventDefault();
+        const file = event.dataTransfer?.files?.[0];
+        if (!file) return;
+        await this._uploadLibFile(file);
+    }
+
+    async _handleLibFileInput(event) {
+        const file = event.target?.files?.[0];
+        if (!file) return;
+        await this._uploadLibFile(file);
+    }
+
+    async _uploadLibFile(file) {
+        const ext = file.name.split('.').pop().toLowerCase();
+        const fileType = ['gp','gp4','gp5','gpx'].includes(ext) ? 'gp' : 'pdf';
+        const buf = await file.arrayBuffer();
+        const item = {
+            id: this.data.generateId('lib'),
+            title: file.name.replace(/\.[^.]+$/,''),
+            name: file.name,
+            fileType,
+            type: fileType,
+            data: buf,
+            createdAt: Date.now()
+        };
+        await this.data.saveLibraryItem(item);
+        this.showToast(`"${item.title}" guardado en biblioteca`, '✓');
+        this._renderBibliotecaPanel();
+    }
+
+    async _detectLibLink() {
+        const input = document.getElementById('bib3-link-input');
+        if (!input) return;
+        const url = input.value.trim();
+        if (!url) return;
+        const isYt = url.includes('youtube.com') || url.includes('youtu.be');
+        const isSp = url.includes('spotify.com');
+        if (!isYt && !isSp) { this.showToast('URL no reconocida', '⚠️'); return; }
+        const fileType = isYt ? 'youtube' : 'spotify';
+        const title = url.split('/').filter(Boolean).pop()?.split('?')[0] || url;
+        const item = {
+            id: this.data.generateId('lib'),
+            title,
+            name: title,
+            fileType,
+            type: fileType,
+            url,
+            createdAt: Date.now()
+        };
+        await this.data.saveLibraryItem(item);
+        input.value = '';
+        this.showToast(`Link guardado en biblioteca`, '✓');
+        this._renderBibliotecaPanel();
     }
 
     saveNotaAlumnoClase(claseId, text) {

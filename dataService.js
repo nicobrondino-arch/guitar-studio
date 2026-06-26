@@ -434,4 +434,12 @@ class DataService {
             this.getPreguntasAlumno(pid, claseId).map(p => ({ ...p, profileId: pid }))
         );
     }
+
+    getClaseAnterior(groupId, currentDate) {
+        if (!groupId || !currentDate) return null;
+        const all = this._getClasesRaw()
+            .filter(c => c.groupId === groupId && c.date < currentDate)
+            .sort((a, b) => b.date.localeCompare(a.date));
+        return all[0] || null;
+    }
 }
