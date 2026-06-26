@@ -4933,3 +4933,67 @@ textarea.form-control {
 #dashboard-content .finalizar-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; background: var(--tb-bg-secondary); border: 1px solid var(--tb-accent); border-radius: 12px; }
 #dashboard-content .finalizar-hint { font: italic 400 13px var(--font-heading, serif); color: var(--tb-text-secondary); }
 #dashboard-content .finalizar-hint strong { color: var(--tb-text-primary); font-style: normal; }
+
+/* ── Tabs de contenido de clase ─────────────────────────────────── */
+#dashboard-content .clase-content-tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+#dashboard-content .ctab { padding: 5px 14px; border-radius: 7px; font: 500 12px Inter, sans-serif; cursor: pointer; background: var(--tb-bg-secondary); border: 1px solid var(--tb-border); color: var(--tb-text-muted); transition: all .15s; }
+#dashboard-content .ctab.active { background: var(--tb-accent-glow); border-color: var(--tb-accent); color: var(--tb-accent); }
+#dashboard-content .ctab:hover:not(.active) { border-color: var(--tb-border-hover); color: var(--tb-text-secondary); }
+
+/* ── Note tags ───────────────────────────────────────────────────── */
+#dashboard-content .note-tag { font: 400 10px Inter, sans-serif; background: var(--tb-bg-elevated); border: 1px solid var(--tb-border); padding: 1px 7px; border-radius: 5px; color: var(--tb-text-muted); }
+#dashboard-content .note-tag-visible { background: rgba(200,48,74,.08); border-color: rgba(200,48,74,.25); color: var(--tb-accent); }
+#dashboard-content .note-tag-info { background: rgba(74,158,255,.08); border-color: rgba(74,158,255,.2); color: #4a9eff; }
+
+/* ── Nota alumno ─────────────────────────────────────────────────── */
+#dashboard-content .nota-alumno-area { border-left: 3px solid var(--tb-accent); }
+
+/* ── Dudas del alumno (vista profesor) ───────────────────────────── */
+#dashboard-content .dudas-section { border-left: 3px solid #4a9eff; }
+#dashboard-content .duda-prof-item { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--tb-border); }
+#dashboard-content .duda-prof-item:last-child { border-bottom: none; }
+
+/* ── Proxima clase — vista alumno ────────────────────────────────── */
+.proxima-card { background: var(--tb-bg-secondary); border: 1px solid var(--tb-accent); border-radius: 16px; overflow: hidden; }
+.proxima-header { background: linear-gradient(135deg, var(--tb-bg-secondary) 0%, var(--tb-bg-elevated) 100%); padding: 18px 22px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--tb-border); }
+.proxima-label { font: 700 9px Inter, sans-serif; color: var(--tb-accent); text-transform: uppercase; letter-spacing: .14em; margin-bottom: 5px; }
+.proxima-title { font: 700 20px var(--font-heading, serif); color: var(--tb-text-primary); letter-spacing: -.01em; }
+.proxima-meta  { font: 400 12px Inter, sans-serif; color: var(--tb-text-secondary); margin-top: 4px; }
+.proxima-meet  { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+.proxima-meet-url-sm { font: 400 10px 'Courier New', monospace; color: var(--tb-text-muted); }
+.proxima-body  { padding: 18px 22px; display: flex; flex-direction: column; gap: 12px; }
+.proxima-cat   { display: flex; flex-direction: column; gap: 6px; }
+.pc-label { font: 600 9px Inter, sans-serif; text-transform: uppercase; letter-spacing: .1em; display: flex; align-items: center; gap: 7px; }
+.pc-items { display: flex; flex-direction: column; gap: 3px; padding-left: 16px; border-left: 2px solid var(--tb-border); }
+.pc-item  { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--tb-bg-primary); border-radius: 7px; font: 400 13px Inter, sans-serif; color: var(--tb-text-secondary); }
+
+/* Nota del profesor en vista alumno */
+.proxima-nota-prof { padding: 10px 14px; border-left: 3px solid var(--tb-accent); background: var(--tb-accent-glow); border-radius: 0 8px 8px 0; }
+.proxima-nota-label { font: 700 9px Inter, sans-serif; color: var(--tb-accent); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 5px; }
+.proxima-nota-text  { font: italic 400 13px/1.6 var(--font-heading, serif); color: var(--tb-text-secondary); }
+
+/* ── Canal de preguntas — vista alumno ───────────────────────────── */
+.canal-preguntas-wrap { background: var(--tb-bg-secondary); border: 1px solid rgba(74,158,255,.2); border-radius: 14px; overflow: hidden; margin-top: 4px; }
+.canal-header { padding: 14px 18px; border-bottom: 1px solid var(--tb-border); }
+.canal-label  { font: 700 9px Inter, sans-serif; color: #4a9eff; text-transform: uppercase; letter-spacing: .12em; margin-bottom: 3px; }
+.canal-subtitle { font: italic 400 13px var(--font-heading, serif); color: var(--tb-text-secondary); }
+.canal-body   { padding: 14px 18px; display: flex; flex-direction: column; gap: 10px; }
+.canal-ta     { width: 100%; background: var(--tb-bg-primary); border: 1px solid var(--tb-border); border-radius: 8px; padding: 10px 12px; font: 400 13px/1.6 var(--font-heading, serif); color: var(--tb-text-primary); resize: none; outline: none; }
+.canal-ta:focus { border-color: rgba(74,158,255,.4); }
+.canal-form-actions { display: flex; justify-content: flex-end; }
+.duda-item    { background: var(--tb-bg-primary); border: 1px solid rgba(74,158,255,.15); border-radius: 8px; padding: 10px 14px; }
+.duda-text    { font: italic 400 13px/1.6 var(--font-heading, serif); color: var(--tb-text-secondary); margin-bottom: 6px; }
+.duda-meta    { display: flex; align-items: center; gap: 6px; font: 500 11px Inter, sans-serif; color: var(--tb-success); }
+.duda-delete  { margin-left: auto; background: transparent; border: none; cursor: pointer; color: var(--tb-text-muted); font-size: 14px; line-height: 1; padding: 0 2px; }
+.duda-delete:hover { color: var(--tb-text-primary); }
+
+/* ── Clases anteriores — vista alumno ───────────────────────────── */
+.prev-section { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.prev-clase   { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--tb-bg-secondary); border: 1px solid var(--tb-border); border-radius: 10px; cursor: pointer; transition: border-color .15s; }
+.prev-clase:hover { border-color: var(--tb-border-hover); }
+.prev-date    { font: 600 13px var(--font-heading, serif); color: var(--tb-text-primary); }
+.prev-items-count { font: 400 11px Inter, sans-serif; color: var(--tb-text-muted); }
+
+/* ── Botones pill nuevos ─────────────────────────────────────────── */
+.btn-meet-pill { display: inline-flex; align-items: center; gap: 5px; padding: 6px 14px; border-radius: 8px; font: 600 12px Inter, sans-serif; cursor: pointer; border: 1px solid rgba(74,158,255,.25); background: rgba(74,158,255,.1); color: #4a9eff; transition: all .2s; white-space: nowrap; }
+.btn-meet-pill:hover { background: rgba(74,158,255,.2); }

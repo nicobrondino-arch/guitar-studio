@@ -667,6 +667,7 @@ class GuitarStudioApp {
         this.activeProfile = null; // { id, name, color } o null
         this.isProfessorMode = false;
         this._currentClaseId = null; // clase abierta en el tablero
+        this._claseContentTab = 0;  // tab activo en el panel de clase (0=técnica, 1=lectura, 2=repertorio)
 
         // Estado de práctica: categoría activa y player
         this.currentCategory = 'technique';
@@ -1002,34 +1003,66 @@ class GuitarStudioApp {
     // Próxima Clase — vista del alumno en Mi Estudio
     // ==========================================================================
     async renderProximaClase() {
-        const card = document.getElementById('proxima-clase-card');
-        const content = document.getElementById('proxima-clase-content');
-        if (!card || !content) return;
+        const container = document.getElementById('studio-proxima-clase');
+        if (!container) return;
 
-        if (!this.activeProfile) { card.style.display = 'none'; return; }
+        if (!this.activeProfile) { container.innerHTML = ''; return; }
 
         const groups = this._getGroups().filter(g => (g.memberIds || []).includes(this.activeProfile.id));
-        if (groups.length === 0) { card.style.display = 'none'; return; }
+        if (groups.length === 0) { container.innerHTML = ''; return; }
 
         const allClases = this.data.getAllClases();
         const myClases = allClases
             .filter(c => groups.some(g => g.id === c.groupId) && c.status === 'finalizada')
-            .sort((a, b) => (b.finalizadaAt || 0) - (a.finalizadaAt || 0));
+            .sort((a, b) => {
+                const ta = b.finalizadaAt || b.date || 0;
+                const tb = a.finalizadaAt || a.date || 0;
+                return ta > tb ? 1 : ta < tb ? -1 : 0;
+            }).reverse();
 
-        if (myClases.length === 0) { card.style.display = 'none'; return; }
+        if (myClases.length === 0) { container.innerHTML = ''; return; }
 
         const clase = myClases[0];
+        const prevClases = myClases.slice(1, 4);
         const group = groups.find(g => g.id === clase.groupId) || {};
         const completados = this.data.getObjetivosCompletados(this.activeProfile.id);
 
-        const dateLabel = new Date((clase.date || '') + 'T12:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
-        const dayTime = [dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1), group.time ? group.time.slice(0, 5) : ''].filter(Boolean).join(' · ');
+        const dateLabel = clase.date ? new Date(clase.date + 'T12:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }) : '';
+        const capDate = dateLabel ? dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1) : '';
+        const timePart = group.time ? ' · ' + group.time.slice(0, 5) : '';
 
-        const meetBar = group.meetLink ? `
-            <div class="proxima-meet-bar">
-                <span class="proxima-meet-url">${this._escapeHtml(group.meetLink)}</span>
-                <a href="https://${this._escapeHtml(group.meetLink)}" target="_blank" class="btn btn-outline btn-sm">Entrar al Meet</a>
+        const meetHref = /^https?:/.test(group.meetLink || '') ? group.meetLink : 'https://' + (group.meetLink || '');
+        const meetEl = group.meetLink ? `
+            <div class="proxima-meet">
+                <a href="${this._escapeHtml(meetHref)}" target="_blank" class="btn-pill btn-meet-pill">
+                    <svg viewBox="0 0 24 24" fill="none" style="width:12px;height:12px" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                    Entrar al Meet
+                </a>
+                <span class="proxima-meet-url-sm">${this._escapeHtml(group.meetLink)}</span>
             </div>` : '';
+
+        const catConfig = [
+            { key: 0, label: 'Técnica',        color: '#a29bfe', borderColor: 'rgba(162,155,254,.2)' },
+            { key: 1, label: 'Lectura Musical', color: '#55efc4', borderColor: 'rgba(85,239,196,.2)'  },
+            { key: 2, label: 'Repertorio',      color: '#fdcb6e', borderColor: 'rgba(253,203,110,.2)' },
+        ];
+        const contentByCat = catConfig.map(cfg => {
+            const items = (clase.content || []).filter(c => c.cat === cfg.key || (cfg.key === 0 && (c.cat === undefined || c.cat === null)));
+            if (!items.length) return '';
+            const itemsHtml = items.map(c => {
+                const iconSvg = c.fileType === 'youtube'
+                    ? `<svg viewBox="0 0 16 16" fill="none" style="width:13px;height:13px;flex-shrink:0;color:#FF0000" stroke="currentColor" stroke-width="1.2"><rect x="2" y="4" width="12" height="9" rx="1.5"/><path d="M6.5 7.5l4 2-4 2V7.5z" fill="currentColor" stroke="none"/></svg>`
+                    : `<svg viewBox="0 0 16 16" fill="none" style="width:13px;height:13px;flex-shrink:0" stroke="${cfg.color}" stroke-width="1.5"><path d="M8 2v12M4 6l4-4 4 4"/></svg>`;
+                return `<div class="pc-item">${iconSvg}${this._escapeHtml(c.title || c.name)}</div>`;
+            }).join('');
+            return `<div class="proxima-cat">
+                <div class="pc-label" style="color:${cfg.color}">
+                    <div style="width:8px;height:8px;border-radius:50%;background:${cfg.color};flex-shrink:0"></div>
+                    ${cfg.label}
+                </div>
+                <div class="pc-items" style="border-color:${cfg.borderColor}">${itemsHtml}</div>
+            </div>`;
+        }).join('');
 
         const objetivos = (clase.objetivos || []).map(obj => {
             const key = `${clase.id}__${obj.id}`;
@@ -1041,22 +1074,61 @@ class GuitarStudioApp {
             </div>`;
         }).join('');
 
-        card.style.display = 'block';
-        content.innerHTML = `
-            <div class="proxima-clase-header">
-                <div class="proxima-clase-info">
-                    <div class="proxima-clase-eyebrow">Preparación para la próxima clase</div>
-                    <div class="proxima-clase-title">${this._escapeHtml(group.name || 'Clase')}</div>
-                    <div class="proxima-clase-meta">${dayTime}</div>
+        const notaAlumno = clase.notaAlumno ? `
+            <div class="proxima-nota-prof">
+                <div class="proxima-nota-label">Nota del Profesor</div>
+                <p class="proxima-nota-text">"${this._escapeHtml(clase.notaAlumno)}"</p>
+            </div>` : '';
+
+        const preguntas = this.data.getPreguntasAlumno(this.activeProfile.id, clase.id);
+        const canalBodyHtml = this._canalPreguntasHtml(clase.id, preguntas);
+
+        const prevClasesHtml = prevClases.map(pc => {
+            const g = groups.find(gr => gr.id === pc.groupId) || {};
+            const d = pc.date ? new Date(pc.date + 'T12:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }) : '';
+            const capD = d ? d.charAt(0).toUpperCase() + d.slice(1) : 'Clase anterior';
+            const itemCount = (pc.content || []).length;
+            return `<div class="prev-clase">
+                <svg viewBox="0 0 16 16" fill="none" style="width:14px;height:14px;flex-shrink:0" stroke="var(--tb-text-muted)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+                <div style="flex:1">
+                    <div class="prev-date">${capD} — ${this._escapeHtml(g.name || pc.title || 'Clase')}</div>
+                    <div class="prev-items-count">${itemCount} elemento${itemCount !== 1 ? 's' : ''} · Finalizada</div>
+                </div>
+                <svg viewBox="0 0 16 16" fill="none" style="width:13px;height:13px;flex-shrink:0" stroke="var(--tb-text-muted)" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+            </div>`;
+        }).join('');
+
+        const hasContent = contentByCat || objetivos || notaAlumno;
+
+        container.innerHTML = `<div class="proxima-card">
+                <div class="proxima-header">
+                    <div>
+                        <div class="proxima-label">Preparación para la próxima clase</div>
+                        <div class="proxima-title">${this._escapeHtml(group.name || clase.title || 'Clase')}</div>
+                        <div class="proxima-meta">${capDate}${timePart}</div>
+                    </div>
+                    ${meetEl}
+                </div>
+                <div class="proxima-body">
+                    ${contentByCat}
+                    ${objetivos ? `<div style="margin-top:${contentByCat ? '12px' : '0'}"><div class="section-label" style="margin-bottom:6px">Objetivos</div><div class="obj-check-list">${objetivos}</div></div>` : ''}
+                    ${notaAlumno}
+                    ${!hasContent ? '<p class="text-muted" style="font:italic 13px var(--font-heading,serif)">El profesor no ha cargado contenido para esta clase aún.</p>' : ''}
                 </div>
             </div>
-            ${meetBar}
-            ${objetivos.length > 0 ? `
-            <div class="proxima-clase-body">
-                <div class="proxima-clase-section-label">Objetivos</div>
-                <div class="obj-check-list">${objetivos}</div>
-            </div>` : '<p class="text-muted" style="padding:8px 0">El profesor aún no cargó objetivos para esta clase.</p>'}
-        `;
+            <div class="canal-preguntas-wrap">
+                <div class="canal-header">
+                    <div>
+                        <div class="canal-label">Canal de preguntas</div>
+                        <div class="canal-subtitle">Dejá tus dudas para trabajar en la próxima clase</div>
+                    </div>
+                </div>
+                <div class="canal-body" id="canal-preg-${clase.id}">${canalBodyHtml}</div>
+            </div>
+            ${prevClasesHtml ? `<div class="prev-section">
+                <div class="section-label" style="padding:0 4px;margin-bottom:8px">Clases Anteriores</div>
+                ${prevClasesHtml}
+            </div>` : ''}`;
     }
 
     toggleObjetivo(claseId, objId) {
@@ -3979,6 +4051,7 @@ class GuitarStudioApp {
 
     openClase(claseId) {
         this._currentClaseId = claseId;
+        this._claseContentTab = 0;
         this.renderDashboardView();
     }
 
@@ -4037,12 +4110,14 @@ class GuitarStudioApp {
         }).join('') || '<p class="text-muted" style="font-size:12px">Sin alumnos en este grupo</p>';
 
         const iconFor = (ft) => ft==='gp'?'🎸':ft==='pdf'?'📄':ft==='audio'?'🎵':ft==='youtube'?'▶️':'📎';
-        const contentItems = (clase.content || []).map(c => `
+        const tab = this._claseContentTab;
+        const tabContent = (clase.content || []).filter(c => c.cat === tab || (tab === 0 && (c.cat === undefined || c.cat === null)));
+        const contentItems = tabContent.map(c => `
                 <div class="content-item">
                     <span class="ci-emoji">${iconFor(c.fileType)}</span>
                     <span class="ci-title">${this._escapeHtml(c.title || c.name)}</span>
                     <button class="ci-remove" onclick="app.removeContentFromClase('${claseId}','${c.id}')" title="Quitar">×</button>
-                </div>`).join('') || '<p class="text-muted" style="font-size:12px">Sin contenido agregado</p>';
+                </div>`).join('') || '<p class="text-muted" style="font-size:12px">Sin contenido en esta categoría</p>';
 
         const objItems = (clase.objetivos || []).map(o => `
                 <div class="objetivo-item">
@@ -4082,6 +4157,11 @@ class GuitarStudioApp {
             </div>
             <div class="dash-block">
                 <div class="section-label">Contenido de esta clase</div>
+                <div class="clase-content-tabs" id="clase-content-tabs-${claseId}">
+                    <button class="ctab ${tab===0?'active':''}" onclick="app.setClaseTab('${claseId}',0)">Técnica</button>
+                    <button class="ctab ${tab===1?'active':''}" onclick="app.setClaseTab('${claseId}',1)">Lectura</button>
+                    <button class="ctab ${tab===2?'active':''}" onclick="app.setClaseTab('${claseId}',2)">Repertorio</button>
+                </div>
                 <div class="content-items" id="clase-content-list-${claseId}">${contentItems}</div>
                 <div class="lib-add-wrap">
                     <input type="text" class="lib-add-input" id="clase-lib-search" placeholder="Buscar contenido en la biblioteca para agregar…" oninput="app._renderClaseLibPanel('${claseId}',this.value)">
@@ -4099,6 +4179,32 @@ class GuitarStudioApp {
             <div class="dash-block notes-area">
                 <div class="section-label">Resumen de la clase <span class="note-tag">Solo el profesor</span></div>
                 <textarea class="notes-ta" id="clase-resumen-${claseId}" placeholder="¿Qué se trabajó hoy? Notas, observaciones, temas tratados…" rows="3" onchange="app.saveResumenClase('${claseId}',this.value)">${this._escapeHtml(clase.resumen || '')}</textarea>
+            </div>
+            <div class="dash-block notes-area nota-alumno-area">
+                <div class="section-label">Nota para el alumno <span class="note-tag note-tag-visible">El alumno la verá</span></div>
+                <textarea class="notes-ta" id="clase-nota-alumno-${claseId}" placeholder="Escribí el enfoque para que el alumno practique esta semana…" rows="2" onchange="app.saveNotaAlumnoClase('${claseId}',this.value)">${this._escapeHtml(clase.notaAlumno || '')}</textarea>
+            </div>
+            <div class="dash-block dudas-section">
+                <div class="section-label">Dudas del alumno <span class="note-tag note-tag-info">Canal abierto</span></div>
+                <div id="dudas-prof-${claseId}">${(() => {
+                    const dudasData = this.data.getAllPreguntasForClase(claseId, members.map(m => m.id))
+                        .sort((a, b) => b.timestamp - a.timestamp);
+                    if (!dudasData.length) return '<p class="text-muted" style="font-size:12px">Sin preguntas por el momento.</p>';
+                    return dudasData.map(d => {
+                        const prof = members.find(m => m.id === d.profileId);
+                        const name = prof ? prof.name : 'Alumno';
+                        const color = prof ? (prof.color || '#6c63ff') : '#6c63ff';
+                        const init = name[0].toUpperCase();
+                        const timeStr = new Date(d.timestamp).toLocaleString('es-AR', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+                        return `<div class="duda-prof-item">
+                            <div class="student-avatar" style="background:${color};width:26px;height:26px;min-width:26px;font-size:11px">${init}</div>
+                            <div style="flex:1;min-width:0">
+                                <div style="font:500 11px Inter,sans-serif;color:var(--tb-text-muted);margin-bottom:4px">${this._escapeHtml(name)} · ${timeStr}</div>
+                                <p style="font:italic 400 13px/1.6 var(--font-heading,serif);color:var(--tb-text-secondary)">"${this._escapeHtml(d.text)}"</p>
+                            </div>
+                        </div>`;
+                    }).join('');
+                })()}</div>
             </div>
             ${status==='iniciada' ? `
             <div class="finalizar-bar">
@@ -4164,7 +4270,7 @@ class GuitarStudioApp {
         const item = await this.data.getLibraryItem(libItemId);
         if (!item) return;
         clase.content = clase.content || [];
-        clase.content.push({ id: item.id, title: item.title || item.name, fileType: item.fileType, name: item.name });
+        clase.content.push({ id: item.id, title: item.title || item.name, fileType: item.fileType, name: item.name, cat: this._claseContentTab });
         this.data.saveClase(clase);
         // Re-render left panel content section
         const listEl = document.getElementById(`clase-content-list-${claseId}`);
@@ -4629,6 +4735,85 @@ class GuitarStudioApp {
                 }
             });
         });
+    }
+
+    // ==========================================================================
+    // Pantalla de Clases — nuevas funciones
+    // ==========================================================================
+
+    setClaseTab(claseId, tab) {
+        this._claseContentTab = tab;
+        const tabsEl = document.getElementById(`clase-content-tabs-${claseId}`);
+        if (tabsEl) tabsEl.querySelectorAll('.ctab').forEach((t, i) => t.classList.toggle('active', i === tab));
+        const clase = this.data.getClase(claseId);
+        if (!clase) return;
+        const iconFor = (ft) => ft==='gp'?'🎸':ft==='pdf'?'📄':ft==='audio'?'🎵':ft==='youtube'?'▶️':'📎';
+        const items = (clase.content || []).filter(c => c.cat === tab || (tab === 0 && (c.cat === undefined || c.cat === null)));
+        const listEl = document.getElementById(`clase-content-list-${claseId}`);
+        if (!listEl) return;
+        listEl.innerHTML = items.length ? items.map(c => `
+            <div class="content-item">
+                <span class="ci-emoji">${iconFor(c.fileType)}</span>
+                <span class="ci-title">${this._escapeHtml(c.title || c.name)}</span>
+                <button class="ci-remove" onclick="app.removeContentFromClase('${claseId}','${c.id}')" title="Quitar">×</button>
+            </div>`).join('') : '<p class="text-muted" style="font-size:12px">Sin contenido en esta categoría</p>';
+    }
+
+    saveNotaAlumnoClase(claseId, text) {
+        const clase = this.data.getClase(claseId);
+        if (!clase) return;
+        clase.notaAlumno = text;
+        this.data.saveClase(clase);
+    }
+
+    _canalPreguntasHtml(claseId, preguntas) {
+        const prevHtml = preguntas.map(p => {
+            const timeStr = new Date(p.timestamp).toLocaleString('es-AR', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
+            return `<div class="duda-item">
+                <p class="duda-text">"${this._escapeHtml(p.text)}"</p>
+                <div class="duda-meta">
+                    <svg viewBox="0 0 16 16" fill="none" style="width:12px;height:12px" stroke="var(--tb-success)" stroke-width="1.5"><path d="M3 8l3 3 7-7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <span>Enviada · ${timeStr}</span>
+                    <button class="duda-delete" onclick="app.deletePreguntaAlumno('${claseId}','${p.id}')">×</button>
+                </div>
+            </div>`;
+        }).join('');
+        return prevHtml + `<div class="canal-form">
+            <textarea id="preg-alumno-input" class="canal-ta" rows="2" placeholder="¿Qué no quedó claro? ¿Algo que quieras repasar la próxima clase?…"></textarea>
+            <div class="canal-form-actions">
+                <button class="btn-pill btn-meet-pill" onclick="app.sendPreguntaAlumno('${claseId}')">
+                    <svg viewBox="0 0 16 16" fill="none" style="width:11px;height:11px" stroke="currentColor" stroke-width="1.5"><path d="M14 2L2 7l5 2 2 5 5-12z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Enviar pregunta
+                </button>
+            </div>
+        </div>`;
+    }
+
+    sendPreguntaAlumno(claseId) {
+        if (!this.activeProfile) return;
+        const ta = document.getElementById('preg-alumno-input');
+        if (!ta) return;
+        const text = ta.value.trim();
+        if (!text) return;
+        const preg = { id: this.data.generateId('preg'), text, timestamp: Date.now() };
+        this.data.savePreguntaAlumno(this.activeProfile.id, claseId, preg);
+        ta.value = '';
+        const container = document.getElementById(`canal-preg-${claseId}`);
+        if (container) {
+            const preguntas = this.data.getPreguntasAlumno(this.activeProfile.id, claseId);
+            container.innerHTML = this._canalPreguntasHtml(claseId, preguntas);
+        }
+        this.showToast('Pregunta enviada', '✓');
+    }
+
+    deletePreguntaAlumno(claseId, pregId) {
+        if (!this.activeProfile) return;
+        this.data.deletePreguntaAlumno(this.activeProfile.id, claseId, pregId);
+        const container = document.getElementById(`canal-preg-${claseId}`);
+        if (container) {
+            const preguntas = this.data.getPreguntasAlumno(this.activeProfile.id, claseId);
+            container.innerHTML = this._canalPreguntasHtml(claseId, preguntas);
+        }
     }
 
     adjustQuickToolsLocation() {

@@ -408,4 +408,30 @@ class DataService {
     generateId(prefix = 'id') {
         return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     }
+
+    // ==========================================================================
+    // Preguntas del alumno para una clase — localStorage gs-preg-{profileId}-{claseId}
+    // ==========================================================================
+    _pregKey(profileId, claseId) { return `gs-preg-${profileId}-${claseId}`; }
+
+    getPreguntasAlumno(profileId, claseId) {
+        try { return JSON.parse(localStorage.getItem(this._pregKey(profileId, claseId)) || '[]'); } catch { return []; }
+    }
+
+    savePreguntaAlumno(profileId, claseId, preg) {
+        const arr = this.getPreguntasAlumno(profileId, claseId).filter(p => p.id !== preg.id);
+        arr.push(preg);
+        localStorage.setItem(this._pregKey(profileId, claseId), JSON.stringify(arr));
+    }
+
+    deletePreguntaAlumno(profileId, claseId, pregId) {
+        const arr = this.getPreguntasAlumno(profileId, claseId).filter(p => p.id !== pregId);
+        localStorage.setItem(this._pregKey(profileId, claseId), JSON.stringify(arr));
+    }
+
+    getAllPreguntasForClase(claseId, profileIds) {
+        return profileIds.flatMap(pid =>
+            this.getPreguntasAlumno(pid, claseId).map(p => ({ ...p, profileId: pid }))
+        );
+    }
 }
