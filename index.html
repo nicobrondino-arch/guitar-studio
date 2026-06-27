@@ -175,6 +175,16 @@
                                     <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
                                     <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
                                 </svg>
+                                <span class="nav-text">Contenido</span>
+                            </a>
+                        </li>
+                        <li class="nav-item nav-item-professor" data-view="biblioteca">
+                            <a href="#biblioteca">
+                                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                                    <line x1="3" y1="9" x2="21" y2="9"></line>
+                                    <line x1="9" y1="21" x2="9" y2="9"></line>
+                                </svg>
                                 <span class="nav-text">Biblioteca</span>
                             </a>
                         </li>
@@ -849,6 +859,11 @@
                     </div>
                 </section>
 
+                <!-- VIEW: BIBLIOTECA DEL PROFESOR (v2) -->
+                <section id="view-biblioteca" class="app-view app-view-fullheight">
+                    <div id="biblioteca-content" style="height:100%;overflow:hidden"></div>
+                </section>
+
                 <!-- VIEW 5: TABLERO DE CONTROL (Profesor) -->
                 <section id="view-dashboard" class="app-view app-view-fullheight">
                     <div id="dashboard-content" style="height:100%;overflow:hidden"></div>
@@ -1054,6 +1069,72 @@
             <div class="modal-edit-footer">
                 <button class="modal-btn" onclick="app.closeEditClaseModal()">Cancelar</button>
                 <button class="modal-btn modal-btn-pri" onclick="app.saveEditClase()">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: CATEGORIZAR ÍTEM (biblioteca) -->
+    <div class="modal-overlay" id="bib-categorize-modal" style="display:none" onclick="if(event.target===this)app.bibCloseCatModal()">
+        <div class="modal-box modal-wide">
+            <h3 class="modal-title">Categorizar ítem</h3>
+            <div class="bib-modal-file-info" id="bib-cat-file-info"></div>
+            <div class="modal-form-row">
+                <label class="modal-label">Título *</label>
+                <input type="text" class="form-input" id="bib-cat-title" placeholder="Nombre del contenido">
+            </div>
+            <div class="modal-form-row">
+                <label class="modal-label">Categoría *</label>
+                <div class="bib-toggle-group" id="bib-cat-category">
+                    <button class="bib-toggle" data-val="technique" onclick="app.bibCatToggle('category','technique')">Técnica</button>
+                    <button class="bib-toggle" data-val="reading" onclick="app.bibCatToggle('category','reading')">Lectura</button>
+                    <button class="bib-toggle" data-val="repertoire" onclick="app.bibCatToggle('category','repertoire')">Repertorio</button>
+                    <button class="bib-toggle" data-val="complementary" onclick="app.bibCatToggle('category','complementary')">Complementario</button>
+                </div>
+            </div>
+            <div class="modal-form-row">
+                <label class="modal-label">Nivel *</label>
+                <div class="bib-radio-group">
+                    <label class="bib-radio-opt"><input type="radio" name="bib-level" value="beginner"> Principiante</label>
+                    <label class="bib-radio-opt"><input type="radio" name="bib-level" value="intermediate"> Intermedio</label>
+                    <label class="bib-radio-opt"><input type="radio" name="bib-level" value="advanced"> Avanzado</label>
+                </div>
+            </div>
+            <div class="modal-form-row">
+                <label class="modal-label">Estilo *</label>
+                <div class="bib-radio-group">
+                    <label class="bib-radio-opt"><input type="radio" name="bib-style" value="tango"> Tango</label>
+                    <label class="bib-radio-opt"><input type="radio" name="bib-style" value="folklore"> Folklore</label>
+                    <label class="bib-radio-opt"><input type="radio" name="bib-style" value="classic"> Clásico</label>
+                    <label class="bib-radio-opt"><input type="radio" name="bib-style" value="jazz"> Jazz</label>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-outline" onclick="app.bibCloseCatModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="app.bibSaveLibItem()">Guardar en Biblioteca</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: NUEVA CLASE / SESIÓN (biblioteca) -->
+    <div class="modal-overlay" id="bib-nueva-clase-modal" style="display:none" onclick="if(event.target===this)app.bibCloseNuevaClaseModal()">
+        <div class="modal-box modal-wide">
+            <h3 class="modal-title" id="bib-nueva-clase-title">Nueva clase</h3>
+            <div class="bib-nueva-clase-grid">
+                <div class="bib-nueva-opcion" id="bib-opcion-plantilla">
+                    <div class="bib-nueva-opcion-header">Desde una plantilla</div>
+                    <select class="form-select" id="bib-nueva-tpl-select">
+                        <option value="">— Elegir plantilla —</option>
+                    </select>
+                    <div id="bib-nueva-tpl-preview" class="bib-tpl-preview-list"></div>
+                </div>
+                <div class="bib-nueva-opcion" onclick="app.bibStartClaseDesCero()">
+                    <div class="bib-nueva-opcion-header">De cero</div>
+                    <p class="bib-nueva-opcion-desc">Clase en blanco, elegís los ítems desde la biblioteca</p>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-outline" onclick="app.bibCloseNuevaClaseModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="app.bibStartDesdePlantilla()">Continuar →</button>
             </div>
         </div>
     </div>

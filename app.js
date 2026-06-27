@@ -673,6 +673,20 @@ class GuitarStudioApp {
         this._weekOffset = 0;        // semana relativa al hoy (0 = esta semana, -1 = anterior)
         this._gcalEvents = [];       // placeholder — Google Calendar OAuth integration, a implementar en etapa futura
 
+        // Biblioteca Pro (v2)
+        this._bibState = 'main';
+        this._bibSidebarTab = 'alumnos';
+        this._bibSelectedProfileId = null;
+        this._bibSelectedGroupId = null;
+        this._bibSearch = '';
+        this._bibColFilters = { type: [], category: [], level: [], style: [] };
+        this._bibBuilding = null;
+        this._bibDetailItemId = null;
+        this._bibLibCatFilter = 'todos';
+        this._bibCatModalData = null;
+        this._bibCatModalValues = { category: null };
+        this._bibNuevaContext = null;
+
         // Estado de práctica: categoría activa y player
         this.currentCategory = 'technique';
         this.playerActiveItemId = null; // ID del ítem de biblioteca activo en el player
@@ -1607,11 +1621,11 @@ class GuitarStudioApp {
             this.pauseStepTimer(this.activeTimerStep);
         }
 
-        const PROFESSOR_VIEWS = ['dashboard', 'notebook', 'library'];
+        const PROFESSOR_VIEWS = ['dashboard', 'notebook', 'library', 'biblioteca'];
         const labels = {
             studio: 'Mi Estudio', practice: 'Modo Práctica',
             'my-library': 'Mi Biblioteca', dashboard: 'Clases',
-            notebook: 'Cuaderno', library: 'Biblioteca Principal'
+            notebook: 'Cuaderno', library: 'Contenido', biblioteca: 'Biblioteca'
         };
         const labelEl = document.getElementById("header-view-label");
 
@@ -1674,6 +1688,8 @@ class GuitarStudioApp {
             this.renderProximaClase();
         } else if (viewId === 'library') {
             this.renderLibraryView();
+        } else if (viewId === 'biblioteca') {
+            this.renderBibliotecaView();
         } else if (viewId === 'my-library') {
             this.renderMyLibraryView();
         } else if (viewId === 'dashboard') {
@@ -5279,6 +5295,555 @@ class GuitarStudioApp {
             const preguntas = this.data.getPreguntasAlumno(this.activeProfile.id, claseId);
             container.innerHTML = this._canalPreguntasHtml(claseId, preguntas);
         }
+    }
+
+    // ============================================================
+    // BIBLIOTECA DEL PROFESOR (v2)
+    // ============================================================
+
+    _bibCatColorClass(cat) {
+        const map = { technique: 'cat-technique', reading: 'cat-reading', repertoire: 'cat-repertoire', complementary: 'cat-complementary',
+                      tecnica: 'cat-technique', lectura: 'cat-reading', repertorio: 'cat-repertoire' };
+        return map[cat] || '';
+    }
+    _bibCatLabel(cat) {
+        const map = { technique: 'Técnica', reading: 'Lectura', repertoire: 'Repertorio', complementary: 'Complementario',
+                      tecnica: 'Técnica', lectura: 'Lectura', repertorio: 'Repertorio' };
+        return map[cat] || cat || '—';
+    }
+    _bibLevelLabel(lvl) {
+        const map = { beginner: 'Principiante', intermediate: 'Intermedio', advanced: 'Avanzado',
+                      inicial: 'Inicial', intermedio: 'Intermedio', avanzado: 'Avanzado' };
+        return map[lvl] || lvl || '—';
+    }
+    _bibStyleLabel(s) {
+        const map = { tango: 'Tango', folklore: 'Folklore', classic: 'Clásico', jazz: 'Jazz',
+                      clasico: 'Clásico', bossa: 'Bossa Nova', flamenco: 'Flamenco', rock: 'Rock', pop: 'Pop' };
+        return map[s] || s || '—';
+    }
+    _bibTypeLabel(t) {
+        const map = { gp: 'Guitar Pro', gpx: 'GPX', pdf: 'PDF', youtube: 'YouTube', spotify: 'Spotify', score: 'Partitura' };
+        return map[t] || t || '—';
+    }
+    _bibTypeIcon(t) {
+        if (t === 'youtube') return '▶';
+        if (t === 'spotify') return '♫';
+        if (t === 'pdf') return '📄';
+        return '🎵';
+    }
+    _bibValueLabel(col, val) {
+        if (col === 'category') return this._bibCatLabel(val);
+        if (col === 'level')    return this._bibLevelLabel(val);
+        if (col === 'style')    return this._bibStyleLabel(val);
+        if (col === 'type')     return this._bibTypeLabel(val);
+        return val;
+    }
+    _bibFilterItems(items) {
+        let result = items;
+        const q = this._bibSearch.toLowerCase().trim();
+        if (q) result = result.filter(it => (it.title || '').toLowerCase().includes(q));
+        const { type, category, level, style } = this._bibColFilters;
+        if (type.length)     result = result.filter(it => type.includes(it.type));
+        if (category.length) result = result.filter(it => category.includes(it.category || it.exerciseType));
+        if (level.length)    result = result.filter(it => level.includes(it.level));
+        if (style.length)    result = result.filter(it => style.includes(it.style || it.musicalStyle));
+        return result;
+    }
+    _bibFilterPanel2(items) {
+        let result = items;
+        if (this._bibLibCatFilter !== 'todos')
+            result = result.filter(it => (it.category || it.exerciseType) === this._bibLibCatFilter);
+        const q = this._bibSearch.toLowerCase().trim();
+        if (q) result = result.filter(it => (it.title || '').toLowerCase().includes(q));
+        return result;
+    }
+
+    async renderBibliotecaView() {
+        const container = document.getElementById('biblioteca-content');
+        if (!container) return;
+        container.innerHTML = '<div style="padding:24px;color:var(--tb-text-secondary)">Cargando...</div>';
+        const [profiles, items] = await Promise.all([this.data.getProfiles(), this.data.getLibraryItems()]);
+        const groups = this._getGroups();
+        if (this._bibState === 'main') {
+            container.innerHTML = this._bibRenderMain(profiles, groups, items);
+            this._bibBindMainEvents();
+        } else if (this._bibState === 'alumno') {
+            container.innerHTML = this._bibRenderEstado2a(profiles, groups, items);
+            this._bibBindEstado2Events();
+        } else if (this._bibState === 'curso') {
+            container.innerHTML = this._bibRenderEstado2b(profiles, groups, items);
+            this._bibBindEstado2Events();
+        }
+    }
+
+    _bibRenderMain(profiles, groups, items) {
+        const filtered = this._bibFilterItems(items);
+        return `<div class="bib-layout">
+  ${this._bibRenderSidebarMain(profiles, groups)}
+  <div class="bib-main-area">
+    <div class="bib-toolbar">
+      <div class="bib-search-wrap">
+        <svg class="bib-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" class="bib-search-input" id="bib-search-input" placeholder="Buscar por título..." value="${this._bibSearch.replace(/"/g, '&quot;')}">
+      </div>
+      <span class="bib-item-count">${filtered.length} ítem${filtered.length !== 1 ? 's' : ''}</span>
+    </div>
+    <div class="bib-table-wrap">${this._bibRenderTable(filtered, items)}</div>
+    <div class="bib-bottom-zone">
+      ${this._bibRenderUploadZone()}
+      ${this._bibRenderTemplatesZone()}
+    </div>
+  </div>
+</div>`;
+    }
+
+    _bibRenderSidebarMain(profiles, groups) {
+        const tab = this._bibSidebarTab;
+        let listHtml = '';
+        if (tab === 'alumnos') {
+            listHtml = !profiles.length ? '<p class="bib-empty-list">No hay alumnos creados.</p>' :
+                profiles.map(p => {
+                    const lastP = this.data.getProfileLastPracticed(p.id) || 'Sin actividad';
+                    const streak = this.data.getProfileStreak(p.id);
+                    return `<div class="bib-sidebar-item" onclick="app.bibSelectAlumno('${p.id}')">
+  <div class="bib-avatar" style="background:${p.color || 'var(--tb-accent)'}">${(p.name||'?')[0].toUpperCase()}</div>
+  <div class="bib-item-info"><div class="bib-item-name">${p.name}</div><div class="bib-item-sub">${lastP}${streak ? ' · ' + streak + '🔥' : ''}</div></div>
+  <svg class="bib-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+</div>`;
+                }).join('');
+        } else {
+            listHtml = !groups.length ? '<p class="bib-empty-list">No hay cursos creados.</p>' :
+                groups.map(g => {
+                    const mc = (g.memberIds || []).length;
+                    const sc = this.data.getAllClases().filter(c => c.groupId === g.id).length;
+                    return `<div class="bib-sidebar-item" onclick="app.bibSelectCurso('${g.id}')">
+  <div class="bib-avatar bib-avatar-group">${(g.name||'?')[0].toUpperCase()}</div>
+  <div class="bib-item-info"><div class="bib-item-name">${g.name}</div><div class="bib-item-sub">${mc} alumno${mc !== 1 ? 's' : ''} · ${sc} sesión${sc !== 1 ? 'es' : ''}</div></div>
+  <svg class="bib-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+</div>`;
+                }).join('');
+        }
+        return `<div class="bib-sidebar">
+  <div class="bib-sidebar-tabs">
+    <button class="bib-tab ${tab === 'alumnos' ? 'active' : ''}" onclick="app.bibSetSidebarTab('alumnos')">Alumnos <span class="bib-tab-badge">${profiles.length}</span></button>
+    <button class="bib-tab ${tab === 'cursos' ? 'active' : ''}" onclick="app.bibSetSidebarTab('cursos')">Cursos <span class="bib-tab-badge">${groups.length}</span></button>
+  </div>
+  <div class="bib-sidebar-list">${listHtml}</div>
+  <button class="bib-sidebar-add-btn" onclick="app.bibSidebarAdd()">+ ${tab === 'alumnos' ? 'Nuevo alumno' : 'Nuevo curso'}</button>
+</div>`;
+    }
+
+    _bibRenderTable(filtered, allItems) {
+        const cols = ['type', 'category', 'level', 'style'];
+        const colLabels = { type: 'Tipo', category: 'Categoría', level: 'Nivel', style: 'Estilo' };
+        const colValues = {
+            type:     [...new Set(allItems.map(it => it.type).filter(Boolean))],
+            category: [...new Set(allItems.map(it => it.category || it.exerciseType).filter(Boolean))],
+            level:    [...new Set(allItems.map(it => it.level).filter(Boolean))],
+            style:    [...new Set(allItems.map(it => it.style || it.musicalStyle).filter(Boolean))]
+        };
+        const headers = cols.map(col => {
+            const hasFilter = this._bibColFilters[col].length > 0;
+            const opts = colValues[col].map(v => {
+                const chk = this._bibColFilters[col].includes(v) ? 'checked' : '';
+                return `<label class="bib-filter-opt"><input type="checkbox" ${chk} onchange="app.bibToggleColFilter('${col}','${v}')"> ${this._bibValueLabel(col, v)}</label>`;
+            }).join('');
+            return `<th class="bib-th${hasFilter ? ' has-filter' : ''}"><div class="bib-th-inner">${colLabels[col]}<div class="bib-dropdown-wrap"><span class="bib-filter-arrow">▾</span><div class="bib-col-dropdown">${opts || '<span class="bib-empty-opts">Sin datos</span>'}</div></div>${hasFilter ? '<span class="bib-filter-dot"></span>' : ''}</div></th>`;
+        });
+        const rows = filtered.map(it => {
+            const cat = it.category || it.exerciseType || '';
+            const style = it.style || it.musicalStyle || '';
+            const sel = this._bibDetailItemId === it.id ? ' selected' : '';
+            return `<tr class="bib-row${sel}" onclick="app.bibSelectItem('${it.id}')">
+  <td class="bib-td bib-td-title"><span class="bib-type-icon ${this._bibCatColorClass(cat)}">${this._bibTypeIcon(it.type)}</span>${it.title || 'Sin título'}</td>
+  <td class="bib-td">${this._bibTypeLabel(it.type)}</td>
+  <td class="bib-td"><span class="bib-cat-dot ${this._bibCatColorClass(cat)}"></span>${this._bibCatLabel(cat)}</td>
+  <td class="bib-td">${this._bibLevelLabel(it.level)}</td>
+  <td class="bib-td">${this._bibStyleLabel(style)}</td>
+</tr>`;
+        }).join('');
+        return `<table class="bib-table">
+  <thead><tr><th class="bib-th">Título</th>${headers.join('')}</tr></thead>
+  <tbody>${filtered.length ? rows : '<tr><td colspan="5" class="bib-empty-row">La biblioteca está vacía. Subí archivos o añadí URLs abajo.</td></tr>'}</tbody>
+</table>`;
+    }
+
+    _bibRenderUploadZone() {
+        return `<div class="bib-upload-zone">
+  <div class="bib-zone-header">Subir contenido</div>
+  <div class="bib-droparea" id="bib-droparea">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="bib-drop-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    <div><p class="bib-drop-text">Arrastrá archivos aquí<br><span class="bib-drop-hint">.gp · .pdf · .gpx</span></p>
+      <button class="btn btn-outline btn-sm" style="margin-top:6px" onclick="document.getElementById('bib-file-input').click()">Examinar</button>
+    </div>
+    <input type="file" id="bib-file-input" accept=".gp,.pdf,.gpx,.gp4,.gp5" style="display:none" multiple>
+  </div>
+  <div class="bib-link-row">
+    <input type="text" class="form-input bib-link-input" id="bib-link-input" placeholder="YouTube · Spotify (URL)">
+    <button class="btn btn-outline btn-sm" onclick="app.bibDetectLink()">Detectar</button>
+  </div>
+</div>`;
+    }
+
+    _bibRenderTemplatesZone() {
+        const templates = this.data.getTemplates();
+        const chips = templates.map(t =>
+            `<span class="bib-tpl-chip" onclick="app.bibPreviewTemplate('${t.id}')"><span class="bib-tpl-dot"></span>${t.name}</span>`
+        ).join('');
+        return `<div class="bib-templates-zone">
+  <div class="bib-zone-header">Plantillas</div>
+  <p class="bib-tpl-desc">Pre-armá conjuntos de ejercicios para reutilizar al crear clases y sesiones</p>
+  <div class="bib-tpl-chips">${chips}<button class="bib-tpl-chip bib-tpl-new" onclick="app.bibNewTemplate()">+ Nueva</button></div>
+</div>`;
+    }
+
+    _bibRenderEstado2a(profiles, groups, items) {
+        const profile = profiles.find(p => p.id === this._bibSelectedProfileId);
+        if (!profile) return '<div style="padding:24px">Alumno no encontrado.</div>';
+        const clases = this.data.getAllClases().filter(c => c.profileId === this._bibSelectedProfileId && !c.groupId);
+        const p2Items = this._bibFilterPanel2(items);
+        const detailItem = this._bibDetailItemId ? items.find(it => it.id === this._bibDetailItemId) : null;
+        return `<div class="bib-layout bib-layout-estado2">
+  ${this._bibRenderSidebarEstado2a(profiles, groups, profile, clases)}
+  <div class="bib-panel1">${this._bibRenderPanel1(items, profile, null)}</div>
+  <div class="bib-panel2">${this._bibRenderPanel2(p2Items)}</div>
+  <div class="bib-panel3${!detailItem ? ' bib-panel3-empty' : ''}">${detailItem ? this._bibRenderPanel3(detailItem) : '<p class="bib-panel3-hint">Seleccioná un ítem para ver detalles</p>'}</div>
+</div>`;
+    }
+
+    _bibRenderEstado2b(profiles, groups, items) {
+        const group = groups.find(g => g.id === this._bibSelectedGroupId);
+        if (!group) return '<div style="padding:24px">Curso no encontrado.</div>';
+        const sesiones = this.data.getAllClases().filter(c => c.groupId === this._bibSelectedGroupId);
+        const memberProfiles = profiles.filter(p => (group.memberIds || []).includes(p.id));
+        const p2Items = this._bibFilterPanel2(items);
+        const detailItem = this._bibDetailItemId ? items.find(it => it.id === this._bibDetailItemId) : null;
+        return `<div class="bib-layout bib-layout-estado2">
+  ${this._bibRenderSidebarEstado2b(profiles, groups, group, sesiones, memberProfiles)}
+  <div class="bib-panel1">${this._bibRenderPanel1(items, null, group)}</div>
+  <div class="bib-panel2">${this._bibRenderPanel2(p2Items)}</div>
+  <div class="bib-panel3${!detailItem ? ' bib-panel3-empty' : ''}">${detailItem ? this._bibRenderPanel3(detailItem) : '<p class="bib-panel3-hint">Seleccioná un ítem para ver detalles</p>'}</div>
+</div>`;
+    }
+
+    _bibRenderSidebarEstado2a(profiles, groups, activeProfile, clases) {
+        const histHtml = clases.length
+            ? clases.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6).map(c =>
+                `<div class="bib-hist-item"><span class="bib-hist-date">${c.date}</span><span class="bib-hist-status">${c.status === 'draft' ? 'editando' : (c.items||[]).length + ' ítems · finalizada'}</span></div>`
+              ).join('')
+            : '<p class="bib-empty-list">Sin clases registradas</p>';
+        const dimGroups = groups.length
+            ? groups.map(g => `<div class="bib-sidebar-item bib-dim"><div class="bib-avatar bib-avatar-sm bib-avatar-group">${(g.name||'?')[0].toUpperCase()}</div><span class="bib-item-name-sm">${g.name}</span></div>`).join('')
+            : '<p class="bib-empty-list">Sin cursos</p>';
+        return `<div class="bib-sidebar bib-sidebar-split">
+  <div class="bib-back-link" onclick="app.bibGoBack()">← Biblioteca</div>
+  <div class="bib-sidebar-dual">
+    <div class="bib-sidebar-col bib-sidebar-col-active">
+      <div class="bib-sidebar-active-hd">
+        <div class="bib-avatar bib-avatar-lg" style="background:${activeProfile.color || 'var(--tb-accent)'}">${(activeProfile.name||'?')[0].toUpperCase()}</div>
+        <div class="bib-active-name">${activeProfile.name}</div>
+      </div>
+      <div class="bib-hist-list">${histHtml}</div>
+      <button class="bib-nueva-btn" onclick="app.bibNuevaClase('${activeProfile.id}')">+ Nueva clase</button>
+    </div>
+    <div class="bib-sidebar-col bib-sidebar-col-dim">${dimGroups}</div>
+  </div>
+</div>`;
+    }
+
+    _bibRenderSidebarEstado2b(profiles, groups, activeGroup, sesiones, memberProfiles) {
+        const histHtml = sesiones.length
+            ? sesiones.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6).map((s, i) =>
+                `<div class="bib-hist-item"><span class="bib-hist-date">Sesión ${sesiones.length - i}</span><span class="bib-hist-status">${s.date} · ${(s.items||[]).length} ítems</span></div>`
+              ).join('')
+            : '<p class="bib-empty-list">Sin sesiones registradas</p>';
+        const memberAvatars = memberProfiles.slice(0, 5).map(p =>
+            `<div class="bib-avatar bib-avatar-xs" style="background:${p.color || 'var(--tb-accent)'}" title="${p.name}">${(p.name||'?')[0].toUpperCase()}</div>`
+        ).join('');
+        const dimProfiles = profiles.length
+            ? profiles.map(p => `<div class="bib-sidebar-item bib-dim"><div class="bib-avatar bib-avatar-sm" style="background:${p.color || 'var(--tb-accent)'}">${(p.name||'?')[0].toUpperCase()}</div><span class="bib-item-name-sm">${p.name}</span></div>`).join('')
+            : '<p class="bib-empty-list">Sin alumnos</p>';
+        return `<div class="bib-sidebar bib-sidebar-split">
+  <div class="bib-back-link" onclick="app.bibGoBack()">← Biblioteca</div>
+  <div class="bib-sidebar-dual">
+    <div class="bib-sidebar-col bib-sidebar-col-dim">${dimProfiles}</div>
+    <div class="bib-sidebar-col bib-sidebar-col-active">
+      <div class="bib-sidebar-active-hd">
+        <div class="bib-avatar bib-avatar-lg bib-avatar-group">${(activeGroup.name||'?')[0].toUpperCase()}</div>
+        <div class="bib-active-name">${activeGroup.name}</div>
+        <div class="bib-member-avatars">${memberAvatars}</div>
+      </div>
+      <div class="bib-hist-list">${histHtml}</div>
+      <button class="bib-nueva-btn" onclick="app.bibNuevaSesion('${activeGroup.id}')">+ Nueva sesión</button>
+    </div>
+  </div>
+</div>`;
+    }
+
+    _bibRenderPanel1(items, profile, group) {
+        const building = this._bibBuilding;
+        if (!building) {
+            return `<div class="bib-panel1-empty"><p>Hacé clic en<br>"+ Nueva ${group ? 'sesión' : 'clase'}"<br>para empezar</p></div>`;
+        }
+        const sesCount = group ? this.data.getAllClases().filter(c => c.groupId === group.id).length + 1 : null;
+        const label = group ? `Sesión ${sesCount}` : `Clase · ${profile ? profile.name : ''}`;
+        const buildItems = building.items;
+        const cats = ['technique', 'reading', 'repertoire'];
+        const sections = cats.map(cat => {
+            const catItems = buildItems.filter(bi => (bi.category || 'technique') === cat);
+            const rows = catItems.map(bi => {
+                const it = items.find(x => x.id === bi.libraryItemId);
+                const title = it ? (it.title || 'Sin título') : bi.libraryItemId;
+                return `<div class="bib-build-item"><span class="bib-cat-dot ${this._bibCatColorClass(cat)}"></span><span class="bib-build-title">${title}</span><button class="bib-build-remove" onclick="app.bibRemoveFromClass('${bi.libraryItemId}')">×</button></div>`;
+            }).join('');
+            const empty = catItems.length === 0 ? `<div class="bib-build-slot" onclick="app.bibSetLibCatFilter('${cat}')">+ desde biblioteca →</div>` : '';
+            return `<div class="bib-build-section"><div class="bib-build-cat-hd"><span class="bib-cat-dot ${this._bibCatColorClass(cat)}"></span>${this._bibCatLabel(cat)}</div>${rows}${empty}</div>`;
+        }).join('');
+        return `<div class="bib-panel1-header"><div class="bib-p1-label">${label}</div><div class="bib-p1-date">${building.date}</div><div class="bib-p1-count">${buildItems.length} ítem${buildItems.length !== 1 ? 's' : ''}</div></div>
+<div class="bib-panel1-body">${sections}</div>
+<button class="bib-save-btn" onclick="app.bibSaveClase()">Guardar ${group ? 'sesión' : 'clase'}</button>`;
+    }
+
+    _bibRenderPanel2(items) {
+        const building = this._bibBuilding;
+        const inClassIds = building ? building.items.map(bi => bi.libraryItemId) : [];
+        const cats = ['todos', 'technique', 'reading', 'repertoire'];
+        const chips = cats.map(c =>
+            `<button class="bib-p2-chip${this._bibLibCatFilter === c ? ' active' : ''}" onclick="app.bibSetLibCatFilter('${c}')">${c === 'todos' ? 'Todos' : this._bibCatLabel(c)}</button>`
+        ).join('');
+        const rows = items.map(it => {
+            const inClass = inClassIds.includes(it.id);
+            const cat = it.category || it.exerciseType || '';
+            const sel = this._bibDetailItemId === it.id ? ' bib-p2-selected' : '';
+            return `<div class="bib-p2-row${inClass ? ' bib-p2-in-class' : ''}${sel}" onclick="app.bibSelectItem('${it.id}')">
+  <span class="bib-cat-dot ${this._bibCatColorClass(cat)}"></span>
+  <span class="bib-p2-title">${it.title || 'Sin título'}</span>
+  ${inClass ? '<span class="bib-p2-check">✓</span>' : `<button class="bib-p2-add" onclick="event.stopPropagation();app.bibAddToClass('${it.id}','${cat}')">+</button>`}
+</div>`;
+        }).join('') || '<p class="bib-empty-list" style="padding:16px">Sin ítems en esta categoría</p>';
+        return `<div class="bib-p2-search-wrap">
+  <svg class="bib-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+  <input type="text" class="bib-search-input" id="bib-p2-search" placeholder="Buscar..." value="${this._bibSearch.replace(/"/g,'&quot;')}">
+</div>
+<div class="bib-p2-chips">${chips}</div>
+<div class="bib-p2-list">${rows}</div>`;
+    }
+
+    _bibRenderPanel3(item) {
+        const building = this._bibBuilding;
+        const inClass = building ? building.items.some(bi => bi.libraryItemId === item.id) : false;
+        const cat = item.category || item.exerciseType || '';
+        const style = item.style || item.musicalStyle || '';
+        return `<div class="bib-p3-header">
+  <div class="bib-p3-title">${item.title || 'Sin título'}</div>
+  <div class="bib-p3-type">${this._bibTypeLabel(item.type)}</div>
+  <span class="bib-cat-badge ${this._bibCatColorClass(cat)}">${this._bibCatLabel(cat)}</span>
+</div>
+<div class="bib-p3-grid">
+  <div class="bib-p3-cell"><div class="bib-p3-cell-label">Nivel</div><div class="bib-p3-cell-val">${this._bibLevelLabel(item.level)}</div></div>
+  <div class="bib-p3-cell"><div class="bib-p3-cell-label">Estilo</div><div class="bib-p3-cell-val">${this._bibStyleLabel(style)}</div></div>
+</div>
+<div class="bib-p3-preview">
+  ${item.url ? `<a href="${item.url}" target="_blank" rel="noopener" class="bib-p3-link">${item.url.includes('youtu') ? '▶ Ver en YouTube' : '♫ Abrir en Spotify'}</a>` : '<span class="bib-p3-no-preview">Vista previa no disponible</span>'}
+</div>
+<div class="bib-p3-actions">
+  ${!inClass
+    ? `<button class="btn btn-primary" onclick="app.bibAddToClass('${item.id}','${cat}')">+ Agregar a clase</button>`
+    : `<button class="btn btn-outline" onclick="app.bibRemoveFromClass('${item.id}')">✓ Ya en la clase</button>`}
+</div>`;
+    }
+
+    _bibBindMainEvents() {
+        const si = document.getElementById('bib-search-input');
+        if (si) si.addEventListener('input', e => { this._bibSearch = e.target.value; this.renderBibliotecaView(); });
+        const da = document.getElementById('bib-droparea');
+        if (da) {
+            da.addEventListener('dragover', e => { e.preventDefault(); da.classList.add('bib-drag-over'); });
+            da.addEventListener('dragleave', () => da.classList.remove('bib-drag-over'));
+            da.addEventListener('drop', e => { e.preventDefault(); da.classList.remove('bib-drag-over'); Array.from(e.dataTransfer.files).forEach(f => this.bibHandleFileDrop(f)); });
+        }
+        const fi = document.getElementById('bib-file-input');
+        if (fi) fi.addEventListener('change', e => { Array.from(e.target.files).forEach(f => this.bibHandleFileDrop(f)); fi.value = ''; });
+    }
+
+    _bibBindEstado2Events() {
+        const si = document.getElementById('bib-p2-search');
+        if (si) si.addEventListener('input', e => { this._bibSearch = e.target.value; this.renderBibliotecaView(); });
+    }
+
+    bibSetSidebarTab(tab) { this._bibSidebarTab = tab; this.renderBibliotecaView(); }
+
+    bibSelectAlumno(profileId) {
+        this._bibState = 'alumno'; this._bibSelectedProfileId = profileId;
+        this._bibBuilding = null; this._bibDetailItemId = null;
+        this._bibLibCatFilter = 'todos'; this._bibSearch = '';
+        this.renderBibliotecaView();
+    }
+
+    bibSelectCurso(groupId) {
+        this._bibState = 'curso'; this._bibSelectedGroupId = groupId;
+        this._bibBuilding = null; this._bibDetailItemId = null;
+        this._bibLibCatFilter = 'todos'; this._bibSearch = '';
+        this.renderBibliotecaView();
+    }
+
+    bibGoBack() {
+        this._bibState = 'main'; this._bibSelectedProfileId = null; this._bibSelectedGroupId = null;
+        this._bibBuilding = null; this._bibDetailItemId = null; this._bibSearch = '';
+        this.renderBibliotecaView();
+    }
+
+    bibSelectItem(itemId) { this._bibDetailItemId = itemId; this.renderBibliotecaView(); }
+
+    bibAddToClass(libItemId, category) {
+        if (!this._bibBuilding) {
+            this._bibBuilding = { profileId: this._bibSelectedProfileId || null, groupId: this._bibSelectedGroupId || null, date: new Date().toISOString().slice(0,10), items: [] };
+        }
+        if (this._bibBuilding.items.some(bi => bi.libraryItemId === libItemId)) return;
+        this._bibBuilding.items.push({ libraryItemId: libItemId, category: category || 'technique', order: this._bibBuilding.items.length });
+        this.renderBibliotecaView();
+    }
+
+    bibRemoveFromClass(libItemId) {
+        if (!this._bibBuilding) return;
+        this._bibBuilding.items = this._bibBuilding.items.filter(bi => bi.libraryItemId !== libItemId);
+        this.renderBibliotecaView();
+    }
+
+    bibSetLibCatFilter(cat) { this._bibLibCatFilter = cat; this.renderBibliotecaView(); }
+
+    async bibSaveClase() {
+        if (!this._bibBuilding || !this._bibBuilding.items.length) { alert('Agregá al menos un ítem antes de guardar.'); return; }
+        this.data.saveClase({ id: this.data.generateId('clase'), profileId: this._bibBuilding.profileId || null, groupId: this._bibBuilding.groupId || null, date: this._bibBuilding.date, status: 'active', items: this._bibBuilding.items, createdAt: new Date().toISOString() });
+        this._bibBuilding = null; this._bibDetailItemId = null;
+        await this.renderBibliotecaView();
+    }
+
+    bibToggleColFilter(col, val) {
+        const arr = this._bibColFilters[col];
+        const idx = arr.indexOf(val);
+        if (idx === -1) arr.push(val); else arr.splice(idx, 1);
+        this.renderBibliotecaView();
+    }
+
+    bibHandleFileDrop(file) {
+        const ext = (file.name.split('.').pop() || '').toLowerCase();
+        const type = ext === 'pdf' ? 'pdf' : (ext === 'gpx' ? 'gpx' : 'gp');
+        this._bibCatModalData = { file, type };
+        this._bibCatModalValues = { category: null };
+        const titleEl = document.getElementById('bib-cat-title');
+        const infoEl  = document.getElementById('bib-cat-file-info');
+        if (titleEl) titleEl.value = file.name.replace(/\.[^.]+$/, '');
+        if (infoEl)  infoEl.textContent = `${file.name}  ·  ${type.toUpperCase()}`;
+        document.querySelectorAll('#bib-cat-category .bib-toggle').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('input[name="bib-level"], input[name="bib-style"]').forEach(r => r.checked = false);
+        document.getElementById('bib-categorize-modal').style.display = 'flex';
+    }
+
+    bibDetectLink() {
+        const url = (document.getElementById('bib-link-input')?.value || '').trim();
+        if (!url) return;
+        const isYT = url.includes('youtube') || url.includes('youtu.be');
+        const isSP = url.includes('spotify');
+        if (!isYT && !isSP) { alert('URL no reconocida. Usá un link de YouTube o Spotify.'); return; }
+        const type = isYT ? 'youtube' : 'spotify';
+        this._bibCatModalData = { url, type };
+        this._bibCatModalValues = { category: null };
+        const titleEl = document.getElementById('bib-cat-title');
+        const infoEl  = document.getElementById('bib-cat-file-info');
+        if (titleEl) titleEl.value = isYT ? 'Video de YouTube' : 'Canción de Spotify';
+        if (infoEl)  infoEl.textContent = `${isYT ? 'YouTube' : 'Spotify'}  ·  ${url.slice(0, 60)}`;
+        document.querySelectorAll('#bib-cat-category .bib-toggle').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('input[name="bib-level"], input[name="bib-style"]').forEach(r => r.checked = false);
+        document.getElementById('bib-categorize-modal').style.display = 'flex';
+    }
+
+    bibCatToggle(field, val) {
+        this._bibCatModalValues[field] = val;
+        document.querySelectorAll(`#bib-cat-${field} .bib-toggle`).forEach(b => b.classList.toggle('active', b.dataset.val === val));
+    }
+
+    bibCloseCatModal() {
+        document.getElementById('bib-categorize-modal').style.display = 'none';
+        this._bibCatModalData = null;
+    }
+
+    async bibSaveLibItem() {
+        const title    = document.getElementById('bib-cat-title')?.value?.trim();
+        const category = this._bibCatModalValues.category;
+        const level    = document.querySelector('input[name="bib-level"]:checked')?.value;
+        const style    = document.querySelector('input[name="bib-style"]:checked')?.value;
+        if (!title)    { alert('El título es obligatorio.'); return; }
+        if (!category) { alert('Seleccioná una categoría.'); return; }
+        if (!level)    { alert('Seleccioná un nivel.'); return; }
+        if (!style)    { alert('Seleccioná un estilo.'); return; }
+        const d = this._bibCatModalData;
+        const item = { id: this.data.generateId('lib'), title, type: d.type, category, level, style, createdAt: new Date().toISOString() };
+        if (d.url)  item.url = d.url;
+        if (d.file) item.fileData = await d.file.arrayBuffer();
+        await this.data.saveLibraryItem(item);
+        document.getElementById('bib-categorize-modal').style.display = 'none';
+        this._bibCatModalData = null;
+        await this.renderBibliotecaView();
+    }
+
+    bibNuevaClase(profileId) {
+        this._bibNuevaContext = { type: 'alumno', id: profileId };
+        const tpls = this.data.getTemplates();
+        const sel = document.getElementById('bib-nueva-tpl-select');
+        if (sel) sel.innerHTML = '<option value="">— Elegir plantilla —</option>' + tpls.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+        const titleEl = document.getElementById('bib-nueva-clase-title');
+        if (titleEl) titleEl.textContent = 'Nueva clase';
+        document.getElementById('bib-nueva-clase-modal').style.display = 'flex';
+    }
+
+    bibNuevaSesion(groupId) {
+        this._bibNuevaContext = { type: 'curso', id: groupId };
+        const tpls = this.data.getTemplates();
+        const sel = document.getElementById('bib-nueva-tpl-select');
+        if (sel) sel.innerHTML = '<option value="">— Elegir plantilla —</option>' + tpls.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+        const titleEl = document.getElementById('bib-nueva-clase-title');
+        if (titleEl) titleEl.textContent = 'Nueva sesión';
+        document.getElementById('bib-nueva-clase-modal').style.display = 'flex';
+    }
+
+    bibCloseNuevaClaseModal() { document.getElementById('bib-nueva-clase-modal').style.display = 'none'; }
+
+    bibStartClaseDesCero() {
+        const ctx = this._bibNuevaContext;
+        if (!ctx) return;
+        this._bibBuilding = { profileId: ctx.type === 'alumno' ? ctx.id : null, groupId: ctx.type === 'curso' ? ctx.id : null, date: new Date().toISOString().slice(0,10), items: [] };
+        document.getElementById('bib-nueva-clase-modal').style.display = 'none';
+        this.renderBibliotecaView();
+    }
+
+    bibStartDesdePlantilla() {
+        const ctx   = this._bibNuevaContext;
+        const tplId = document.getElementById('bib-nueva-tpl-select')?.value;
+        if (!ctx) return;
+        const building = { profileId: ctx.type === 'alumno' ? ctx.id : null, groupId: ctx.type === 'curso' ? ctx.id : null, date: new Date().toISOString().slice(0,10), items: [], templateId: tplId || undefined };
+        if (tplId) { const tpl = this.data.getTemplates().find(t => t.id === tplId); if (tpl) building.items = tpl.items.map((ti, i) => ({ ...ti, order: i })); }
+        this._bibBuilding = building;
+        document.getElementById('bib-nueva-clase-modal').style.display = 'none';
+        this.renderBibliotecaView();
+    }
+
+    bibNewTemplate() {
+        const name = prompt('Nombre de la plantilla:');
+        if (!name || !name.trim()) return;
+        this.data.saveTemplate({ id: this.data.generateId('tpl'), name: name.trim(), items: [], createdAt: new Date().toISOString() });
+        this.renderBibliotecaView();
+    }
+
+    bibPreviewTemplate(tplId) {
+        const tpl = this.data.getTemplates().find(t => t.id === tplId);
+        if (!tpl) return;
+        alert(`Plantilla: ${tpl.name}\n${tpl.items.length} ítem${tpl.items.length !== 1 ? 's' : ''}`);
+    }
+
+    bibSidebarAdd() {
+        if (this._bibSidebarTab === 'alumnos') this.openProfilesModal();
+        else this.showNewGroupForm();
     }
 
     adjustQuickToolsLocation() {
