@@ -21,7 +21,7 @@
     --font-heading:      'Playfair Display', Georgia, serif;
     --transition-fast:   0.15s ease;
     --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    --sidebar-width:     172px;
+    --sidebar-width:     191px;
     --border-radius:     12px;
 }
 
@@ -140,7 +140,7 @@ button {
 /* Sidebar Navigation */
 .sidebar {
     width: var(--sidebar-width);
-    background-color: #2a2b2c;
+    background-color: #1a1b1c;
     border-right: 1px solid rgba(255,255,255,.06);
     display: flex;
     flex-direction: column;
