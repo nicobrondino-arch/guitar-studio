@@ -4041,7 +4041,8 @@ class GuitarStudioApp {
 
         const group = this._getGroups().find(g => g.id === clase.groupId) || {};
         const profiles = await this.data.getProfiles();
-        const members = profiles.filter(p => (group.memberIds||[]).includes(p.id));
+        const memberIds = (clase.memberOverride != null) ? clase.memberOverride : (group.memberIds || []);
+        const members = profiles.filter(p => memberIds.includes(p.id));
         const type = members.length > 1 ? 'Grupal' : 'Individual';
         const timeLabel = (group.time||'').slice(0,5) || '—';
         const status = clase.status === 'finalizada' ? 'finalizada' : clase.status === 'en-curso' ? 'iniciada' : 'pendiente';
