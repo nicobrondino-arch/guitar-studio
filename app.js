@@ -4140,7 +4140,7 @@ class GuitarStudioApp {
         const tableroHtml = [
             buildAttGroup('Presentes', 'green', presentes),
             buildAttGroup('Ausentes', 'red', ausentes),
-            buildAttGroup('Ausentes', 'red', ausentes),
+            buildAttGroup('Sin marcar', 'gray', sinMarcar),
         ].join('') || '<p class="text3-muted">Sin alumnos en este grupo</p>';
 
         // ── E) CONTENIDO ──
@@ -4957,31 +4957,12 @@ class GuitarStudioApp {
 
     _showHoverCard(profileId) {
         const card = document.getElementById(`hc-${profileId}`);
-        if (!card) return;
-        // Reset any previous position overrides
-        card.style.left = '';
-        card.style.right = '';
-        card.style.transform = '';
-        card.classList.add('visible');
-        // Clamp so it doesn't bleed off either edge of the viewport
-        const rect = card.getBoundingClientRect();
-        if (rect.left < 8) {
-            card.style.left = '0';
-            card.style.transform = 'none';
-        } else if (rect.right > window.innerWidth - 8) {
-            card.style.left = 'auto';
-            card.style.right = '0';
-            card.style.transform = 'none';
-        }
+        if (card) card.classList.add('visible');
     }
 
     _hideHoverCard(profileId) {
         const card = document.getElementById(`hc-${profileId}`);
-        if (!card) return;
-        card.classList.remove('visible');
-        card.style.left = '';
-        card.style.right = '';
-        card.style.transform = '';
+        if (card) card.classList.remove('visible');
     }
 
     // TODO(biblioteca): Los chips de categoría de la biblioteca y el proceso de subida rápida

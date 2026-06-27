@@ -5332,13 +5332,13 @@ textarea.form-control {
     text-align: center;
 }
 
-/* Hover card — aparece debajo del card */
+/* Hover card — aparece debajo del card, alineado al borde izquierdo */
 .hc-card {
     display: none;
     position: absolute;
     top: calc(100% + 6px);
-    left: 50%;
-    transform: translateX(-50%);
+    left: 0;
+    transform: none;
     width: 220px;
     z-index: 50;
     background: var(--tb-bg-primary);
