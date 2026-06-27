@@ -4868,8 +4868,52 @@ class GuitarStudioApp {
         const cur = clase.attendance[profileId] || null;
         clase.attendance[profileId] = cur === null ? 'presente' : cur === 'presente' ? 'ausente' : null;
         this.data.saveClase(clase);
-        // Re-render el panel completo para mover el card al grupo correcto
-        this._renderClaseDetail(claseId);
+        this._moveAttCard(claseId, profileId, clase.attendance[profileId]);
+    }
+
+    _moveAttCard(claseId, profileId, newStatus) {
+        const tablero = document.getElementById(`tablero-${claseId}`);
+        const card    = document.getElementById(`stu3-${profileId}`);
+        if (!tablero || !card) { this._renderClaseDetail(claseId); return; }
+
+        const ORDER  = ['Presentes', 'Ausentes', 'Sin marcar'];
+        const COLORS = { 'Presentes': 'green', 'Ausentes': 'red', 'Sin marcar': 'gray' };
+        const targetLabel = newStatus === 'presente' ? 'Presentes' : newStatus === 'ausente' ? 'Ausentes' : 'Sin marcar';
+
+        // Buscar o crear el grupo destino
+        const allGroups = () => Array.from(tablero.querySelectorAll(':scope > .tab3-group'));
+        let targetGroup = allGroups().find(g =>
+            g.querySelector('.tab3-group-header')?.textContent.trimStart().startsWith(targetLabel)
+        );
+        if (!targetGroup) {
+            targetGroup = document.createElement('div');
+            targetGroup.className = 'tab3-group';
+            targetGroup.innerHTML = `
+                <div class="tab3-group-header ${COLORS[targetLabel]}">${targetLabel} — 0</div>
+                <div class="tab3-group-body tab3-cards"></div>`;
+            const targetIdx = ORDER.indexOf(targetLabel);
+            let inserted = false;
+            for (const g of allGroups()) {
+                const txt = g.querySelector('.tab3-group-header')?.textContent.trimStart() || '';
+                if (ORDER.indexOf(ORDER.find(l => txt.startsWith(l))) > targetIdx) {
+                    tablero.insertBefore(targetGroup, g); inserted = true; break;
+                }
+            }
+            if (!inserted) tablero.appendChild(targetGroup);
+        }
+
+        const sourceGroup = card.closest('.tab3-group');
+        targetGroup.querySelector('.tab3-group-body').appendChild(card);
+
+        const refreshHeader = g => {
+            const hdr   = g.querySelector('.tab3-group-header');
+            const count = g.querySelectorAll('.stu3-card').length;
+            if (!count) { g.remove(); return; }
+            const label = ORDER.find(l => hdr?.textContent.trimStart().startsWith(l)) || '';
+            if (hdr) hdr.textContent = `${label} — ${count}`;
+        };
+        if (sourceGroup && sourceGroup !== targetGroup) refreshHeader(sourceGroup);
+        refreshHeader(targetGroup);
     }
 
     removeCategory(claseId, cat) {
@@ -4913,12 +4957,31 @@ class GuitarStudioApp {
 
     _showHoverCard(profileId) {
         const card = document.getElementById(`hc-${profileId}`);
-        if (card) card.classList.add('visible');
+        if (!card) return;
+        // Reset any previous position overrides
+        card.style.left = '';
+        card.style.right = '';
+        card.style.transform = '';
+        card.classList.add('visible');
+        // Clamp so it doesn't bleed off either edge of the viewport
+        const rect = card.getBoundingClientRect();
+        if (rect.left < 8) {
+            card.style.left = '0';
+            card.style.transform = 'none';
+        } else if (rect.right > window.innerWidth - 8) {
+            card.style.left = 'auto';
+            card.style.right = '0';
+            card.style.transform = 'none';
+        }
     }
 
     _hideHoverCard(profileId) {
         const card = document.getElementById(`hc-${profileId}`);
-        if (card) card.classList.remove('visible');
+        if (!card) return;
+        card.classList.remove('visible');
+        card.style.left = '';
+        card.style.right = '';
+        card.style.transform = '';
     }
 
     // TODO(biblioteca): Los chips de categoría de la biblioteca y el proceso de subida rápida
