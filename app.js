@@ -3957,7 +3957,7 @@ class GuitarStudioApp {
                             <span class="tl3-pill ${it.isNew?'new':it.status}">${it.isNew?'+ Crear clase':it.status==='iniciada'?'En curso':it.status==='finalizada'?'Finalizada':'Pendiente'}</span>
                         </div>
                     </div>`).join('')
-                : `<div class="dash-tl-empty">No hay clases ${tab==='manana'?'mañana':'hoy'}.<br><span>Asigná un día a tus grupos en el Cuaderno.</span>${groups.length===0?'<button class="btn-demo-seed" onclick="app.seedDemoData()">Cargar datos de ejemplo</button>':''}</div>`;
+                : `<div class="dash-tl-empty">No hay clases ${tab==='manana'?'mañana':'hoy'}.<br><span>Asigná un día a tus grupos en el Cuaderno.</span></div>`;
 
         content.innerHTML = `
             <div class="prof-layout-3col">
@@ -3970,6 +3970,7 @@ class GuitarStudioApp {
                         <button class="tl3-tab ${tab==='semana'?'active':''}" onclick="app.switchTimelineTab('semana')">Semana</button>
                     </div>
                     <div class="tl3-list">
+                        <button class="btn-demo-seed" onclick="app.seedDemoData()">Cargar datos de ejemplo</button>
                         ${tlHtml}
                     </div>
                 </div>
