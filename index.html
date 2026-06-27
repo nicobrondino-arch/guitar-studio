@@ -215,14 +215,13 @@
                 </div>
             </div>
 
-            <!-- Selectores de Tema e Idioma -->
+            <!-- Footer del sidebar: perfil activo + idioma -->
             <div class="sidebar-footer">
-                <!-- Selector de tema visual -->
-                <div class="theme-selector">
-                    <button class="theme-swatch theme-swatch-tango" id="btn-theme-tango" title="Tango Clásico" onclick="app.applyTheme('tango')"></button>
-                    <button class="theme-swatch theme-swatch-folklore" id="btn-theme-folklore" title="Folklore" onclick="app.applyTheme('folklore')"></button>
-                    <button class="theme-swatch theme-swatch-partitura" id="btn-theme-partitura" title="Partitura Vintage" onclick="app.applyTheme('partitura')"></button>
-                </div>
+                <!-- Perfil activo -->
+                <button class="profile-chip sidebar-profile-chip" id="btn-profile-chip" title="Cambiar perfil">
+                    <span class="profile-chip-avatar" id="profile-chip-avatar">?</span>
+                    <span class="profile-chip-name" id="profile-chip-name">Sin perfil</span>
+                </button>
                 <!-- Selector de idioma -->
                 <div class="lang-selector">
                     <button class="lang-btn active" id="btn-lang-es">ES</button>
@@ -241,19 +240,6 @@
 
         <!-- Main Content Area -->
         <main class="main-content">
-            <!-- Header bar -->
-            <header class="app-header">
-                <div class="header-left" id="header-page-title">
-                    <span class="header-page-name" id="header-view-label">Mi Estudio</span>
-                </div>
-                <div class="header-right">
-                    <!-- Perfil activo -->
-                    <button class="profile-chip" id="btn-profile-chip" title="Cambiar perfil">
-                        <span class="profile-chip-avatar" id="profile-chip-avatar">?</span>
-                        <span class="profile-chip-name" id="profile-chip-name">Sin perfil</span>
-                    </button>
-                </div>
-            </header>
 
             <!-- Views Container -->
             <div class="view-wrapper">
