@@ -5051,27 +5051,33 @@ class GuitarStudioApp {
         document.getElementById('modal-edit-time').value = clase.time || group.time || '';
         document.getElementById('modal-edit-meeturl').value = clase.meetUrl || '';
 
-        // Populate student list
+        // Populate student list — muestra TODOS los perfiles, pre-marca los activos
         const stuList = document.getElementById('modal-edit-students');
-        stuList.innerHTML = allProfiles.length === 0 && groupMemberIds.length === 0
-            ? '<div class="modal-students-empty">Sin alumnos en el grupo.</div>'
-            : groupMemberIds.map(pid => {
-                const p = allProfiles.find(x => x.id === pid) || { id: pid, name: pid };
-                const checked = activeIds.has(pid);
+        if (allProfiles.length === 0) {
+            stuList.innerHTML = '<div class="modal-students-empty">No hay alumnos creados aún.</div>';
+        } else {
+            const inGroup = allProfiles.filter(p => groupMemberIds.includes(p.id));
+            const others  = allProfiles.filter(p => !groupMemberIds.includes(p.id));
+            const renderRow = p => {
+                const checked = activeIds.has(p.id);
                 const initial = (p.name||'?')[0].toUpperCase();
                 const color = p.color || '#c0392b';
-                return `<div class="modal-stu-row ${checked?'checked':''}" onclick="app._toggleModalStu(this,'${pid}')">
+                return `<div class="modal-stu-row ${checked?'checked':''}" data-pid="${p.id}" onclick="app._toggleModalStu(this)">
                     <div class="modal-stu-cb">${checked?'✓':''}</div>
                     <div class="modal-stu-av" style="background:${color}">${initial}</div>
-                    <span class="modal-stu-name">${this._escapeHtml(p.name||pid)}</span>
+                    <span class="modal-stu-name">${this._escapeHtml(p.name||p.id)}</span>
                 </div>`;
-            }).join('');
+            };
+            stuList.innerHTML =
+                (inGroup.length ? `<div class="modal-stu-section">Del grupo</div>${inGroup.map(renderRow).join('')}` : '') +
+                (others.length  ? `<div class="modal-stu-section">Otros alumnos</div>${others.map(renderRow).join('')}` : '');
+        }
 
         overlay.dataset.claseId = claseId;
         overlay.style.display = 'flex';
     }
 
-    _toggleModalStu(row, profileId) {
+    _toggleModalStu(row) {
         row.classList.toggle('checked');
         const cb = row.querySelector('.modal-stu-cb');
         if (cb) cb.textContent = row.classList.contains('checked') ? '✓' : '';
@@ -5092,11 +5098,7 @@ class GuitarStudioApp {
         const newDate = document.getElementById('modal-edit-date').value;
         const newMeet = document.getElementById('modal-edit-meeturl').value.trim();
         const checkedRows = overlay.querySelectorAll('.modal-stu-row.checked');
-        const checkedIds = Array.from(checkedRows).map(r => {
-            const onclick = r.getAttribute('onclick') || '';
-            const m = onclick.match(/'([^']+)'\)$/);
-            return m ? m[1] : null;
-        }).filter(Boolean);
+        const checkedIds = Array.from(checkedRows).map(r => r.dataset.pid).filter(Boolean);
 
         const group = this._getGroups().find(g => g.id === clase.groupId) || {};
         const groupMemberIds = group.memberIds || [];
