@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="tango">
+<html lang="es">
 <head>
     <script>
     (function() {
@@ -1022,6 +1022,34 @@
             </button>
         </div>
         <iframe id="pdf-iframe" class="pdf-iframe" src="" title="Visor PDF"></iframe>
+    </div>
+
+    <!-- MODAL: Editar clase -->
+    <div class="modal-edit-overlay" id="modal-edit-clase" style="display:none" onclick="if(event.target===this)app.closeEditClaseModal()">
+        <div class="modal-edit-panel">
+            <div class="modal-edit-header">
+                <span class="modal-edit-title">Editar clase</span>
+                <button class="modal-edit-close" onclick="app.closeEditClaseModal()">×</button>
+            </div>
+            <div class="modal-edit-body">
+                <div class="modal-field">
+                    <label>Fecha</label>
+                    <input type="date" id="modal-edit-date">
+                </div>
+                <div class="modal-field">
+                    <label>Link de Meet (sobreescribe el del grupo)</label>
+                    <input type="text" id="modal-edit-meeturl" placeholder="https://meet.google.com/...">
+                </div>
+                <div class="modal-field">
+                    <label>Alumnos en esta clase</label>
+                    <div class="modal-students-list" id="modal-edit-students"></div>
+                </div>
+            </div>
+            <div class="modal-edit-footer">
+                <button class="modal-btn" onclick="app.closeEditClaseModal()">Cancelar</button>
+                <button class="modal-btn modal-btn-pri" onclick="app.saveEditClase()">Guardar</button>
+            </div>
+        </div>
     </div>
 
     <!-- JavaScript Application Scripts -->

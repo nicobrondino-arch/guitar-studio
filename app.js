@@ -670,6 +670,8 @@ class GuitarStudioApp {
         this._timelineTab = 'hoy';   // tab activo del timeline: 'hoy' | 'manana' | 'semana'
         this._libSearch = '';        // búsqueda en biblioteca col 3
         this._libCatFilter = 'todos'; // filtro categoría biblioteca col 3
+        this._weekOffset = 0;        // semana relativa al hoy (0 = esta semana, -1 = anterior)
+        this._gcalEvents = [];       // placeholder — Google Calendar OAuth integration, a implementar en etapa futura
 
         // Estado de práctica: categoría activa y player
         this.currentCategory = 'technique';
@@ -1573,7 +1575,10 @@ class GuitarStudioApp {
      * Persiste la elección en localStorage.
      */
     applyTheme(theme) {
-        if (!['tango', 'folklore', 'partitura'].includes(theme)) return;
+        if (!['folklore', 'partitura'].includes(theme)) {
+            document.documentElement.removeAttribute('data-theme');
+            return;
+        }
         document.documentElement.setAttribute('data-theme', theme);
         localStorage.setItem('gs-theme', theme);
         // Marcar swatch activo
@@ -1586,7 +1591,7 @@ class GuitarStudioApp {
      * Carga el tema guardado en localStorage, o aplica tango por defecto.
      */
     loadSavedTheme() {
-        const saved = localStorage.getItem('gs-theme') || 'tango';
+        const saved = localStorage.getItem('gs-theme') || '';
         this.applyTheme(saved);
     }
 
@@ -3905,11 +3910,21 @@ class GuitarStudioApp {
         const targetDayName = tab === 'manana' ? tomorrowName : todayName;
 
         const buildTlItems = (dateStr, dayName) => {
+            const now = new Date();
+            const nowMins = now.getHours() * 60 + now.getMinutes();
             const existing = allClases.filter(c => c.date === dateStr);
             const existingGroupIds = new Set(existing.map(c => c.groupId));
             const items = [];
             existing.forEach(c => {
                 const g = groups.find(x => x.id === c.groupId) || {};
+                // Auto-start: si la fecha es hoy, la hora ya pasó y la clase no está finalizada ni en-curso
+                if (dateStr === todayStr && c.status !== 'finalizada' && c.status !== 'en-curso') {
+                    const [h, m] = (g.time || c.time || '').split(':').map(Number);
+                    if (!isNaN(h) && !isNaN(m) && nowMins >= h * 60 + m) {
+                        c.status = 'en-curso';
+                        this.data.saveClase(c);
+                    }
+                }
                 const st = c.status === 'finalizada' ? 'finalizada' : c.status === 'en-curso' ? 'iniciada' : 'pendiente';
                 const count = (g.memberIds||[]).length;
                 items.push({ claseId:c.id, click:`app.openClase('${c.id}')`, time:(g.time||c.time||'').slice(0,5)||'—', name:g.name||c.title||'Clase', count, type:count>1?'Grupal':'Individual', status:st, sel:c.id===this._currentClaseId, isNew:false });
@@ -3924,11 +3939,10 @@ class GuitarStudioApp {
 
         const tlItems = tab === 'semana' ? [] : buildTlItems(targetDate, targetDayName);
 
+        const semHtml = tab === 'semana' ? this._renderSemanaCols(allClases, groups, todayStr) : '';
+
         const tlHtml = tab === 'semana'
-            ? `<div class="tl-week-grid">
-                ${['L','M','X','J','V'].map(d=>`<div class="tl-week-day"><span class="tl-week-label">${d}</span></div>`).join('')}
-               </div>
-               <div class="dash-tl-empty" style="margin-top:12px">Vista semanal próximamente</div>`
+            ? semHtml
             : tlItems.length
                 ? tlItems.map(it => `
                     <div class="tl3-item ${it.sel?'selected':''} ${it.status}" onclick="${it.click}">
@@ -4043,11 +4057,12 @@ class GuitarStudioApp {
         }
 
         // ── A) HEADER ──
-        const meetHref = group.meetLink ? (/^https?:/.test(group.meetLink) ? group.meetLink : 'https://'+group.meetLink) : '';
-        const meetBarHtml = group.meetLink ? `
+        const meetUrl = clase.meetUrl || group.meetLink || '';
+        const meetHref = meetUrl ? (/^https?:/.test(meetUrl) ? meetUrl : 'https://'+meetUrl) : '';
+        const meetBarHtml = meetUrl ? `
             <div class="h3-meet-bar">
                 <span class="h3-meet-icon">▣</span>
-                <span class="h3-meet-url">${this._escapeHtml(group.meetLink)}</span>
+                <span class="h3-meet-url">${this._escapeHtml(meetUrl)}</span>
                 <a href="${this._escapeHtml(meetHref)}" target="_blank" class="h3-btn h3-btn-meet">Entrar</a>
                 <button class="h3-btn h3-btn-wa" onclick="app.sendMeetWhatsApp('${group.id}')">W</button>
             </div>` : `<div class="h3-meet-bar h3-meet-empty"></div>`;
@@ -4684,6 +4699,88 @@ class GuitarStudioApp {
         this.renderDashboardView();
     }
 
+    shiftWeek(delta) {
+        this._weekOffset += delta;
+        this.renderDashboardView();
+    }
+
+    _getWeekDates(offset) {
+        const today = new Date();
+        // Lunes de la semana actual
+        const dayOfWeek = today.getDay() === 0 ? 7 : today.getDay(); // 1=Lun…7=Dom
+        const mon = new Date(today);
+        mon.setDate(today.getDate() - (dayOfWeek - 1) + offset * 7);
+        return [0,1,2,3,4].map(i => {
+            const d = new Date(mon);
+            d.setDate(mon.getDate() + i);
+            return d.toISOString().slice(0,10);
+        });
+    }
+
+    _renderSemanaCols(allClases, groups, todayStr) {
+        const weekDates = this._getWeekDates(this._weekOffset);
+        const dayAbbr = ['L','M','X','J','V'];
+        const weekLabel = (() => {
+            const d0 = weekDates[0], d4 = weekDates[4];
+            const fmt = d => new Date(d+'T12:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'});
+            return `${fmt(d0)} – ${fmt(d4)}`;
+        })();
+
+        const cols = weekDates.map((dateStr, idx) => {
+            const dayNum = parseInt(dateStr.slice(8), 10);
+            const isToday = dateStr === todayStr;
+            const dayClases = allClases.filter(c => c.date === dateStr).sort((a,b) => {
+                const ga = groups.find(g=>g.id===a.groupId)||{};
+                const gb = groups.find(g=>g.id===b.groupId)||{};
+                return (ga.time||'').localeCompare(gb.time||'');
+            });
+            const cards = dayClases.map(c => {
+                const g = groups.find(x=>x.id===c.groupId)||{};
+                const st = c.status==='finalizada'?'finalizada':c.status==='en-curso'?'iniciada':'pendiente';
+                const dotCls = c.status==='finalizada'?'finalizada':c.status==='en-curso'?'iniciada':'pendiente';
+                return `<div class="sem3-card ${st} ${c.id===this._currentClaseId?'selected':''}" onclick="app.openClase('${c.id}')">
+                    <div class="sem3-card-time">${(g.time||c.time||'').slice(0,5)||'—'}</div>
+                    <div class="sem3-card-name">${this._escapeHtml(g.name||c.title||'Clase')}</div>
+                    <div class="sem3-dot ${dotCls}"></div>
+                </div>`;
+            }).join('');
+
+            // Grupos programados para ese día sin clase creada
+            const existingGroupIds = new Set(dayClases.map(c=>c.groupId));
+            const groupDayName = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][new Date(dateStr+'T12:00').getDay()];
+            const newCards = groups.filter(g=>g.day===groupDayName && !existingGroupIds.has(g.id)).map(g => `
+                <div class="sem3-card new" onclick="app.createClase('${g.id}')">
+                    <div class="sem3-card-time">${(g.time||'').slice(0,5)||'—'}</div>
+                    <div class="sem3-card-name">${this._escapeHtml(g.name)}</div>
+                    <div class="sem3-dot new"></div>
+                </div>`).join('');
+
+            return `<div class="sem3-col ${isToday?'today':''}">
+                <div class="sem3-col-header">
+                    <span class="sem3-day-name">${dayAbbr[idx]}</span>
+                    <span class="sem3-day-num ${isToday?'today':''}">${dayNum}</span>
+                </div>
+                ${cards}${newCards}
+            </div>`;
+        }).join('');
+
+        // Placeholder para Google Calendar — integración futura vía OAuth
+        const gcalHint = `<div class="sem3-gcal-hint">
+            <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            Conectar Google Calendar (próximamente)
+        </div>`;
+
+        return `<div class="sem3-wrap">
+            <div class="sem3-nav">
+                <button class="sem3-nav-btn" onclick="app.shiftWeek(-1)">‹</button>
+                <span class="sem3-nav-label">${weekLabel}</span>
+                <button class="sem3-nav-btn" onclick="app.shiftWeek(1)">›</button>
+            </div>
+            <div class="sem3-grid">${cols}</div>
+            ${gcalHint}
+        </div>`;
+    }
+
     cycleAttendance(claseId, profileId) {
         const clase = this.data.getClase(claseId);
         if (!clase) return;
@@ -4752,6 +4849,10 @@ class GuitarStudioApp {
         if (card) card.classList.remove('visible');
     }
 
+    // TODO(biblioteca): Los chips de categoría de la biblioteca y el proceso de subida rápida
+    // deben rediseñarse cuando se desarrolle el sistema de Biblioteca completo. Los campos
+    // musicalStyle/type de los items no coinciden con las categorías de clase (Técnica/Lectura/etc.).
+    // Ver también: filterBiblioteca y _uploadLibFile.
     async _renderBibliotecaPanel() {
         const body = document.getElementById('dash-bib-body');
         if (!body) return;
@@ -4849,15 +4950,83 @@ class GuitarStudioApp {
         this.showToast('Contenido agregado', '📎');
     }
 
-    _openEditClaseModal(claseId) {
-        // placeholder — reutiliza el flujo existente de edición si existe, o abre modal básico
+    async _openEditClaseModal(claseId) {
         const clase = this.data.getClase(claseId);
         if (!clase) return;
-        const newTitle = prompt('Nombre de la clase:', clase.title||'');
-        if (newTitle === null) return;
-        clase.title = newTitle.trim() || clase.title;
+        const overlay = document.getElementById('modal-edit-clase');
+        if (!overlay) return;
+
+        const group = this._getGroups().find(g => g.id === clase.groupId) || {};
+        const allProfiles = await this.data.getProfiles();
+        const groupMemberIds = group.memberIds || [];
+        const override = clase.memberOverride; // null | [profileId, ...]
+        const activeIds = new Set(override !== null && override !== undefined ? override : groupMemberIds);
+
+        // Populate date
+        document.getElementById('modal-edit-date').value = clase.date || '';
+        document.getElementById('modal-edit-meeturl').value = clase.meetUrl || '';
+
+        // Populate student list
+        const stuList = document.getElementById('modal-edit-students');
+        stuList.innerHTML = allProfiles.length === 0 && groupMemberIds.length === 0
+            ? '<div class="modal-students-empty">Sin alumnos en el grupo.</div>'
+            : groupMemberIds.map(pid => {
+                const p = allProfiles.find(x => x.id === pid) || { id: pid, name: pid };
+                const checked = activeIds.has(pid);
+                const initial = (p.name||'?')[0].toUpperCase();
+                const color = p.color || '#c0392b';
+                return `<div class="modal-stu-row ${checked?'checked':''}" onclick="app._toggleModalStu(this,'${pid}')">
+                    <div class="modal-stu-cb">${checked?'✓':''}</div>
+                    <div class="modal-stu-av" style="background:${color}">${initial}</div>
+                    <span class="modal-stu-name">${this._escapeHtml(p.name||pid)}</span>
+                </div>`;
+            }).join('');
+
+        overlay.dataset.claseId = claseId;
+        overlay.style.display = 'flex';
+    }
+
+    _toggleModalStu(row, profileId) {
+        row.classList.toggle('checked');
+        const cb = row.querySelector('.modal-stu-cb');
+        if (cb) cb.textContent = row.classList.contains('checked') ? '✓' : '';
+    }
+
+    closeEditClaseModal() {
+        const overlay = document.getElementById('modal-edit-clase');
+        if (overlay) overlay.style.display = 'none';
+    }
+
+    saveEditClase() {
+        const overlay = document.getElementById('modal-edit-clase');
+        if (!overlay) return;
+        const claseId = overlay.dataset.claseId;
+        const clase = this.data.getClase(claseId);
+        if (!clase) return;
+
+        const newDate = document.getElementById('modal-edit-date').value;
+        const newMeet = document.getElementById('modal-edit-meeturl').value.trim();
+        const checkedRows = overlay.querySelectorAll('.modal-stu-row.checked');
+        const checkedIds = Array.from(checkedRows).map(r => {
+            const onclick = r.getAttribute('onclick') || '';
+            const m = onclick.match(/'([^']+)'\)$/);
+            return m ? m[1] : null;
+        }).filter(Boolean);
+
+        const group = this._getGroups().find(g => g.id === clase.groupId) || {};
+        const groupMemberIds = group.memberIds || [];
+        // Si la selección coincide exactamente con los miembros del grupo, limpiamos el override
+        const sameAsGroup = checkedIds.length === groupMemberIds.length &&
+            checkedIds.every(id => groupMemberIds.includes(id));
+
+        if (newDate) clase.date = newDate;
+        clase.meetUrl = newMeet || null;
+        clase.memberOverride = sameAsGroup ? null : checkedIds;
+
         this.data.saveClase(clase);
+        this.closeEditClaseModal();
         this.renderDashboardView();
+        this.showToast('Clase actualizada.', '✓');
     }
 
     async _handleLibDrop(event) {

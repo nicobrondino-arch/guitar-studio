@@ -1,50 +1,33 @@
 /* ==========================================================================
-   Design Tokens & Variables (Inspired by Tonebase)
+   Design Tokens & Variables — tema por defecto
+   (Tango/Folklore/Partitura reservados para el selector de perfil de usuario)
    ========================================================================== */
 :root {
-    --tb-bg-primary: #101012;
-    --tb-bg-secondary: #1c1c1f;
-    --tb-bg-elevated: #26262b;
-    --tb-accent: #E14F3D;
-    --tb-accent-hover: #ff6b5b;
-    --tb-accent-glow: rgba(225, 79, 61, 0.15);
-    --tb-border: #2d2d33;
-    --tb-border-hover: #44444a;
-    --tb-text-primary: #ffffff;
-    --tb-text-secondary: #a1a1a6;
-    --tb-text-muted: #6e6e73;
-    --tb-success: #34c759;
-    --tb-shadow: rgba(0, 0, 0, 0.4);
-    
-    --font-primary: 'Inter', sans-serif;
-    --font-heading: 'Outfit', sans-serif;
-    --transition-fast: 0.15s ease;
-    --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    --sidebar-width: 240px;
-    --border-radius: 12px;
-    --tb-bg-tertiary: #1f1f24;
-}
-
-/* ==========================================================================
-   Temas Visuales — activados con data-theme en <html>
-   ========================================================================== */
-
-/* ── TANGO CLÁSICO — rojo vino · oro · Playfair Display ── */
-[data-theme="tango"] {
     --tb-bg-primary:     #0d0709;
     --tb-bg-secondary:   #1a0c10;
     --tb-bg-elevated:    #261218;
     --tb-bg-tertiary:    #1f1014;
-    --tb-accent:         #C8304A;
+    --tb-accent:         #c0392b;
     --tb-accent-hover:   #e04060;
-    --tb-accent-glow:    rgba(200, 48, 74, 0.15);
+    --tb-accent-glow:    rgba(192, 57, 43, 0.15);
     --tb-border:         #2e1620;
     --tb-border-hover:   #3e2030;
     --tb-text-primary:   #f2e6e8;
     --tb-text-secondary: #9e8a8e;
     --tb-text-muted:     #5e3a42;
+    --tb-success:        #34c759;
+    --tb-shadow:         rgba(0, 0, 0, 0.4);
+    --font-primary:      'Inter', sans-serif;
     --font-heading:      'Playfair Display', Georgia, serif;
+    --transition-fast:   0.15s ease;
+    --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --sidebar-width:     240px;
+    --border-radius:     12px;
 }
+
+/* ==========================================================================
+   Temas Visuales — reservados, se activarán desde el perfil de usuario
+   ========================================================================== */
 
 /* ── FOLKLORE / CAMPO — ámbar tierra · verde · Josefin Sans ── */
 [data-theme="folklore"] {
@@ -5287,7 +5270,7 @@ textarea.form-control {
 
 /* C — TABLERO */
 .tab3-wrap { display: flex; flex-direction: column; gap: 6px; }
-.tab3-group { border-radius: 7px; overflow: hidden; }
+.tab3-group { border-radius: 7px; overflow: visible; }
 .tab3-group-header {
     font: 700 9px Inter, sans-serif;
     text-transform: uppercase;
@@ -5751,3 +5734,324 @@ textarea.form-control {
 }
 .bib3-link-input:focus { border-color: rgba(74,158,255,.4); }
 .bib3-link-input::placeholder { color: var(--tb-text-muted); }
+
+/* ==========================================================================
+   Paneles claros — Col 2 y Col 3 de Mis Clases (fiel al wireframe de Design)
+   ========================================================================== */
+
+/* ── COL 2: fondo blanco ─────────────────────────────────── */
+.clase3-col { background: #fff; border-right: 1px solid #e0e0e0; }
+.clase3-col .h3-title { color: #111; }
+.clase3-col .h3-sub   { color: #aaa; }
+.clase3-col .h3-meet-bar { background: #f5f5f5; border-color: #e0e0e0; }
+.clase3-col .h3-meet-url { color: #888; }
+.clase3-col .h3-meet-icon { color: #bbb; }
+.clase3-col .h3-btn  { background: #f5f5f5; border-color: #ddd; color: #666; }
+.clase3-col .h3-btn:hover { background: #eee; }
+.clase3-col .h3-btn-edit { background: transparent; border-color: transparent; color: #bbb; }
+.clase3-col .h3-btn-pri  { background: #c0392b; color: #fff; border-color: #c0392b; }
+.clase3-col .h3-btn-meet { background: rgba(26,115,232,.1); color: #3b82f6; border-color: rgba(26,115,232,.25); }
+.clase3-col .h3-btn-wa   { background: rgba(37,211,102,.1); color: #25d366; border-color: rgba(37,211,102,.2); }
+
+.clase3-col .sec3-label { color: #bbb; border-top-color: #eee; }
+.clase3-col .sec3-hint  { color: #bbb; }
+.clase3-col .text3-muted { color: #bbb; }
+
+.clase3-col .sec3-resumen-ant { background: #fffbe6; border-color: #f0d060; }
+.clase3-col .sec3-resumen-ant-title { color: #b8860b; }
+.clase3-col .sec3-resumen-ant-body  { color: #666; }
+
+.clase3-col .tab3-group-header.green { background: rgba(52,199,89,.05); border-color: rgba(52,199,89,.15); color: #27ae60; }
+.clase3-col .tab3-group-header.gray  { background: #f9f9f9; border-color: #e8e8e8; color: #999; }
+.clase3-col .tab3-group-header.red   { background: rgba(192,57,43,.05); border-color: rgba(192,57,43,.15); color: #c0392b; }
+.clase3-col .tab3-group-body { border-color: #e8e8e8; }
+.clase3-col .stu3-row { background: #fff; border-bottom-color: #f0f0f0; }
+
+.clase3-col .hc-card { background: #fff; border-color: #e4e4e4; box-shadow: 0 3px 12px rgba(0,0,0,.08); }
+.clase3-col .hc-sep       { color: #e0e0e0; }
+.clase3-col .hc-streak    { color: #888; }
+.clase3-col .hc-att-dot   { background: #ccc; }
+.clase3-col .hc-att-label { color: #aaa; }
+.clase3-col .hc-duda-text { color: #444; }
+
+.clase3-col .att3-pill { background: #fafafa; border-color: #e0e0e0; color: #aaa; }
+.clase3-col .att3-dot  { background: #ccc; }
+
+.clase3-col .ci3-item  { background: #f9f9f9; border-color: #eee; }
+.clase3-col .ci3-title { color: #333; }
+.clase3-col .ci3-rm    { color: #ccc; }
+.clase3-col .ci3-rm:hover { color: #666; }
+
+.clase3-col .cat3-chip span:first-child { color: #c0392b; }
+.clase3-col .cat3-rm   { color: rgba(192,57,43,.4); }
+.clase3-col .cat3-rm:hover { color: #c0392b; }
+.clase3-col .cat3-add  { border-color: #ddd; color: #bbb; }
+.clase3-col .cat3-add:hover { border-color: #bbb; color: #888; }
+
+.clase3-col .sec3-ta { background: #fafafa; border-color: #e0e0e0; color: #aaa; }
+.clase3-col .sec3-ta::placeholder { color: #ccc; }
+
+.clase3-col .obj3-item { background: #f9f9f9; border-color: #eee; }
+.clase3-col .obj3-text { color: #555; }
+.clase3-col .obj3-box  { border-color: #ddd; }
+.clase3-col .obj3-rm   { color: #ccc; }
+.clase3-col .obj3-rm:hover { color: #666; }
+.clase3-col .obj3-input { background: #f5f5f5; border-color: #e0e0e0; color: #333; }
+.clase3-col .obj3-input::placeholder { color: #bbb; }
+.clase3-col .obj3-input:focus { border-color: rgba(26,115,232,.4); background: #fff; }
+
+.clase3-col .finalizar3-bar { background: #f9fafb; border-color: rgba(52,199,89,.2); }
+.clase3-col .finalizar3-hint { color: #aaa; }
+.clase3-col .finalizar3-hint strong { color: #555; }
+
+.clase3-col .prac-legend span { color: #aaa; }
+.clase3-col .hc-prac-dot.full    { background: #34c759; }
+.clase3-col .hc-prac-dot.partial { background: #f5a623; }
+.clase3-col .hc-prac-dot.none    { background: #c0392b; }
+
+/* ── COL 3: fondo gris claro ─────────────────────────────── */
+.bib3-col { background: #fafafa; border-left: 1px solid #e0e0e0; }
+.bib3-col .bib3-loading { color: #bbb; }
+.bib3-col .bib3-search-wrap { background: #fff; border-bottom-color: #e0e0e0; }
+.bib3-col .bib3-search { color: #333; }
+.bib3-col .bib3-search::placeholder { color: #bbb; font-style: italic; }
+.bib3-col .bib3-search-icon { color: #bbb; }
+.bib3-col .bib3-chip { background: #f9f9f9; border-color: #ddd; color: #888; }
+.bib3-col .bib3-chip.active { background: rgba(192,57,43,.08); border-color: rgba(192,57,43,.25); color: #c0392b; }
+.bib3-col .bib3-item:hover { background: #fff; }
+.bib3-col .bib3-title { color: #333; }
+.bib3-col .bib3-upload { background: #fff; border-top-color: #e0e0e0; }
+.bib3-col .bib3-upload-title { color: #bbb; }
+.bib3-col .bib3-dz { border-color: #ddd; }
+.bib3-col .bib3-dz:hover { border-color: #bbb; }
+.bib3-col .bib3-dz-label { color: #aaa; }
+.bib3-col .bib3-dz-sub   { color: #ccc; }
+.bib3-col .bib3-link-input { background: #f5f5f5; border-color: #e0e0e0; color: #333; }
+.bib3-col .bib3-link-input::placeholder { color: #bbb; }
+.bib3-col .bib3-link-input:focus { border-color: rgba(26,115,232,.4); background: #fff; }
+.bib3-col .h3-btn { background: #f5f5f5; border-color: #ddd; color: #666; }
+.bib3-col .h3-btn:hover { background: #eee; }
+
+/* ==========================================================================
+   Tab Semana — grilla semanal en Col 1 (timeline)
+   Preparado para integración futura con Google Calendar
+   ========================================================================== */
+.sem3-wrap { display: flex; flex-direction: column; height: 100%; }
+.sem3-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px 6px;
+    flex-shrink: 0;
+}
+.sem3-nav-btn {
+    background: transparent;
+    border: 1px solid #3e2030;
+    color: #888;
+    border-radius: 4px;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .12s;
+}
+.sem3-nav-btn:hover { background: #1a0c10; }
+.sem3-nav-label { font: 500 9px Inter, sans-serif; color: #5e3a42; text-align: center; }
+
+.sem3-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 2px;
+    padding: 0 6px;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    align-content: start;
+}
+.sem3-col { display: flex; flex-direction: column; gap: 2px; }
+.sem3-col-header {
+    text-align: center;
+    padding: 3px 0 4px;
+    border-bottom: 1px solid #2e1620;
+    margin-bottom: 2px;
+}
+.sem3-col.today .sem3-col-header { border-bottom-color: #c0392b; }
+.sem3-day-name { font: 700 8px Inter, sans-serif; color: #5e3a42; text-transform: uppercase; display: block; }
+.sem3-day-num {
+    font: 600 11px Inter, sans-serif;
+    color: #888;
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    margin-top: 1px;
+}
+.sem3-day-num.today { background: #c0392b; color: #fff; }
+
+.sem3-card {
+    background: #1a0c10;
+    border: 1px solid #2e1620;
+    border-radius: 4px;
+    padding: 4px 5px;
+    cursor: pointer;
+    transition: border-color .12s;
+}
+.sem3-card:hover { border-color: #3e2030; background: #220d14; }
+.sem3-card.selected  { border-color: #c0392b; }
+.sem3-card.iniciada  { border-color: #c0392b; }
+.sem3-card.finalizada { opacity: .6; border-color: #34c759; }
+.sem3-card.new { border-style: dashed; border-color: #3e2030; background: transparent; }
+.sem3-card-time { font: 600 8px Inter, sans-serif; color: #5e3a42; }
+.sem3-card-name { font: 500 9px Inter, sans-serif; color: #e8e0e2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
+.sem3-dot { width: 5px; height: 5px; border-radius: 50%; margin-top: 3px; }
+.sem3-dot.pendiente  { background: #3e2030; }
+.sem3-dot.iniciada   { background: #c0392b; }
+.sem3-dot.finalizada { background: #34c759; }
+.sem3-dot.new        { background: #3b82f6; }
+
+.sem3-gcal-hint {
+    padding: 7px 10px;
+    border-top: 1px solid #2e1620;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font: 400 9px Inter, sans-serif;
+    color: #3e2030;
+    flex-shrink: 0;
+    cursor: default;
+}
+
+/* ==========================================================================
+   Modal — Editar clase
+   ========================================================================== */
+.modal-edit-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.55);
+    z-index: 300;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.modal-edit-panel {
+    background: #fff;
+    border-radius: 12px;
+    width: 460px;
+    max-width: 92vw;
+    box-shadow: 0 20px 60px rgba(0,0,0,.3);
+    overflow: hidden;
+}
+.modal-edit-header {
+    padding: 14px 18px 12px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.modal-edit-title { font: 700 14px Inter, sans-serif; color: #111; }
+.modal-edit-close {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font: 700 20px Inter, sans-serif;
+    color: #bbb;
+    line-height: 1;
+    padding: 0 2px;
+}
+.modal-edit-close:hover { color: #666; }
+.modal-edit-body {
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-height: 65vh;
+    overflow-y: auto;
+}
+.modal-field label {
+    display: block;
+    font: 600 10px Inter, sans-serif;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #888;
+    margin-bottom: 5px;
+}
+.modal-field input[type="date"],
+.modal-field input[type="text"],
+.modal-field input[type="time"] {
+    width: 100%;
+    padding: 7px 10px;
+    background: #f9f9f9;
+    border: 1px solid #e0e0e0;
+    border-radius: 7px;
+    font: 400 12px Inter, sans-serif;
+    color: #333;
+    outline: none;
+}
+.modal-field input:focus { border-color: rgba(26,115,232,.4); background: #fff; }
+
+.modal-students-list { display: flex; flex-direction: column; gap: 4px; }
+.modal-stu-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    background: #f9f9f9;
+    border: 1px solid #eee;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: border-color .12s;
+    user-select: none;
+}
+.modal-stu-row.checked { background: rgba(192,57,43,.04); border-color: rgba(192,57,43,.2); }
+.modal-stu-cb {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border: 1.5px solid #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font: 700 9px Inter, sans-serif;
+    color: transparent;
+}
+.modal-stu-row.checked .modal-stu-cb { background: #c0392b; border-color: #c0392b; color: #fff; }
+.modal-stu-av {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font: 700 9px Inter, sans-serif;
+    color: #fff;
+    flex-shrink: 0;
+}
+.modal-stu-name { font: 500 12px Inter, sans-serif; color: #333; flex: 1; }
+.modal-students-empty { font: 400 12px Inter, sans-serif; color: #bbb; padding: 8px 0; }
+
+.modal-edit-footer {
+    padding: 12px 18px;
+    border-top: 1px solid #eee;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+.modal-btn {
+    padding: 7px 16px;
+    border-radius: 7px;
+    font: 600 11px Inter, sans-serif;
+    cursor: pointer;
+    border: 1px solid #e0e0e0;
+    background: #f5f5f5;
+    color: #666;
+    transition: background .12s;
+}
+.modal-btn:hover { background: #eee; }
+.modal-btn-pri { background: #c0392b; color: #fff; border-color: #c0392b; }
+.modal-btn-pri:hover { background: #a0301e; }
