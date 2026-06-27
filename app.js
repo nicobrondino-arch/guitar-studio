@@ -4226,8 +4226,8 @@ class GuitarStudioApp {
 
                 <!-- H: FINALIZAR -->
                 <div class="finalizar3-bar">
-                    <span class="finalizar3-hint">Disponible para <strong>${members.length} alumno${members.length!==1?'s':''}</strong> al publicar</span>
-                    <button class="finalizar3-btn ${status==='finalizada'?'done':''}" onclick="${status!=='finalizada'?`app.finalizarClase('${claseId}')`:''}">${status==='finalizada'?'✓ Publicada':'✓ Publicar clase'}</button>
+                    <span class="finalizar3-hint">${status==='finalizada'?`Publicada para <strong>${members.length} alumno${members.length!==1?'s':''}</strong> · podés actualizar cuando quieras`:`Disponible para <strong>${members.length} alumno${members.length!==1?'s':''}</strong> al publicar`}</span>
+                    <button class="finalizar3-btn ${status==='finalizada'?'done':''}" onclick="app.finalizarClase('${claseId}')">${status==='finalizada'?'↑ Actualizar publicación':'✓ Publicar clase'}</button>
                 </div>
 
             </div>`;

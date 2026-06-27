@@ -5551,7 +5551,8 @@ textarea.form-control {
     white-space: nowrap;
 }
 .finalizar3-btn:hover { background: #27ae60; }
-.finalizar3-btn.done { background: rgba(52,199,89,.15); color: #34c759; cursor: default; }
+.finalizar3-btn.done { background: rgba(52,199,89,.12); color: #34c759; border: 1px solid rgba(52,199,89,.3); }
+.finalizar3-btn.done:hover { background: rgba(52,199,89,.22); }
 
 /* ── COL 3: BIBLIOTECA ───────────────────────────────────── */
 .bib3-col {
