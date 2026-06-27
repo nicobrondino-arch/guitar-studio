@@ -3973,6 +3973,7 @@ class GuitarStudioApp {
                         <button class="btn-demo-seed" onclick="app.seedDemoData()">Cargar datos de ejemplo</button>
                         ${tlHtml}
                     </div>
+                    ${groups.some(g => g._isDemo) ? `<button class="btn-demo-clear" onclick="app.clearDemoData()">× Borrar datos de prueba</button>` : ''}
                 </div>
 
                 <!-- COL 2: PANEL DE CLASE -->
@@ -4335,12 +4336,6 @@ class GuitarStudioApp {
     }
 
     async seedDemoData() {
-        const existing = this._getGroups();
-        if (existing.length > 0) {
-            this.showToast('Ya hay grupos creados. Borrá los datos antes de cargar el demo.', '⚠️', 4000);
-            return;
-        }
-
         const today = new Date();
         const todayStr = today.toISOString().slice(0, 10);
         const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
@@ -4351,25 +4346,26 @@ class GuitarStudioApp {
         const todayName = dayNames[today.getDay()];
         const tomorrowName = dayNames[tomorrow.getDay()];
 
-        // Alumnos
-        const profiles = [
-            { id: 'p-demo-1', name: 'Santiago García',   color: '#27ae60', createdAt: Date.now() },
-            { id: 'p-demo-2', name: 'Valentina López',   color: '#3b82f6', createdAt: Date.now() },
-            { id: 'p-demo-3', name: 'Matías Herrera',    color: '#8b5cf6', createdAt: Date.now() },
-            { id: 'p-demo-4', name: 'Lucía Fernández',   color: '#f59e0b', createdAt: Date.now() },
-        ];
-        for (const p of profiles) await this.data.saveProfile(p);
+        // Alumnos — marcados con _isDemo para poder borrarlos después
+        for (const p of [
+            { id: 'p-demo-1', name: 'Santiago García',   color: '#27ae60', _isDemo: true, createdAt: Date.now() },
+            { id: 'p-demo-2', name: 'Valentina López',   color: '#3b82f6', _isDemo: true, createdAt: Date.now() },
+            { id: 'p-demo-3', name: 'Matías Herrera',    color: '#8b5cf6', _isDemo: true, createdAt: Date.now() },
+            { id: 'p-demo-4', name: 'Lucía Fernández',   color: '#f59e0b', _isDemo: true, createdAt: Date.now() },
+        ]) await this.data.saveProfile(p);
 
-        // Grupos
+        // Grupos — marcados con _isDemo, se suman a los existentes
+        const existingGroups = this._getGroups().filter(g => !g._isDemo);
         this._saveGroups([
-            { id: 'grp-demo-1', name: 'Técnica Grupal',     day: todayName,    time: '17:00', meetLink: 'meet.google.com/abc-defg-hij', memberIds: ['p-demo-1','p-demo-2','p-demo-3'], createdAt: Date.now() },
-            { id: 'grp-demo-2', name: 'Individual — Lucía', day: tomorrowName, time: '16:00', meetLink: '', memberIds: ['p-demo-4'], createdAt: Date.now() },
-            { id: 'grp-demo-3', name: 'Jazz y Repertorio',  day: 'Miércoles',  time: '18:30', meetLink: 'meet.google.com/xyz-uvwx-yz1', memberIds: ['p-demo-1','p-demo-4'], createdAt: Date.now() },
+            ...existingGroups,
+            { id: 'grp-demo-1', name: 'Técnica Grupal',     day: todayName,    time: '17:00', meetLink: 'meet.google.com/abc-defg-hij', memberIds: ['p-demo-1','p-demo-2','p-demo-3'], _isDemo: true, createdAt: Date.now() },
+            { id: 'grp-demo-2', name: 'Individual — Lucía', day: tomorrowName, time: '16:00', meetLink: '', memberIds: ['p-demo-4'], _isDemo: true, createdAt: Date.now() },
+            { id: 'grp-demo-3', name: 'Jazz y Repertorio',  day: 'Miércoles',  time: '18:30', meetLink: 'meet.google.com/xyz-uvwx-yz1', memberIds: ['p-demo-1','p-demo-4'], _isDemo: true, createdAt: Date.now() },
         ]);
 
-        // Clase finalizada la semana pasada (provee sección B — resumen anterior)
+        // Clases — marcadas con _isDemo
         this.data.saveClase({
-            id: 'clase-demo-0', groupId: 'grp-demo-1', title: 'Técnica Grupal',
+            id: 'clase-demo-0', groupId: 'grp-demo-1', title: 'Técnica Grupal', _isDemo: true,
             date: lastWeekStr, status: 'finalizada', finalizadaAt: Date.now() - 7 * 86400000,
             attendance: { 'p-demo-1': 'presente', 'p-demo-2': 'presente', 'p-demo-3': 'ausente' },
             content: [
@@ -4384,19 +4380,15 @@ class GuitarStudioApp {
             resumenProfesor: 'Buena clase. Santiago avanza bien con la pentatónica. Valentina necesita trabajar el tempo. Matías faltó — llamar antes de la próxima clase.',
             resumen: 'Buena clase. Santiago avanza bien con la pentatónica. Valentina necesita trabajar el tempo.',
         });
-
-        // Clase de hoy
         this.data.saveClase({
-            id: 'clase-demo-1', groupId: 'grp-demo-1', title: 'Técnica Grupal',
+            id: 'clase-demo-1', groupId: 'grp-demo-1', title: 'Técnica Grupal', _isDemo: true,
             date: todayStr, status: 'pendiente',
             attendance: {}, content: [],
             categories: ['Técnica','Lectura','Repertorio','Cont. Complementario'],
             objetivos: [], resumenProfesor: '', resumen: '',
         });
-
-        // Clase de mañana
         this.data.saveClase({
-            id: 'clase-demo-2', groupId: 'grp-demo-2', title: 'Individual — Lucía',
+            id: 'clase-demo-2', groupId: 'grp-demo-2', title: 'Individual — Lucía', _isDemo: true,
             date: tomorrowStr, status: 'pendiente',
             attendance: {}, content: [],
             categories: ['Técnica','Lectura','Repertorio','Cont. Complementario'],
@@ -4405,6 +4397,22 @@ class GuitarStudioApp {
 
         this._currentClaseId = 'clase-demo-1';
         this.showToast('Datos de demo cargados', '✓', 2500);
+        this.renderDashboardView();
+    }
+
+    async clearDemoData() {
+        // Borrar grupos demo
+        this._saveGroups(this._getGroups().filter(g => !g._isDemo));
+        // Borrar clases demo
+        this.data._saveClasesRaw(this.data._getClasesRaw().filter(c => !c._isDemo));
+        // Borrar perfiles demo de IndexedDB
+        const profiles = await this.data.getProfiles();
+        for (const p of profiles.filter(p => p._isDemo)) await this.data.deleteProfile(p.id);
+        // Limpiar selección si era demo
+        if (this._currentClaseId && this._currentClaseId.startsWith('clase-demo-')) {
+            this._currentClaseId = null;
+        }
+        this.showToast('Datos de demo eliminados', '✓', 2500);
         this.renderDashboardView();
     }
 

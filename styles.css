@@ -6071,3 +6071,19 @@ textarea.form-control {
     transition: border-color .15s, color .15s;
 }
 .btn-demo-seed:hover { border-color: #c0392b; color: #c0392b; }
+
+.btn-demo-clear {
+    display: block;
+    width: calc(100% - 20px);
+    margin: 0 10px 10px;
+    padding: 6px 0;
+    background: transparent;
+    border: 1px dashed #3e2030;
+    border-radius: 6px;
+    color: #5e3a42;
+    font: 500 10px Inter, sans-serif;
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+    flex-shrink: 0;
+}
+.btn-demo-clear:hover { border-color: #c0392b; color: #c0392b; }
