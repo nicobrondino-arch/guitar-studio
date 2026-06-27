@@ -6055,3 +6055,18 @@ textarea.form-control {
 .modal-btn:hover { background: #eee; }
 .modal-btn-pri { background: #c0392b; color: #fff; border-color: #c0392b; }
 .modal-btn-pri:hover { background: #a0301e; }
+
+/* Demo seed button — aparece en estado vacío cuando no hay grupos */
+.btn-demo-seed {
+    display: block;
+    margin: 12px auto 0;
+    padding: 6px 14px;
+    background: transparent;
+    border: 1px dashed #3e2030;
+    border-radius: 6px;
+    color: #5e3a42;
+    font: 500 10px Inter, sans-serif;
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+}
+.btn-demo-seed:hover { border-color: #c0392b; color: #c0392b; }

@@ -3957,7 +3957,7 @@ class GuitarStudioApp {
                             <span class="tl3-pill ${it.isNew?'new':it.status}">${it.isNew?'+ Crear clase':it.status==='iniciada'?'En curso':it.status==='finalizada'?'Finalizada':'Pendiente'}</span>
                         </div>
                     </div>`).join('')
-                : `<div class="dash-tl-empty">No hay clases ${tab==='manana'?'mañana':'hoy'}.<br><span>Asigná un día a tus grupos en el Cuaderno.</span></div>`;
+                : `<div class="dash-tl-empty">No hay clases ${tab==='manana'?'mañana':'hoy'}.<br><span>Asigná un día a tus grupos en el Cuaderno.</span>${groups.length===0?'<button class="btn-demo-seed" onclick="app.seedDemoData()">Cargar datos de ejemplo</button>':''}</div>`;
 
         content.innerHTML = `
             <div class="prof-layout-3col">
@@ -4226,8 +4226,8 @@ class GuitarStudioApp {
 
                 <!-- H: FINALIZAR -->
                 <div class="finalizar3-bar">
-                    <span class="finalizar3-hint">Disponible para <strong>${members.length} alumno${members.length!==1?'s':''}</strong> al finalizar</span>
-                    <button class="finalizar3-btn ${status==='finalizada'?'done':''}" onclick="${status!=='finalizada'?`app.finalizarClase('${claseId}')`:''}">${status==='finalizada'?'✓ Finalizada':'✓ Finalizar y publicar'}</button>
+                    <span class="finalizar3-hint">Disponible para <strong>${members.length} alumno${members.length!==1?'s':''}</strong> al publicar</span>
+                    <button class="finalizar3-btn ${status==='finalizada'?'done':''}" onclick="${status!=='finalizada'?`app.finalizarClase('${claseId}')`:''}">${status==='finalizada'?'✓ Publicada':'✓ Publicar clase'}</button>
                 </div>
 
             </div>`;
@@ -4327,8 +4327,83 @@ class GuitarStudioApp {
         const clase = this.data.getClase(claseId);
         if (!clase) return;
         clase.status = 'finalizada';
+        clase.finalizadaAt = Date.now();
         this.data.saveClase(clase);
-        this.showToast('Clase finalizada', '✅');
+        this.showToast('Clase publicada ✓', '✅');
+        this.renderDashboardView();
+    }
+
+    async seedDemoData() {
+        const existing = this._getGroups();
+        if (existing.length > 0) {
+            this.showToast('Ya hay grupos creados. Borrá los datos antes de cargar el demo.', '⚠️', 4000);
+            return;
+        }
+
+        const today = new Date();
+        const todayStr = today.toISOString().slice(0, 10);
+        const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+        const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+        const lastWeek = new Date(today); lastWeek.setDate(today.getDate() - 7);
+        const lastWeekStr = lastWeek.toISOString().slice(0, 10);
+        const dayNames = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+        const todayName = dayNames[today.getDay()];
+        const tomorrowName = dayNames[tomorrow.getDay()];
+
+        // Alumnos
+        const profiles = [
+            { id: 'p-demo-1', name: 'Santiago García',   color: '#27ae60', createdAt: Date.now() },
+            { id: 'p-demo-2', name: 'Valentina López',   color: '#3b82f6', createdAt: Date.now() },
+            { id: 'p-demo-3', name: 'Matías Herrera',    color: '#8b5cf6', createdAt: Date.now() },
+            { id: 'p-demo-4', name: 'Lucía Fernández',   color: '#f59e0b', createdAt: Date.now() },
+        ];
+        for (const p of profiles) await this.data.saveProfile(p);
+
+        // Grupos
+        this._saveGroups([
+            { id: 'grp-demo-1', name: 'Técnica Grupal',     day: todayName,    time: '17:00', meetLink: 'meet.google.com/abc-defg-hij', memberIds: ['p-demo-1','p-demo-2','p-demo-3'], createdAt: Date.now() },
+            { id: 'grp-demo-2', name: 'Individual — Lucía', day: tomorrowName, time: '16:00', meetLink: '', memberIds: ['p-demo-4'], createdAt: Date.now() },
+            { id: 'grp-demo-3', name: 'Jazz y Repertorio',  day: 'Miércoles',  time: '18:30', meetLink: 'meet.google.com/xyz-uvwx-yz1', memberIds: ['p-demo-1','p-demo-4'], createdAt: Date.now() },
+        ]);
+
+        // Clase finalizada la semana pasada (provee sección B — resumen anterior)
+        this.data.saveClase({
+            id: 'clase-demo-0', groupId: 'grp-demo-1', title: 'Técnica Grupal',
+            date: lastWeekStr, status: 'finalizada', finalizadaAt: Date.now() - 7 * 86400000,
+            attendance: { 'p-demo-1': 'presente', 'p-demo-2': 'presente', 'p-demo-3': 'ausente' },
+            content: [
+                { id: 'ci-d-1', title: 'Escala pentatónica menor', cat: 'Técnica', type: 'text' },
+                { id: 'ci-d-2', title: 'Sultans of Swing — intro', cat: 'Repertorio', type: 'text' },
+            ],
+            categories: ['Técnica','Lectura','Repertorio','Cont. Complementario'],
+            objetivos: [
+                { id: 'obj-d-1', text: 'Practicar escala pentatónica 10 min/día con metrónomo a 80 BPM' },
+                { id: 'obj-d-2', text: 'Memorizar los primeros 8 compases del intro de Sultans of Swing' },
+            ],
+            resumenProfesor: 'Buena clase. Santiago avanza bien con la pentatónica. Valentina necesita trabajar el tempo. Matías faltó — llamar antes de la próxima clase.',
+            resumen: 'Buena clase. Santiago avanza bien con la pentatónica. Valentina necesita trabajar el tempo.',
+        });
+
+        // Clase de hoy
+        this.data.saveClase({
+            id: 'clase-demo-1', groupId: 'grp-demo-1', title: 'Técnica Grupal',
+            date: todayStr, status: 'pendiente',
+            attendance: {}, content: [],
+            categories: ['Técnica','Lectura','Repertorio','Cont. Complementario'],
+            objetivos: [], resumenProfesor: '', resumen: '',
+        });
+
+        // Clase de mañana
+        this.data.saveClase({
+            id: 'clase-demo-2', groupId: 'grp-demo-2', title: 'Individual — Lucía',
+            date: tomorrowStr, status: 'pendiente',
+            attendance: {}, content: [],
+            categories: ['Técnica','Lectura','Repertorio','Cont. Complementario'],
+            objetivos: [], resumenProfesor: '', resumen: '',
+        });
+
+        this._currentClaseId = 'clase-demo-1';
+        this.showToast('Datos de demo cargados', '✓', 2500);
         this.renderDashboardView();
     }
 
