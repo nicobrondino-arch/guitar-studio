@@ -2421,8 +2421,8 @@ textarea.form-control {
     left: var(--sidebar-width);
     width: 28px;
     height: 48px;
-    background-color: var(--tb-bg-secondary);
-    border: 1px solid var(--tb-border);
+    background-color: #1a1b1c;
+    border: 1px solid rgba(255,255,255,.06);
     border-left: none;
     border-radius: 0 8px 8px 0;
     display: flex;
