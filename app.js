@@ -4081,7 +4081,7 @@ class GuitarStudioApp {
         // ── C) TABLERO DE CONTROL ──
         const buildAttGroup = (label, colorKey, mlist) => {
             if (!mlist.length) return '';
-            const rows = mlist.map(m => {
+            const cards = mlist.map(m => {
                 const streak = this.data.getProfileStreak(m.id);
                 const lastReset = this.data.getProfileLastResetCheck(m.id);
                 const raw = this.data.getProfileCompletedSteps(m.id);
@@ -4115,26 +4115,21 @@ class GuitarStudioApp {
                         ${dudaHtml}
                     </div>`;
 
-                const att = (clase.attendance||{})[m.id] || null;
-                const attPill = att === 'presente'
-                    ? `<div class="att3-pill present"><div class="att3-dot present"></div>Presente</div>`
-                    : att === 'ausente'
-                    ? `<div class="att3-pill absent"><div class="att3-dot absent"></div>Ausente</div>`
-                    : `<div class="att3-pill" onclick="app.cycleAttendance('${claseId}','${m.id}')"><div class="att3-dot"></div>Marcar</div>`;
-
                 const nameColor = pracDot === 'full' ? '#34c759' : pracDot === 'partial' ? '#f5a623' : '#c0392b';
+                const firstName = (m.name||'').split(' ')[0];
 
-                return `<div class="stu3-row" id="stu3-${m.id}">
+                return `<div class="stu3-card" id="stu3-${m.id}"
+                        onclick="app.cycleAttendance('${claseId}','${m.id}')"
+                        onmouseenter="app._showHoverCard('${m.id}')"
+                        onmouseleave="app._hideHoverCard('${m.id}')">
                     <div class="stu3-av" style="background:${m.color||'#6366f1'}">${(m.name||'?')[0].toUpperCase()}</div>
-                    <span class="stu3-name" style="color:${nameColor}" onmouseenter="app._showHoverCard('${m.id}')" onmouseleave="app._hideHoverCard('${m.id}')" onclick="app.cycleAttendance('${claseId}','${m.id}')">${this._escapeHtml(m.name)}</span>
-                    <div style="flex:1"></div>
-                    <div onclick="app.cycleAttendance('${claseId}','${m.id}')" id="att3-pill-${m.id}">${attPill}</div>
+                    <span class="stu3-cname" style="color:${nameColor}">${this._escapeHtml(firstName)}</span>
                     ${hoverCard}
                 </div>`;
             }).join('');
             return `<div class="tab3-group">
                 <div class="tab3-group-header ${colorKey}">${label} — ${mlist.length}</div>
-                <div class="tab3-group-body">${rows}</div>
+                <div class="tab3-group-body tab3-cards">${cards}</div>
             </div>`;
         };
 
@@ -4144,7 +4139,7 @@ class GuitarStudioApp {
 
         const tableroHtml = [
             buildAttGroup('Presentes', 'green', presentes),
-            buildAttGroup('Sin marcar', 'gray', sinMarcar),
+            buildAttGroup('Ausentes', 'red', ausentes),
             buildAttGroup('Ausentes', 'red', ausentes),
         ].join('') || '<p class="text3-muted">Sin alumnos en este grupo</p>';
 
@@ -4873,16 +4868,8 @@ class GuitarStudioApp {
         const cur = clase.attendance[profileId] || null;
         clase.attendance[profileId] = cur === null ? 'presente' : cur === 'presente' ? 'ausente' : null;
         this.data.saveClase(clase);
-        // re-render tablero inline sin full refresh
-        const pillEl = document.getElementById(`att3-pill-${profileId}`);
-        if (pillEl) {
-            const next = clase.attendance[profileId];
-            pillEl.innerHTML = next === 'presente'
-                ? `<div class="att3-pill present"><div class="att3-dot present"></div>Presente</div>`
-                : next === 'ausente'
-                ? `<div class="att3-pill absent"><div class="att3-dot absent"></div>Ausente</div>`
-                : `<div class="att3-pill" onclick="app.cycleAttendance('${claseId}','${profileId}')"><div class="att3-dot"></div>Marcar</div>`;
-        }
+        // Re-render el panel completo para mover el card al grupo correcto
+        this._renderClaseDetail(claseId);
     }
 
     removeCategory(claseId, cat) {
@@ -5057,8 +5044,6 @@ class GuitarStudioApp {
         if (allProfiles.length === 0) {
             stuList.innerHTML = '<div class="modal-students-empty">No hay alumnos creados aún.</div>';
         } else {
-            const inGroup = allProfiles.filter(p => groupMemberIds.includes(p.id));
-            const others  = allProfiles.filter(p => !groupMemberIds.includes(p.id));
             const renderRow = p => {
                 const checked = activeIds.has(p.id);
                 const initial = (p.name||'?')[0].toUpperCase();
@@ -5069,9 +5054,14 @@ class GuitarStudioApp {
                     <span class="modal-stu-name">${this._escapeHtml(p.name||p.id)}</span>
                 </div>`;
             };
-            stuList.innerHTML =
-                (inGroup.length ? `<div class="modal-stu-section">Del grupo</div>${inGroup.map(renderRow).join('')}` : '') +
-                (others.length  ? `<div class="modal-stu-section">Otros alumnos</div>${others.map(renderRow).join('')}` : '');
+            // Checked → "Del grupo", unchecked → "Otros alumnos"
+            const checked   = allProfiles.filter(p => activeIds.has(p.id));
+            const unchecked = allProfiles.filter(p => !activeIds.has(p.id));
+            stuList.innerHTML = `
+                <div class="modal-stu-section" id="ms-in-label" ${!checked.length ? 'style="display:none"' : ''}>Del grupo</div>
+                <div id="ms-in">${checked.map(renderRow).join('')}</div>
+                <div class="modal-stu-section" id="ms-out-label" ${!unchecked.length ? 'style="display:none"' : ''}>Otros alumnos</div>
+                <div id="ms-out">${unchecked.map(renderRow).join('')}</div>`;
         }
 
         overlay.dataset.claseId = claseId;
@@ -5081,7 +5071,22 @@ class GuitarStudioApp {
     _toggleModalStu(row) {
         row.classList.toggle('checked');
         const cb = row.querySelector('.modal-stu-cb');
-        if (cb) cb.textContent = row.classList.contains('checked') ? '✓' : '';
+        const isChecked = row.classList.contains('checked');
+        if (cb) cb.textContent = isChecked ? '✓' : '';
+
+        const inContainer  = document.getElementById('ms-in');
+        const outContainer = document.getElementById('ms-out');
+        const inLabel      = document.getElementById('ms-in-label');
+        const outLabel     = document.getElementById('ms-out-label');
+        if (!inContainer || !outContainer) return;
+
+        if (isChecked) {
+            inContainer.appendChild(row);
+        } else {
+            outContainer.appendChild(row);
+        }
+        if (inLabel)  inLabel.style.display  = inContainer.children.length  ? '' : 'none';
+        if (outLabel) outLabel.style.display = outContainer.children.length ? '' : 'none';
     }
 
     closeEditClaseModal() {

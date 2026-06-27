@@ -5281,48 +5281,65 @@ textarea.form-control {
 .tab3-group-header.green { background: rgba(52,199,89,.05); border: 1px solid rgba(52,199,89,.15); color: #27ae60; }
 .tab3-group-header.gray  { background: #f9f9f9; border: 1px solid #e8e8e8; color: #999; }
 .tab3-group-header.red   { background: rgba(192,57,43,.05); border: 1px solid rgba(192,57,43,.15); color: var(--tb-accent); }
-.tab3-group-body { border-left: 1px solid var(--tb-border); border-right: 1px solid var(--tb-border); border-bottom: 1px solid var(--tb-border); border-radius: 0 0 7px 7px; }
-
-.stu3-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 10px;
-    background: var(--tb-bg-primary);
-    position: relative;
+.tab3-group-body {
+    border-left: 1px solid var(--tb-border);
+    border-right: 1px solid var(--tb-border);
     border-bottom: 1px solid var(--tb-border);
+    border-radius: 0 0 7px 7px;
 }
-.stu3-row:last-child { border-bottom: none; border-radius: 0 0 7px 7px; }
+.tab3-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 10px;
+}
+
+/* Compact student card (presentismo) */
+.stu3-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 10px 7px;
+    background: var(--tb-bg-elevated);
+    border: 1px solid var(--tb-border);
+    border-radius: 8px;
+    cursor: pointer;
+    position: relative;
+    transition: border-color .12s, background .12s;
+    min-width: 58px;
+    user-select: none;
+}
+.stu3-card:hover { border-color: var(--tb-border-hover); background: var(--tb-bg-secondary); }
 
 .stu3-av {
-    width: 26px;
-    height: 26px;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font: 700 10px Inter, sans-serif;
+    font: 700 12px Inter, sans-serif;
     color: #fff;
     flex-shrink: 0;
 }
-.stu3-name {
-    font: 600 12px Inter, sans-serif;
-    cursor: pointer;
-    border-bottom: 1px dashed currentColor;
-    transition: opacity .15s;
+.stu3-cname {
+    font: 500 10px Inter, sans-serif;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    max-width: 64px;
+    text-align: center;
 }
-.stu3-name:hover { opacity: .75; }
 
-/* Hover card */
+/* Hover card — aparece debajo del card */
 .hc-card {
     display: none;
     position: absolute;
-    top: calc(100% + 4px);
-    left: 36px;
-    right: 10px;
+    top: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 220px;
     z-index: 50;
     background: var(--tb-bg-primary);
     border: 1px solid var(--tb-border);
@@ -5331,6 +5348,7 @@ textarea.form-control {
     box-shadow: 0 4px 16px rgba(0,0,0,.25);
     flex-direction: column;
     gap: 6px;
+    pointer-events: none;
 }
 .hc-card.visible { display: flex; }
 
@@ -5766,7 +5784,8 @@ textarea.form-control {
 .clase3-col .tab3-group-header.gray  { background: #f9f9f9; border-color: #e8e8e8; color: #999; }
 .clase3-col .tab3-group-header.red   { background: rgba(192,57,43,.05); border-color: rgba(192,57,43,.15); color: #c0392b; }
 .clase3-col .tab3-group-body { border-color: #e8e8e8; }
-.clase3-col .stu3-row { background: #fff; border-bottom-color: #f0f0f0; }
+.clase3-col .stu3-card { background: #f9f9f9; border-color: #eee; }
+.clase3-col .stu3-card:hover { background: #f0f0f0; border-color: #ddd; }
 
 .clase3-col .hc-card { background: #fff; border-color: #e4e4e4; box-shadow: 0 3px 12px rgba(0,0,0,.08); }
 .clase3-col .hc-sep       { color: #e0e0e0; }
