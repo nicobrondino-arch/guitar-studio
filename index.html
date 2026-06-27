@@ -1032,9 +1032,15 @@
                 <button class="modal-edit-close" onclick="app.closeEditClaseModal()">×</button>
             </div>
             <div class="modal-edit-body">
-                <div class="modal-field">
-                    <label>Fecha</label>
-                    <input type="date" id="modal-edit-date">
+                <div class="modal-field" style="display:flex;gap:10px">
+                    <div style="flex:1">
+                        <label>Fecha</label>
+                        <input type="date" id="modal-edit-date">
+                    </div>
+                    <div style="width:110px">
+                        <label>Hora</label>
+                        <input type="time" id="modal-edit-time">
+                    </div>
                 </div>
                 <div class="modal-field">
                     <label>Link de Meet (sobreescribe el del grupo)</label>

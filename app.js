@@ -5037,8 +5037,9 @@ class GuitarStudioApp {
         const override = clase.memberOverride; // null | [profileId, ...]
         const activeIds = new Set(override !== null && override !== undefined ? override : groupMemberIds);
 
-        // Populate date
+        // Populate date, time, meetUrl
         document.getElementById('modal-edit-date').value = clase.date || '';
+        document.getElementById('modal-edit-time').value = clase.time || group.time || '';
         document.getElementById('modal-edit-meeturl').value = clase.meetUrl || '';
 
         // Populate student list
@@ -5094,7 +5095,9 @@ class GuitarStudioApp {
         const sameAsGroup = checkedIds.length === groupMemberIds.length &&
             checkedIds.every(id => groupMemberIds.includes(id));
 
+        const newTime = document.getElementById('modal-edit-time').value;
         if (newDate) clase.date = newDate;
+        if (newTime) clase.time = newTime;
         clase.meetUrl = newMeet || null;
         clase.memberOverride = sameAsGroup ? null : checkedIds;
 
