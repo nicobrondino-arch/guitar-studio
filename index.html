@@ -169,15 +169,6 @@
                                 <span class="nav-text">Clases</span>
                             </a>
                         </li>
-                        <li class="nav-item nav-item-professor" data-view="library">
-                            <a href="#library">
-                                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-                                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-                                </svg>
-                                <span class="nav-text">Contenido</span>
-                            </a>
-                        </li>
                         <li class="nav-item nav-item-professor" data-view="biblioteca">
                             <a href="#biblioteca">
                                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1084,19 +1075,14 @@
             </div>
             <div class="modal-form-row">
                 <label class="modal-label">Categoría *</label>
-                <div class="bib-toggle-group" id="bib-cat-category">
-                    <button class="bib-toggle" data-val="technique" onclick="app.bibCatToggle('category','technique')">Técnica</button>
-                    <button class="bib-toggle" data-val="reading" onclick="app.bibCatToggle('category','reading')">Lectura</button>
-                    <button class="bib-toggle" data-val="repertoire" onclick="app.bibCatToggle('category','repertoire')">Repertorio</button>
-                    <button class="bib-toggle" data-val="complementary" onclick="app.bibCatToggle('category','complementary')">Complementario</button>
-                </div>
+                <div class="bib-toggle-group" id="bib-cat-category"><!-- llenado dinámicamente desde categorías por defecto --></div>
             </div>
             <div class="modal-form-row">
                 <label class="modal-label">Nivel *</label>
                 <div class="bib-radio-group">
-                    <label class="bib-radio-opt"><input type="radio" name="bib-level" value="beginner"> Principiante</label>
-                    <label class="bib-radio-opt"><input type="radio" name="bib-level" value="intermediate"> Intermedio</label>
-                    <label class="bib-radio-opt"><input type="radio" name="bib-level" value="advanced"> Avanzado</label>
+                    <label class="bib-radio-opt"><input type="radio" name="bib-level" value="inicial"> Inicial</label>
+                    <label class="bib-radio-opt"><input type="radio" name="bib-level" value="intermedio"> Intermedio</label>
+                    <label class="bib-radio-opt"><input type="radio" name="bib-level" value="avanzado"> Avanzado</label>
                 </div>
             </div>
             <div class="modal-form-row">
@@ -1135,6 +1121,104 @@
             <div class="modal-actions">
                 <button class="btn btn-outline" onclick="app.bibCloseNuevaClaseModal()">Cancelar</button>
                 <button class="btn btn-primary" onclick="app.bibStartDesdePlantilla()">Continuar →</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: NUEVO ALUMNO (biblioteca) -->
+    <div class="modal-overlay" id="bib-alumno-modal" style="display:none" onclick="if(event.target===this)app.bibCloseAlumnoModal()">
+        <div class="modal-box">
+            <h3 class="modal-title">Nuevo alumno</h3>
+            <div class="modal-form-row">
+                <label class="modal-label">Nombre *</label>
+                <input type="text" class="form-input" id="bib-alumno-name" placeholder="Ej. Juana Pérez" onkeydown="if(event.key==='Enter')app.bibSaveAlumno()">
+            </div>
+            <div class="modal-form-row">
+                <label class="modal-label">Color</label>
+                <input type="color" class="form-input" id="bib-alumno-color" value="#6366f1" style="height:40px;padding:4px">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-outline" onclick="app.bibCloseAlumnoModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="app.bibSaveAlumno()">Crear alumno</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: NUEVO CURSO (biblioteca) -->
+    <div class="modal-overlay" id="bib-curso-modal" style="display:none" onclick="if(event.target===this)app.bibCloseCursoModal()">
+        <div class="modal-box modal-wide">
+            <h3 class="modal-title">Nuevo curso</h3>
+            <div class="modal-form-row">
+                <label class="modal-label">Nombre *</label>
+                <input type="text" class="form-input" id="bib-curso-name" placeholder="Ej. Folklore Miércoles">
+            </div>
+            <div class="bib-curso-row">
+                <div class="modal-form-row" style="flex:1">
+                    <label class="modal-label">Día</label>
+                    <select class="form-select" id="bib-curso-day">
+                        <option value="">Sin definir</option>
+                        <option>Lunes</option><option>Martes</option><option>Miércoles</option>
+                        <option>Jueves</option><option>Viernes</option><option>Sábado</option><option>Domingo</option>
+                    </select>
+                </div>
+                <div class="modal-form-row" style="flex:1">
+                    <label class="modal-label">Horario</label>
+                    <input type="time" class="form-input" id="bib-curso-time">
+                </div>
+            </div>
+            <div class="modal-form-row">
+                <label class="modal-label">Link de Google Meet</label>
+                <input type="text" class="form-input" id="bib-curso-meet" placeholder="https://meet.google.com/...">
+            </div>
+            <div class="modal-form-row">
+                <label class="modal-label">Alumnos</label>
+                <div class="bib-members-grid" id="bib-curso-members"></div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-outline" onclick="app.bibCloseCursoModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="app.bibSaveCurso()">Crear curso</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: EDITOR DE CATEGORÍAS (biblioteca) -->
+    <div class="modal-overlay" id="bib-cat-editor-modal" style="display:none" onclick="if(event.target===this)app.bibCloseCatEditor()">
+        <div class="modal-box">
+            <h3 class="modal-title">Categorías</h3>
+            <p class="bib-cat-editor-sub" id="bib-cat-editor-label"></p>
+            <div class="bib-cat-editor-list" id="bib-cat-editor-list"></div>
+            <div class="bib-cat-editor-add">
+                <input type="text" class="form-input" id="bib-cat-editor-input" placeholder="Nueva categoría…" onkeydown="if(event.key==='Enter'){event.preventDefault();app.bibCatEditorAdd()}">
+                <button class="btn btn-outline btn-sm" onclick="app.bibCatEditorAdd()">+ Agregar</button>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-outline" onclick="app.bibCloseCatEditor()">Cancelar</button>
+                <button class="btn btn-primary" onclick="app.bibCatEditorSave()">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: EDITOR DE PLANTILLA (biblioteca) -->
+    <div class="modal-overlay" id="bib-tpl-editor-modal" style="display:none" onclick="if(event.target===this)app.bibCloseTplEditor()">
+        <div class="modal-box modal-wide">
+            <h3 class="modal-title">Plantilla</h3>
+            <div class="modal-form-row">
+                <label class="modal-label">Nombre *</label>
+                <input type="text" class="form-input" id="bib-tpl-name" placeholder="Ej. Rutina técnica inicial">
+            </div>
+            <div class="modal-form-row">
+                <label class="modal-label">Ítems</label>
+                <div class="bib-tpl-items-list" id="bib-tpl-items-list"></div>
+            </div>
+            <div class="bib-tpl-add-row">
+                <select class="form-select" id="bib-tpl-item-select" style="flex:2"></select>
+                <select class="form-select" id="bib-tpl-cat-select" style="flex:1"></select>
+                <button class="btn btn-outline btn-sm" onclick="app.bibTplAddItem()">+ Agregar</button>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-danger btn-sm" id="bib-tpl-delete-btn" style="margin-right:auto;display:none" onclick="app.bibDeleteTemplate()">Eliminar</button>
+                <button class="btn btn-outline" onclick="app.bibCloseTplEditor()">Cancelar</button>
+                <button class="btn btn-primary" onclick="app.bibSaveTemplate()">Guardar plantilla</button>
             </div>
         </div>
     </div>

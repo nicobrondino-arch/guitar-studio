@@ -388,6 +388,21 @@ class DataService {
     }
 
     // ==========================================================================
+    // Categorías por defecto — localStorage gs-default-categories
+    // ==========================================================================
+    getDefaultCategories() {
+        try {
+            const raw = JSON.parse(localStorage.getItem('gs-default-categories'));
+            return Array.isArray(raw) && raw.length ? raw : ['Técnica', 'Lectura', 'Repertorio', 'Cont. Complementario'];
+        } catch {
+            return ['Técnica', 'Lectura', 'Repertorio', 'Cont. Complementario'];
+        }
+    }
+    setDefaultCategories(arr) {
+        localStorage.setItem('gs-default-categories', JSON.stringify(arr));
+    }
+
+    // ==========================================================================
     // Plantillas de clase — localStorage gs-templates
     // ==========================================================================
     getTemplates() {
