@@ -6377,6 +6377,10 @@ textarea.form-control {
 .bib-tpl-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--tb-accent); }
 .bib-tpl-new { border-style: dashed; color: var(--tb-text-muted); }
 .bib-tpl-new:hover { border-color: var(--tb-accent); color: var(--tb-accent); }
+.bib-tpl-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
+.nb-tpl-card-new { border-style: dashed !important; cursor: pointer; }
+.nb-tpl-card-new:hover { border-color: var(--tb-accent) !important; }
+.nb-tpl-card-new:hover .nb-tpl-name { color: var(--tb-accent) !important; }
 
 /* ── Estado 2: sidebar split ── */
 .bib-layout-estado2 { }
