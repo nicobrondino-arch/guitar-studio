@@ -6917,7 +6917,6 @@ class GuitarStudioApp {
     ${isReadOnly ? '' : `
     <div class="bib-bottom-zone">
       ${this._bibRenderUploadZone()}
-      ${this._bibRenderTemplatesZone()}
     </div>`}
   </div>
 </div>`;
@@ -7224,40 +7223,7 @@ class GuitarStudioApp {
 </div>`;
     }
 
-    _bibRenderTemplatesZone() {
-        const templates = this.data.getTemplates();
-        const cards = templates.map(t => {
-            const items = t.items || [];
-            // Agrupar por categoría para mostrar conteo
-            const byCat = {};
-            items.forEach(it => {
-                const cat = it.cat || 'Sin categoría';
-                byCat[cat] = (byCat[cat] || 0) + 1;
-            });
-            const catRows = Object.entries(byCat).map(([cat, count]) => {
-                const color = this._bibCatColor(cat);
-                return `<div class="nb-tpl-cat-row"><span style="color:${color}">${this._escapeHtml(cat)}</span><span>${count} ítem${count !== 1 ? 's' : ''}</span></div>`;
-            }).join('');
-            const emptyMsg = items.length === 0 ? `<div class="nb-tpl-cat-row"><em style="color:var(--tb-text-muted);font-size:10px">Sin ítems — editá para agregar</em></div>` : '';
-            return `<div class="nb-tpl-card" onclick="app.bibEditTemplate('${t.id}')">
-  <div class="nb-tpl-dot" style="background:var(--tb-accent)"></div>
-  <div class="nb-tpl-name">${this._escapeHtml(t.name)}</div>
-  <div class="nb-tpl-meta">${items.length} ítem${items.length !== 1 ? 's' : ''} en total</div>
-  <div class="nb-tpl-cats">${catRows}${emptyMsg}</div>
-  <button onclick="event.stopPropagation();app.bibDeleteTemplate('${t.id}')" class="nb-tpl-del" title="Eliminar plantilla">×</button>
-</div>`;
-        }).join('');
-        const newCard = `<div class="nb-tpl-card nb-tpl-card-new" onclick="app.bibNewTemplate()">
-  <div class="nb-tpl-dot" style="background:var(--tb-border)"></div>
-  <div class="nb-tpl-name" style="color:var(--tb-text-muted)">+ Nueva plantilla</div>
-  <div class="nb-tpl-meta" style="color:var(--tb-text-muted)">Crea un set reutilizable</div>
-</div>`;
-        return `<div class="bib-templates-zone">
-  <div class="bib-zone-header">Plantillas</div>
-  <p class="bib-tpl-desc">Pre-armá conjuntos de ejercicios para reutilizar al crear clases y sesiones</p>
-  <div class="bib-tpl-cards">${cards}${newCard}</div>
-</div>`;
-    }
+
 
 
 
