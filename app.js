@@ -1773,7 +1773,7 @@ class GuitarStudioApp {
         });
 
         // Guardar anotaciones del cuaderno
-        document.getElementById("btn-save-notes").addEventListener("click", () => this.saveTeacherNotes());
+        document.getElementById("btn-save-notes")?.addEventListener("click", () => this.saveTeacherNotes());
 
         // Botón Nueva Semana
         const btnNewWeek = document.getElementById("btn-new-week");
