@@ -5031,10 +5031,11 @@ class GuitarStudioApp {
         const container = document.getElementById("view-my-library");
         if (!container) return;
 
-        if (!this.activeProfile) {
-            container.innerHTML = `<p class="text-muted" style="padding:24px">Seleccioná un perfil de alumno para ver tu biblioteca.</p>`;
-            return;
-        }
+        try {
+            if (!this.activeProfile) {
+                container.innerHTML = `<p class="text-muted" style="padding:24px">Seleccioná un perfil de alumno para ver tu biblioteca.</p>`;
+                return;
+            }
 
         const [allItems, allWeekItems, profileWeeks] = await Promise.all([
             this.data.getLibraryItems(),
@@ -5294,7 +5295,16 @@ class GuitarStudioApp {
                 </div>
             </div>
         `;
-        this._myLibBindEvents();
+            this._myLibBindEvents();
+        } catch (error) {
+            console.error("Error en renderMyLibraryView:", error);
+            container.innerHTML = `
+                <div style="padding: 24px; color: var(--tb-accent); background: rgba(229, 62, 62, 0.1); border: 1px solid var(--tb-accent); border-radius: 8px; margin: 20px">
+                    <h3>⚠️ Error en la Biblioteca del Alumno</h3>
+                    <p style="font-family: monospace; font-size: 13px; white-space: pre-wrap">${error.stack || error.message || error}</p>
+                </div>
+            `;
+        }
     }
 
     myLibSetViewMode(mode) {
