@@ -550,4 +550,86 @@ class DataService {
     setFichaFields(arr) {
         localStorage.setItem('gs-ficha-fields', JSON.stringify(arr));
     }
+
+    // ==========================================================================
+    // Grupos/Cursos — localStorage gs-groups
+    // ==========================================================================
+    _getGroupsRaw() {
+        try { return JSON.parse(localStorage.getItem('gs-groups') || '[]'); } catch { return []; }
+    }
+    _saveGroupsRaw(arr) {
+        localStorage.setItem('gs-groups', JSON.stringify(arr));
+    }
+    getAllGroups() {
+        return this._getGroupsRaw();
+    }
+    getGroup(id) {
+        return this._getGroupsRaw().find(g => g.id === id) || null;
+    }
+    saveGroup(group) {
+        const arr = this._getGroupsRaw().filter(g => g.id !== group.id);
+        arr.push(group);
+        this._saveGroupsRaw(arr);
+    }
+    deleteGroup(id) {
+        this._saveGroupsRaw(this._getGroupsRaw().filter(g => g.id !== id));
+    }
+
+    // ==========================================================================
+    // Migración de Plantillas de clase a esquema unificado v2 (items:[{libraryItemId,cat}])
+    // ==========================================================================
+    migrateTemplatesFormat() {
+        const rawTemplates = localStorage.getItem('gs-templates');
+        if (!rawTemplates) return;
+
+        let templates = [];
+        try {
+            templates = JSON.parse(rawTemplates);
+        } catch {
+            return;
+        }
+
+        if (!Array.isArray(templates) || templates.length === 0) return;
+
+        // Validar si es necesario migrar (si al menos una tiene la estructura vieja "content")
+        const needsMigration = templates.some(t => t.content && (t.content.technique || t.content.reading || t.content.repertoire));
+        if (!needsMigration) return;
+
+        // 1. Crear backup en gs-templates-backup si no existe ya
+        if (!localStorage.getItem('gs-templates-backup')) {
+            localStorage.setItem('gs-templates-backup', rawTemplates);
+        }
+
+        // 2. Ejecutar la migración de forma no-destructiva e idempotente
+        const migrated = templates.map(t => {
+            if (!t.content) return t;
+            
+            const newItems = t.items ? [...t.items] : [];
+            const cats = {
+                technique: 'Técnica',
+                reading: 'Lectura',
+                repertoire: 'Repertorio'
+            };
+
+            for (const [oldCat, newCat] of Object.entries(cats)) {
+                const oldList = t.content[oldCat];
+                if (Array.isArray(oldList)) {
+                    oldList.forEach(itemId => {
+                        // Idempotencia: Verificar que no esté duplicado
+                        const exists = newItems.some(ti => ti.libraryItemId === itemId && ti.cat === newCat);
+                        if (!exists) {
+                            newItems.push({ libraryItemId: itemId, cat: newCat });
+                        }
+                    });
+                }
+            }
+
+            t.items = newItems;
+            // No borramos t.content viejo, se conserva no-destructivamente
+            return t;
+        });
+
+        localStorage.setItem('gs-templates', JSON.stringify(migrated));
+    }
 }
+

@@ -740,6 +740,9 @@ class GuitarStudioApp {
         // Inicializar DataService (IndexedDB)
         await this.data.init();
 
+        // Ejecutar migración de plantillas a formato v2 (idempotente)
+        this.data.migrateTemplatesFormat();
+
         // Cargar idioma
         this.lang = this.data.getLang();
 
