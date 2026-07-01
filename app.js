@@ -5079,10 +5079,10 @@ class GuitarStudioApp {
         const searchVal = (this._myLibSearch || '').toLowerCase().trim();
         const matchesSearch = (item) => {
             if (!searchVal) return true;
-            return (item.title || '').toLowerCase().includes(searchVal) ||
-                   (item.category || '').toLowerCase().includes(searchVal) ||
-                   (item.level || '').toLowerCase().includes(searchVal) ||
-                   (item.style || '').toLowerCase().includes(searchVal);
+            return String(item.title || '').toLowerCase().includes(searchVal) ||
+                   String(item.category || '').toLowerCase().includes(searchVal) ||
+                   String(item.level || '').toLowerCase().includes(searchVal) ||
+                   String(item.style || '').toLowerCase().includes(searchVal);
         };
 
         const generalAssignedItems = assignedItems.filter(it => !classItemIds.has(it.id));
@@ -6249,7 +6249,7 @@ class GuitarStudioApp {
 
     // --- Categorías (strings libres, color por nombre) ---
     _bibCatColor(name) {
-        const n = (name || '').toLowerCase().trim();
+        const n = String(name || '').toLowerCase().trim();
         const map = {
             'técnica': '#a29bfe', 'tecnica': '#a29bfe',
             'lectura': '#55efc4',
