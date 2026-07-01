@@ -1360,14 +1360,25 @@ class GuitarStudioApp {
             { key: 1, label: 'Lectura Musical', color: '#55efc4', borderColor: 'rgba(85,239,196,.2)'  },
             { key: 2, label: 'Repertorio',      color: '#fdcb6e', borderColor: 'rgba(253,203,110,.2)' },
         ];
+        const libraryItems = await this.data.getLibraryItems();
         const contentByCat = catConfig.map(cfg => {
-            const items = (clase.content || []).filter(c => c.cat === cfg.key || (cfg.key === 0 && (c.cat === undefined || c.cat === null)));
+            const catMap = { 'Técnica': 0, 'Lectura': 1, 'Lectura Musical': 1, 'Repertorio': 2 };
+            const items = (clase.content || []).filter(c => {
+                let catVal = c.cat;
+                if (typeof catVal === 'string') catVal = catMap[catVal];
+                if (catVal === undefined || catVal === null) catVal = 0;
+                return catVal === cfg.key;
+            });
             if (!items.length) return '';
             const itemsHtml = items.map(c => {
-                const iconSvg = c.fileType === 'youtube'
+                const libItem = libraryItems.find(it => it.id === c.id) || {};
+                const title = libItem.title || c.title || c.name || 'Sin título';
+                const fileType = libItem.type || c.fileType || 'gp';
+
+                const iconSvg = fileType === 'youtube'
                     ? `<svg viewBox="0 0 16 16" fill="none" style="width:13px;height:13px;flex-shrink:0;color:#FF0000" stroke="currentColor" stroke-width="1.2"><rect x="2" y="4" width="12" height="9" rx="1.5"/><path d="M6.5 7.5l4 2-4 2V7.5z" fill="currentColor" stroke="none"/></svg>`
                     : `<svg viewBox="0 0 16 16" fill="none" style="width:13px;height:13px;flex-shrink:0" stroke="${cfg.color}" stroke-width="1.5"><path d="M8 2v12M4 6l4-4 4 4"/></svg>`;
-                return `<div class="pc-item" onclick="app.openLibraryItemById('${c.id}')" style="cursor:pointer">${iconSvg}${this._escapeHtml(c.title || c.name)}</div>`;
+                return `<div class="pc-item" onclick="app.openLibraryItemById('${c.id}')" style="cursor:pointer">${iconSvg}${this._escapeHtml(title)}</div>`;
             }).join('');
             return `<div class="proxima-cat">
                 <div class="pc-label" style="color:${cfg.color}">
@@ -2303,9 +2314,12 @@ class GuitarStudioApp {
             }
             
             if (clase) {
+                const catMap = { 'Técnica': 0, 'Lectura': 1, 'Lectura Musical': 1, 'Repertorio': 2 };
                 const catItems = (clase.content || []).filter(item => {
-                    const itemCat = item.cat === undefined || item.cat === null ? 0 : item.cat;
-                    return itemCat === catIdx;
+                    let catVal = item.cat;
+                    if (typeof catVal === 'string') catVal = catMap[catVal];
+                    if (catVal === undefined || catVal === null) catVal = 0;
+                    return catVal === catIdx;
                 });
                 try {
                     const allLib = await this.data.getLibraryItems();
@@ -4696,7 +4710,10 @@ class GuitarStudioApp {
         if (!clase) { this.closeClasetDetail(); return; }
 
         const group = this.data.getGroup(clase.groupId) || {};
-        const profiles = await this.data.getProfiles();
+        const [profiles, libraryItems] = await Promise.all([
+            this.data.getProfiles(),
+            this.data.getLibraryItems()
+        ]);
         const memberIds = (clase.memberOverride != null) ? clase.memberOverride : (group.memberIds || []);
         const members = profiles.filter(p => memberIds.includes(p.id));
         const type = members.length > 1 ? 'Grupal' : 'Individual';
@@ -4819,13 +4836,17 @@ class GuitarStudioApp {
             </div>`).join('');
 
         const iconFor = ft => (ft==='gp'||ft==='gpx'||ft==='score')?'🎸':ft==='pdf'?'📄':ft==='audio'?'🎵':ft==='youtube'?'▶️':'📎';
-        const contentItems = (clase.content||[]).map(c => `
-            <div class="ci3-item">
-                <div class="ci3-ico">${iconFor(c.fileType)}</div>
-                <span class="ci3-title">${this._escapeHtml(c.title||c.name)}</span>
+        const contentItems = (clase.content||[]).map(c => {
+            const libItem = libraryItems.find(it => it.id === c.id) || {};
+            const title = libItem.title || c.title || c.name || 'Sin título';
+            const fileType = libItem.type || c.fileType || 'gp';
+            return `<div class="ci3-item">
+                <div class="ci3-ico">${iconFor(fileType)}</div>
+                <span class="ci3-title">${this._escapeHtml(title)}</span>
                 <span class="ci3-cat">${this._escapeHtml(c.cat||'')}</span>
                 <span class="ci3-rm" onclick="app.removeContentFromClase('${claseId}','${c.id}')">×</span>
-            </div>`).join('') || '<p class="text3-muted">Sin contenido. Agregá desde la Biblioteca →</p>';
+            </div>`;
+        }).join('') || '<p class="text3-muted">Sin contenido. Agregá desde la Biblioteca →</p>';
 
         // ── G) OBJETIVOS ──
         const objItems = (clase.objetivos||[]).map(o => `
@@ -4967,22 +4988,29 @@ class GuitarStudioApp {
         this.cycleAttendance(claseId, profileId);
     }
 
-    removeContentFromClase(claseId, itemId) {
+    async removeContentFromClase(claseId, itemId) {
         const clase = this.data.getClase(claseId);
         if (!clase) return;
         clase.content = (clase.content||[]).filter(c => c.id !== itemId);
         this.data.saveClase(clase);
+        
+        const libraryItems = await this.data.getLibraryItems();
         const iconFor = ft => (ft==='gp'||ft==='gpx'||ft==='score')?'🎸':ft==='pdf'?'📄':ft==='audio'?'🎵':ft==='youtube'?'▶️':'📎';
         const listEl = document.getElementById(`ci3-list-${claseId}`);
         if (listEl) {
             listEl.innerHTML = clase.content.length
-                ? clase.content.map(c => `
+                ? clase.content.map(c => {
+                    const libItem = libraryItems.find(it => it.id === c.id) || {};
+                    const title = libItem.title || c.title || c.name || 'Sin título';
+                    const fileType = libItem.type || c.fileType || 'gp';
+                    return `
                     <div class="ci3-item">
-                        <div class="ci3-ico">${iconFor(c.fileType)}</div>
-                        <span class="ci3-title">${this._escapeHtml(c.title||c.name)}</span>
+                        <div class="ci3-ico">${iconFor(fileType)}</div>
+                        <span class="ci3-title">${this._escapeHtml(title)}</span>
                         <span class="ci3-cat">${this._escapeHtml(c.cat||'')}</span>
                         <span class="ci3-rm" onclick="app.removeContentFromClase('${claseId}','${c.id}')">×</span>
-                    </div>`).join('')
+                    </div>`;
+                }).join('')
                 : '<p class="text3-muted">Sin contenido. Agregá desde la Biblioteca →</p>';
         }
         this._renderBibliotecaPanel();
@@ -5225,7 +5253,12 @@ class GuitarStudioApp {
 
         // Generar HTML de las clases
         const classesHtml = classesWithContent.map(clase => {
-            const filteredTeacher = (clase.content || []).filter(matchesSearch);
+            const resolvedTeacherItems = (clase.content || []).map(c => {
+                const libItem = allItems.find(it => it.id === c.id);
+                if (!libItem) return null;
+                return { ...libItem, category: c.cat || libItem.category };
+            }).filter(Boolean);
+            const filteredTeacher = resolvedTeacherItems.filter(matchesSearch);
             const filteredStudent = (uploadsByClass[clase.id] || []).filter(matchesSearch);
 
             // Si hay búsqueda y no coincide nada, no mostrar la clase
@@ -6025,19 +6058,26 @@ class GuitarStudioApp {
         const cats = clase.categories || this.data.getDefaultCategories();
         const cat = (item.category && cats.includes(item.category)) ? item.category : (cats[0] || 'Técnica');
         clase.content = clase.content || [];
-        clase.content.push({ id: item.id, title: item.title||item.name, fileType: item.fileType||item.type, name: item.name, cat });
+        clase.content.push({ id: item.id, cat });
         this.data.saveClase(clase);
-        // actualizar lista de contenido en panel
+        
+        // Cargar biblioteca para resolver dinámicamente títulos/iconos
+        const libraryItems = await this.data.getLibraryItems();
         const iconFor = ft => (ft==='gp'||ft==='gpx'||ft==='score')?'🎸':ft==='pdf'?'📄':ft==='audio'?'🎵':ft==='youtube'?'▶️':'📎';
         const listEl = document.getElementById(`ci3-list-${claseId}`);
         if (listEl) {
-            listEl.innerHTML = clase.content.map(c => `
+            listEl.innerHTML = clase.content.map(c => {
+                const libItem = libraryItems.find(it => it.id === c.id) || {};
+                const title = libItem.title || c.title || c.name || 'Sin título';
+                const fileType = libItem.type || c.fileType || 'gp';
+                return `
                 <div class="ci3-item">
-                    <div class="ci3-ico">${iconFor(c.fileType)}</div>
-                    <span class="ci3-title">${this._escapeHtml(c.title||c.name)}</span>
+                    <div class="ci3-ico">${iconFor(fileType)}</div>
+                    <span class="ci3-title">${this._escapeHtml(title)}</span>
                     <span class="ci3-cat">${this._escapeHtml(c.cat||'')}</span>
                     <span class="ci3-rm" onclick="app.removeContentFromClase('${claseId}','${c.id}')">×</span>
-                </div>`).join('');
+                </div>`;
+            }).join('');
         }
         this._renderBibliotecaPanel();
         this.showToast('Contenido agregado', '📎');
