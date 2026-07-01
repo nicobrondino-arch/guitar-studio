@@ -318,6 +318,13 @@ class DataService {
         localStorage.setItem(this._profileKey(profileId, 'studio-last-practiced'), dateStr);
     }
 
+    getProfileLastPracticedTime(profileId) {
+        return localStorage.getItem(this._profileKey(profileId, 'studio-last-practiced-time')) || '';
+    }
+    setProfileLastPracticedTime(profileId, isoTimestamp) {
+        localStorage.setItem(this._profileKey(profileId, 'studio-last-practiced-time'), isoTimestamp);
+    }
+
     getProfileHistory(profileId) {
         return JSON.parse(localStorage.getItem(this._profileKey(profileId, 'studio-history')) || '[]');
     }
@@ -456,5 +463,91 @@ class DataService {
             .filter(c => c.groupId === groupId && c.date < currentDate)
             .sort((a, b) => b.date.localeCompare(a.date));
         return all[0] || null;
+    }
+
+    // ==========================================================================
+    // Notificaciones del profesor
+    // ==========================================================================
+    getNotifications() {
+        try {
+            return JSON.parse(localStorage.getItem("gs-notifications") || "[]");
+        } catch {
+            return [];
+        }
+    }
+
+    saveNotifications(notifications) {
+        localStorage.setItem("gs-notifications", JSON.stringify(notifications));
+    }
+
+    addNotification(notif) {
+        const arr = this.getNotifications();
+        arr.push(notif);
+        this.saveNotifications(arr);
+    }
+
+    clearNotifications() {
+        this.saveNotifications([]);
+    }
+
+    async getLibraryItemsByProfile(profileId) {
+        const all = await this.getLibraryItems();
+        return all.filter(item => item.uploadedBy === profileId);
+    }
+
+    async getLibraryItemsForClase(claseId) {
+        const all = await this.getLibraryItems();
+        return all.filter(item => item.claseId === claseId);
+    }
+
+    getDefaultLevels() {
+        try {
+            const raw = JSON.parse(localStorage.getItem('gs-default-levels'));
+            return Array.isArray(raw) && raw.length ? raw : ['Inicial', 'Intermedio', 'Avanzado'];
+        } catch {
+            return ['Inicial', 'Intermedio', 'Avanzado'];
+        }
+    }
+    setDefaultLevels(arr) {
+        localStorage.setItem('gs-default-levels', JSON.stringify(arr));
+    }
+
+    getDefaultStyles() {
+        try {
+            const raw = JSON.parse(localStorage.getItem('gs-default-styles'));
+            return Array.isArray(raw) && raw.length ? raw : ['Tango', 'Folklore', 'Clásico', 'Jazz'];
+        } catch {
+            return ['Tango', 'Folklore', 'Clásico', 'Jazz'];
+        }
+    }
+    setDefaultStyles(arr) {
+        localStorage.setItem('gs-default-styles', JSON.stringify(arr));
+    }
+
+    // ==========================================================================
+    // Configuración de campos de la Ficha del Alumno
+    // ==========================================================================
+    getFichaFields() {
+        try {
+            const raw = JSON.parse(localStorage.getItem('gs-ficha-fields'));
+            return Array.isArray(raw) && raw.length ? raw : [
+                'Estudios/Conocimientos previos',
+                'Gustos musicales / Intereses',
+                'Repertorio/Canciones que ya sabe',
+                'País / Localidad',
+                'Edad'
+            ];
+        } catch {
+            return [
+                'Estudios/Conocimientos previos',
+                'Gustos musicales / Intereses',
+                'Repertorio/Canciones que ya sabe',
+                'País / Localidad',
+                'Edad'
+            ];
+        }
+    }
+    setFichaFields(arr) {
+        localStorage.setItem('gs-ficha-fields', JSON.stringify(arr));
     }
 }

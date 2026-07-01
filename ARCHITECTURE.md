@@ -104,3 +104,23 @@ apuntando a métodos públicos de la instancia global `app`.
 > Nota: en varios puntos la app real **mejoró** la maqueta (asistencia, biblioteca,
 > objetivos, título y fecha editables). No tomar la maqueta como verdad absoluta:
 > es un plano, la app puede ir más allá.
+
+---
+
+## 5. Filosofía Arquitectónica Funcional (Core Flow)
+
+Para evitar el "Síndrome de Frankenstein" (mezclar todo en una súper pantalla como pasó con `view-notebook`), la app debe respetar estrictamente esta separación de responsabilidades:
+
+1. **`view-biblioteca` (Taller Global del Docente):**
+   - **Propósito:** Lugar exclusivo para **subir archivos** (GP, PDF), vincular media (YouTube, Spotify), clasificar contenido y armar **Plantillas de Clase**.
+   - **Regla de oro:** No hay alumnos ni asignaciones aquí. Es un repositorio global.
+
+2. **`view-dashboard` (Gestión de Clases del Docente):**
+   - **Propósito:** Seleccionar un alumno/grupo y crear o editar sus clases.
+   - **Interacción:** Aquí se **visualiza la Biblioteca** (mediante un buscador/modal o panel embebido) única y exclusivamente para **asignar** material rápido a la clase de un alumno específico.
+
+3. **`view-my-library` (Biblioteca del Alumno):**
+   - **Propósito:** El alumno visualiza los archivos y ejercicios que se le asignaron.
+   - **Regla de oro:** Reutiliza el mismo componente visual de la Biblioteca del profesor, pero es **100% de solo lectura**. No hay botones de editar, eliminar ni subir contenido. Está filtrado solo para el ID del alumno.
+
+**Cualquier nuevo desarrollo debe encajar en estos 3 pilares sin inventar vistas híbridas u ocultas.**
