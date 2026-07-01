@@ -2067,6 +2067,7 @@ class GuitarStudioApp {
     }
 
     navigateToView(viewId) {
+        this._currentView = viewId;
         // Cerrar visores si están abiertos
         if (this._pdfViewerOpen) this.closePDFViewer();
         if (document.getElementById('yt-viewer-panel')?.style.display === 'flex') this.closeYouTubeViewer();
@@ -2454,152 +2455,7 @@ class GuitarStudioApp {
         this.renderPracticeView();
     }
 
-    // ==========================================================================
-    // Cuaderno — Plantillas
-    // ==========================================================================
-    renderTemplatesInNotebook() {
-        const list = document.getElementById('nb-template-list');
-        if (!list) return;
-        const tpls = this.data.getTemplates();
-        if (!tpls.length) {
-            list.innerHTML = '<p class="text-muted" style="padding:12px;font-size:12px">Sin plantillas. Creá una para empezar.</p>';
-            return;
-        }
-        list.innerHTML = tpls.map(t => {
-            const isActive = t.id === this._activeTplId;
-            const cntT = (t.content?.technique||[]).length;
-            const cntL = (t.content?.reading||[]).length;
-            return `<div class="nb-tpl-card${isActive?' active':''}" onclick="app.selectTemplate('${t.id}')">
-                <div class="nb-tpl-dot" style="background:${isActive?'var(--tb-accent)':'var(--tb-border)'}"></div>
-                <div class="nb-tpl-name">${this._escapeHtml(t.name)}</div>
-                <div class="nb-tpl-meta">${this._escapeHtml(t.meta||'')}</div>
-                <div class="nb-tpl-cats">
-                    <div class="nb-tpl-cat-row"><span style="color:#a29bfe">Técnica</span><span>${cntT?cntT+' ítem'+(cntT!==1?'s':''):'—'}</span></div>
-                    <div class="nb-tpl-cat-row"><span style="color:#55efc4">Lectura</span><span>${cntL?cntL+' ítem'+(cntL!==1?'s':''):'—'}</span></div>
-                    <div class="nb-tpl-cat-row"><span style="color:#fdcb6e">Repertorio</span><em style="color:var(--tb-border);font-size:10px">vacío — en clase</em></div>
-                </div>
-                <button onclick="event.stopPropagation();app.deleteTemplate('${t.id}')" class="nb-tpl-del">×</button>
-            </div>`;
-        }).join('');
-    }
 
-    selectTemplate(id) {
-        this._activeTplId = id === this._activeTplId ? null : id;
-        this.renderTemplatesInNotebook();
-        this.renderLibraryTable();
-    }
-
-    async newTemplate() {
-        const name = prompt('Nombre de la plantilla:');
-        if (!name?.trim()) return;
-        const tpl = {
-            id: this.data.generateId('tpl'),
-            name: name.trim(),
-            meta: '',
-            content: { technique:[], reading:[], repertoire:[] },
-            createdAt: Date.now()
-        };
-        this.data.saveTemplate(tpl);
-        this._activeTplId = tpl.id;
-        this.renderTemplatesInNotebook();
-        this.renderLibraryTable();
-    }
-
-    deleteTemplate(id) {
-        if (!confirm('¿Eliminar esta plantilla?')) return;
-        this.data.deleteTemplate(id);
-        if (this._activeTplId === id) this._activeTplId = null;
-        this.renderTemplatesInNotebook();
-        this.renderLibraryTable();
-    }
-
-    async toggleItemInTemplate(itemId) {
-        if (!this._activeTplId) { this.showToast('Seleccioná una plantilla primero.', '⚠️'); return; }
-        const tpl = this.data.getTemplates().find(t => t.id === this._activeTplId);
-        if (!tpl) return;
-        const item = await this.data.getLibraryItem(itemId);
-        if (!item) return;
-        const cat = item.category || 'technique';
-        if (cat === 'repertoire') { this.showToast('El repertorio no va en plantillas — se asigna durante la clase.', 'ℹ️'); return; }
-        const arr = [...(tpl.content[cat]||[])];
-        const idx = arr.indexOf(itemId);
-        if (idx > -1) arr.splice(idx, 1); else arr.push(itemId);
-        tpl.content[cat] = arr;
-        this.data.saveTemplate(tpl);
-        this.renderLibraryTable();
-    }
-
-    _libFilterType = 'all';
-    _libFilterCat  = 'all';
-    _libFilterTpl  = false;
-    _libSearch     = '';
-    _activeTplId   = null;
-
-    async renderLibraryTable() {
-        const tbody = document.getElementById('nb-library-table');
-        if (!tbody) return;
-        const items = await this.data.getLibraryItems();
-        const tpl = this._activeTplId ? this.data.getTemplates().find(t=>t.id===this._activeTplId) : null;
-        const tplIds = tpl ? [...(tpl.content.technique||[]),...(tpl.content.reading||[])] : [];
-        const catMap = { technique:'Técnica', reading:'Lectura', repertoire:'Repertorio', supplementary:'Compl.' };
-        const catColor = { technique:'#a29bfe', reading:'#55efc4', repertoire:'#fdcb6e', supplementary:'#9e8a8e' };
-        const typeLabel = { gp:'Guitar Pro', score:'Guitar Pro', pdf:'PDF', youtube:'YouTube', spotify:'Spotify' };
-        const q = (this._libSearch||'').toLowerCase();
-        const filtered = items.filter(it => {
-            const title = (it.title||it.name||'').toLowerCase();
-            if (q && !title.includes(q)) return false;
-            const ftype = it.fileType || it.type || '';
-            if (this._libFilterType !== 'all' && ftype !== this._libFilterType) return false;
-            if (this._libFilterCat  !== 'all' && it.category !== this._libFilterCat) return false;
-            if (this._libFilterTpl  && !tplIds.includes(it.id)) return false;
-            return true;
-        });
-        if (!filtered.length) {
-            tbody.innerHTML = '<div style="padding:24px;text-align:center"><p class="text-muted">Sin resultados</p></div>';
-            return;
-        }
-        tbody.innerHTML = filtered.map(it => {
-            const inTpl = tplIds.includes(it.id);
-            const cat = it.category || '';
-            const ftype = it.fileType || it.type || '';
-            return `<div class="nb-table-row${inTpl?' in-tpl':''}">
-                <div class="nb-row-type-dot" style="background:${cat==='technique'?'#a29bfe':cat==='reading'?'#55efc4':'#fdcb6e'}"></div>
-                <span class="nb-row-title">${this._escapeHtml(it.title||it.name||'')}</span>
-                <span class="nb-row-meta">${typeLabel[ftype]||ftype||'—'}</span>
-                <span class="nb-cat-badge" style="color:${catColor[cat]||'#9e8a8e'}">${catMap[cat]||'—'}</span>
-                <span class="nb-row-meta">${this._escapeHtml(it.level||'—')}</span>
-                <span class="nb-row-meta">${this._escapeHtml(it.musicalStyle||'—')}</span>
-                <div class="nb-tpl-toggle" onclick="app.toggleItemInTemplate('${it.id}')" title="${inTpl?'Quitar de plantilla':'Agregar a plantilla'}">
-                    ${inTpl
-                        ? '<svg viewBox="0 0 10 10" fill="none" style="width:11px;height:11px"><path d="M2 5l2 2 4-4" stroke="var(--tb-accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-                        : '<span style="color:var(--tb-border)">—</span>'}
-                </div>
-                <button class="nb-row-edit" onclick="app.showLibItemMetadataModal({id:'${it.id}'})">···</button>
-            </div>`;
-        }).join('');
-    }
-
-    filterLibrary(q) {
-        this._libSearch = q;
-        this.renderLibraryTable();
-    }
-
-    setLibFilter(val, btn) {
-        document.querySelectorAll('.nb-chip').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        const types = ['gp','score','pdf','youtube','spotify'];
-        const cats  = ['technique','reading','repertoire','supplementary'];
-        if (val === 'all') { this._libFilterType='all'; this._libFilterCat='all'; }
-        else if (types.includes(val)) { this._libFilterType=val; this._libFilterCat='all'; }
-        else if (cats.includes(val))  { this._libFilterCat=val; this._libFilterType='all'; }
-        this.renderLibraryTable();
-    }
-
-    toggleInTplFilter(btn) {
-        this._libFilterTpl = !this._libFilterTpl;
-        btn.classList.toggle('nb-chip-tpl-active', this._libFilterTpl);
-        this.renderLibraryTable();
-    }
 
     _escapeHtml(str) {
         return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -6016,7 +5872,24 @@ class GuitarStudioApp {
               }).join('')
             : '<p class="text3-muted" style="padding:10px 0">Sin resultados</p>';
 
+        const templates = this.data.getTemplates();
+        const templatesHtml = `
+            <div class="bib3-templates-row" style="display:flex; justify-content:space-between; align-items:center; background:var(--tb-bg-secondary); border:1px solid var(--tb-border); padding:8px 12px; border-radius:8px; margin-bottom:12px">
+                <div style="font-size:12px; font-weight:600; color:var(--tb-text-primary); display:flex; align-items:center; gap:6px">
+                    <span>📋 Plantillas</span>
+                </div>
+                <div style="display:flex; gap:6px; align-items:center">
+                    <select class="form-select" id="dash-tpl-selector" onchange="if(this.value)app.applyTemplateToClase(this.value); this.value='';" style="font-size:11px; padding:4px 8px; border-radius:4px; height:auto; width:auto; max-width:130px; margin:0; outline:none; background:var(--tb-bg-primary); border:1px solid var(--tb-border); color:var(--tb-text-primary)">
+                        <option value="">— Aplicar —</option>
+                        ${templates.map(t => `<option value="${t.id}">${this._escapeHtml(t.name)}</option>`).join('')}
+                    </select>
+                    <button class="h3-btn" onclick="app.bibNewTemplate()" style="font-size:11px; padding:4px 8px; border-radius:4px; line-height:1; min-height:22px" title="Crear nueva plantilla">+</button>
+                </div>
+            </div>
+        `;
+
         body.innerHTML = `
+            ${templatesHtml}
             <div class="bib3-search-wrap">
                 <span class="bib3-search-icon">🔍</span>
                 <input type="text" class="bib3-search" placeholder="Buscar en biblioteca…" value="${this._escapeHtml(q)}" oninput="app.searchBiblioteca(this.value)">
@@ -6081,6 +5954,31 @@ class GuitarStudioApp {
         }
         this._renderBibliotecaPanel();
         this.showToast('Contenido agregado', '📎');
+    }
+
+    async applyTemplateToClase(tplId) {
+        if (!this._currentClaseId) { this.showToast('Seleccioná una clase primero', '⚠️'); return; }
+        const tpl = this.data.getTemplates().find(t => t.id === tplId);
+        if (!tpl) return;
+        const clase = this.data.getClase(this._currentClaseId);
+        if (!clase) return;
+
+        clase.content = clase.content || [];
+        let addedCount = 0;
+        for (const tplItem of (tpl.items || [])) {
+            if (!clase.content.some(c => c.id === tplItem.libraryItemId)) {
+                clase.content.push({ id: tplItem.libraryItemId, cat: tplItem.cat });
+                addedCount++;
+            }
+        }
+        if (addedCount > 0) {
+            this.data.saveClase(clase);
+            if (this._currentClaseId) await this._renderClaseDetail(this._currentClaseId);
+            this._renderBibliotecaPanel();
+            this.showToast(`Plantilla "${tpl.name}" aplicada. Se agregaron ${addedCount} ítems.`, '📋');
+        } else {
+            this.showToast('Todos los ítems de la plantilla ya estaban agregados.', 'ℹ️');
+        }
     }
 
     async _openEditClaseModal(claseId) {
@@ -7752,7 +7650,7 @@ class GuitarStudioApp {
         this._bibRenderTplItems();
     }
 
-    bibSaveTemplate() {
+    async bibSaveTemplate() {
         const name = document.getElementById('bib-tpl-name')?.value?.trim();
         if (!name) { alert('Poné un nombre a la plantilla.'); return; }
         this._bibTplDraft.name = name;
@@ -7760,16 +7658,26 @@ class GuitarStudioApp {
         this.data.saveTemplate(this._bibTplDraft);
         document.getElementById('bib-tpl-editor-modal').style.display = 'none';
         this._bibTplDraft = null;
-        this.renderBibliotecaView();
+        if (this._currentView === 'dashboard') {
+            this._renderBibliotecaPanel();
+            if (this._currentClaseId) await this._renderClaseDetail(this._currentClaseId);
+        } else {
+            this.renderBibliotecaView();
+        }
     }
 
-    bibDeleteTemplate() {
+    async bibDeleteTemplate() {
         if (!this._bibTplDraft || this._bibTplDraft._new) return;
         if (!confirm('¿Eliminar esta plantilla?')) return;
         this.data.deleteTemplate(this._bibTplDraft.id);
         document.getElementById('bib-tpl-editor-modal').style.display = 'none';
         this._bibTplDraft = null;
-        this.renderBibliotecaView();
+        if (this._currentView === 'dashboard') {
+            this._renderBibliotecaPanel();
+            if (this._currentClaseId) await this._renderClaseDetail(this._currentClaseId);
+        } else {
+            this.renderBibliotecaView();
+        }
     }
 
     bibCloseTplEditor() {
