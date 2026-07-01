@@ -1277,7 +1277,7 @@ class GuitarStudioApp {
         if (!this.activeProfile) return;
 
         // 1. Obtener grupos del alumno
-        const groups = this._getGroups().filter(g => (g.memberIds || []).includes(this.activeProfile.id));
+        const groups = this.data.getAllGroups().filter(g => (g.memberIds || []).includes(this.activeProfile.id));
         if (groups.length === 0) {
             groupSelect.innerHTML = '<option value="">Sin cursos asignados</option>';
             classSelect.innerHTML = '<option value="">Sin clases</option>';
@@ -1426,7 +1426,7 @@ class GuitarStudioApp {
         const groupId = clase.groupId;
         const claseAnterior = this.data.getClaseAnterior(groupId, clase.date);
         
-        const groups = this._getGroups().filter(g => (g.memberIds || []).includes(this.activeProfile.id));
+        const groups = this.data.getAllGroups().filter(g => (g.memberIds || []).includes(this.activeProfile.id));
         const allClases = this.data.getAllClases();
         const myClases = allClases
             .filter(c => c.groupId === groupId && c.status === 'finalizada')
@@ -1603,7 +1603,7 @@ class GuitarStudioApp {
             return;
         }
         
-        const groups = this._getGroups().filter(g => (g.memberIds || []).includes(this.activeProfile.id));
+        const groups = this.data.getAllGroups().filter(g => (g.memberIds || []).includes(this.activeProfile.id));
         if (groups.length === 0) return;
         const allClases = this.data.getAllClases();
         const myClases = allClases
@@ -1886,16 +1886,12 @@ class GuitarStudioApp {
     // ==========================================================================
     // Grupos de Clase
     // ==========================================================================
-    _getGroups() {
-        try { return JSON.parse(localStorage.getItem('gs-groups') || '[]'); } catch(e) { return []; }
-    }
-    _saveGroups(groups) { localStorage.setItem('gs-groups', JSON.stringify(groups)); }
     _genGroupId() { return 'grp_' + Date.now() + '_' + Math.random().toString(36).slice(2,7); }
 
     async renderGroupsInNotebook() {
         const container = document.getElementById('groups-list-notebook');
         if (!container) return;
-        const groups = this._getGroups();
+        const groups = this.data.getAllGroups();
         const profiles = await this.data.getProfiles();
 
         if (groups.length === 0) {
@@ -1940,7 +1936,7 @@ class GuitarStudioApp {
     async showEditGroupForm(groupId) { await this._showGroupForm(groupId); }
 
     async _showGroupForm(groupId) {
-        const groups = this._getGroups();
+        const groups = this.data.getAllGroups();
         const existing = groupId ? groups.find(function(g) { return g.id === groupId; }) : null;
         const profiles = await this.data.getProfiles();
         const container = document.getElementById('groups-list-notebook');
@@ -1989,27 +1985,27 @@ class GuitarStudioApp {
         const time     = document.getElementById('gf-time').value;
         const meetLink = document.getElementById('gf-meet').value.trim();
         const memberIds = Array.from(document.querySelectorAll('#gf-members input[name="member"]:checked')).map(function(el) { return el.value; });
-        const groups = this._getGroups();
+        const groups = this.data.getAllGroups();
         if (groupId) {
             const idx = groups.findIndex(function(g) { return g.id === groupId; });
             if (idx > -1) groups[idx] = Object.assign({}, groups[idx], { name, day, time, meetLink, memberIds });
         } else {
             groups.push({ id: this._genGroupId(), name, day, time, meetLink, memberIds, createdAt: Date.now() });
         }
-        this._saveGroups(groups);
+        this.data.saveGroups(groups);
         this.showToast(groupId ? 'Grupo actualizado.' : '¡Grupo creado!', '✓');
         await this.renderGroupsInNotebook();
     }
 
     async deleteGroup(groupId) {
         if (!confirm('¿Eliminar este grupo?')) return;
-        this._saveGroups(this._getGroups().filter(function(g) { return g.id !== groupId; }));
+        this.data.saveGroups(this.data.getAllGroups().filter(function(g) { return g.id !== groupId; }));
         await this.renderGroupsInNotebook();
         this.showToast('Grupo eliminado.', '✓');
     }
 
     copyMeetLink(groupId) {
-        const group = this._getGroups().find(function(g) { return g.id === groupId; });
+        const group = this.data.getAllGroups().find(function(g) { return g.id === groupId; });
         if (!group || !group.meetLink) return;
         const self = this;
         navigator.clipboard.writeText(group.meetLink)
@@ -2018,7 +2014,7 @@ class GuitarStudioApp {
     }
 
     sendMeetWhatsApp(groupId) {
-        const group = this._getGroups().find(function(g) { return g.id === groupId; });
+        const group = this.data.getAllGroups().find(function(g) { return g.id === groupId; });
         if (!group || !group.meetLink) return;
         const dayTime = [group.day, group.time].filter(Boolean).join(' a las ');
         const msg = encodeURIComponent(
@@ -2294,7 +2290,7 @@ class GuitarStudioApp {
             } catch(e) { console.warn(e); }
         } else {
             // Obtener clase activa/seleccionada
-            const groups = this._getGroups().filter(g => (g.memberIds||[]).includes(this.activeProfile?.id));
+            const groups = this.data.getAllGroups().filter(g => (g.memberIds||[]).includes(this.activeProfile?.id));
             let clase = null;
             if (this._studioSelectedClaseId) {
                 clase = this.data.getAllClases().find(c => c.id === this._studioSelectedClaseId);
@@ -2390,7 +2386,7 @@ class GuitarStudioApp {
     // ==========================================================================
     async _renderPracticeObjectives() {
         if (!this.activeProfile || this.isProfessorMode) return '';
-        const groups = this._getGroups().filter(g => (g.memberIds||[]).includes(this.activeProfile.id));
+        const groups = this.data.getAllGroups().filter(g => (g.memberIds||[]).includes(this.activeProfile.id));
         if (!groups.length) return '';
         let clase = null;
         if (this._studioSelectedClaseId) {
@@ -4518,7 +4514,7 @@ class GuitarStudioApp {
         const todayStr = this.getTodayString();
         const tomorrowStr = new Date(new Date(todayStr+'T12:00').getTime() + 86400000).toISOString().slice(0,10);
         const allClases = this.data.getAllClases();
-        const groups = this._getGroups();
+        const groups = this.data.getAllGroups();
         const dayNames = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
         const todayName = dayNames[new Date(todayStr+'T12:00').getDay()];
         const tomorrowName = dayNames[new Date(tomorrowStr+'T12:00').getDay()];
@@ -4664,7 +4660,7 @@ class GuitarStudioApp {
     // =========================================================================
 
     createClase(groupId) {
-        const group = this._getGroups().find(g => g.id === groupId);
+        const group = this.data.getGroup(groupId);
         if (!group) return;
         const today = new Date().toISOString().slice(0, 10);
         const clase = {
@@ -4699,7 +4695,7 @@ class GuitarStudioApp {
         const clase = this.data.getClase(claseId);
         if (!clase) { this.closeClasetDetail(); return; }
 
-        const group = this._getGroups().find(g => g.id === clase.groupId) || {};
+        const group = this.data.getGroup(clase.groupId) || {};
         const profiles = await this.data.getProfiles();
         const memberIds = (clase.memberOverride != null) ? clase.memberOverride : (group.memberIds || []);
         const members = profiles.filter(p => memberIds.includes(p.id));
@@ -5087,8 +5083,8 @@ class GuitarStudioApp {
         ]) await this.data.saveProfile(p);
 
         // Grupos — marcados con _isDemo, se suman a los existentes
-        const existingGroups = this._getGroups().filter(g => !g._isDemo);
-        this._saveGroups([
+        const existingGroups = this.data.getAllGroups().filter(g => !g._isDemo);
+        this.data.saveGroups([
             ...existingGroups,
             { id: 'grp-demo-1', name: 'Técnica Grupal',     day: todayName,    time: '17:00', meetLink: 'meet.google.com/abc-defg-hij', memberIds: ['p-demo-1','p-demo-2','p-demo-3'], _isDemo: true, createdAt: Date.now() },
             { id: 'grp-demo-2', name: 'Individual — Lucía', day: tomorrowName, time: '16:00', meetLink: '', memberIds: ['p-demo-4'], _isDemo: true, createdAt: Date.now() },
@@ -5134,7 +5130,7 @@ class GuitarStudioApp {
 
     async clearDemoData() {
         // Borrar grupos demo
-        this._saveGroups(this._getGroups().filter(g => !g._isDemo));
+        this.data.saveGroups(this.data.getAllGroups().filter(g => !g._isDemo));
         // Borrar clases demo
         this.data._saveClasesRaw(this.data._getClasesRaw().filter(c => !c._isDemo));
         // Borrar perfiles demo de IndexedDB
@@ -5171,7 +5167,7 @@ class GuitarStudioApp {
 
         // 2. Obtener ítems asignados a través de clases/sesiones del alumno (personales o de cursos)
         const studentGroupIds = new Set(
-            this._getGroups()
+            this.data.getAllGroups()
                 .filter(g => (g.memberIds || []).includes(this.activeProfile.id))
                 .map(g => g.id)
         );
@@ -6053,7 +6049,7 @@ class GuitarStudioApp {
         const overlay = document.getElementById('modal-edit-clase');
         if (!overlay) return;
 
-        const group = this._getGroups().find(g => g.id === clase.groupId) || {};
+        const group = this.data.getGroup(clase.groupId) || {};
         const allProfiles = await this.data.getProfiles();
         const groupMemberIds = group.memberIds || [];
         const override = clase.memberOverride; // null | [profileId, ...]
@@ -6131,7 +6127,7 @@ class GuitarStudioApp {
         const checkedRows = overlay.querySelectorAll('.modal-stu-row.checked');
         const checkedIds = Array.from(checkedRows).map(r => r.dataset.pid).filter(Boolean);
 
-        const group = this._getGroups().find(g => g.id === clase.groupId) || {};
+        const group = this.data.getGroup(clase.groupId) || {};
         const groupMemberIds = group.memberIds || [];
         // Si la selección coincide exactamente con los miembros del grupo, limpiamos el override
         const sameAsGroup = checkedIds.length === groupMemberIds.length &&
@@ -6289,17 +6285,17 @@ class GuitarStudioApp {
     }
     _bibEnsurePersonalGroup(profile) {
         const id = 'grp-personal-' + profile.id;
-        const groups = this._getGroups();
+        const groups = this.data.getAllGroups();
         let g = groups.find(x => x.id === id);
         if (!g) {
             g = { id, name: profile.name, memberIds: [profile.id], _personal: true, createdAt: Date.now() };
             groups.push(g);
-            this._saveGroups(groups);
+            this.data.saveGroups(groups);
         }
         return g;
     }
     // Cursos visibles = grupos que NO son el grupo personal de un alumno
-    _bibCursos() { return this._getGroups().filter(g => !g._personal); }
+    _bibCursos() { return this.data.getAllGroups().filter(g => !g._personal); }
 
     _bibLevelLabel(lvl) {
         const map = { beginner: 'Inicial', intermediate: 'Intermedio', advanced: 'Avanzado',
@@ -6415,7 +6411,7 @@ class GuitarStudioApp {
             minutesToday = completedSteps.filter(Boolean).length * 15;
         }
 
-        const groups = this._getGroups().filter(g => (g.memberIds || []).includes(pid));
+        const groups = this.data.getAllGroups().filter(g => (g.memberIds || []).includes(pid));
         const groupLabel = groups.length ? groups.map(g => g.name).join(' · ') : (this.lang === 'es' ? 'Individual' : 'Individual');
 
         // Consultas pendientes: iterar clases de los grupos del alumno (evita escanear localStorage por prefijo)
@@ -6711,11 +6707,11 @@ class GuitarStudioApp {
     }
 
     _tbRenderQuestionsAccordion(profileId) {
-        const groups = this._getGroups().filter(g => (g.memberIds || []).includes(profileId));
+        const groups = this.data.getAllGroups().filter(g => (g.memberIds || []).includes(profileId));
         const allClases = this.data.getAllClases().filter(c => groups.some(g => g.id === c.groupId));
         const allPreguntas = [];
         allClases.forEach(c => {
-            this.data.getPreguntasAlumno(profileId, c.id).forEach(preg => allPreguntas.push({ ...preg, claseId: c.id, claseTitle: c.title || (this._getGroups().find(g => g.id === c.groupId) || {}).name || 'Clase' }));
+            this.data.getPreguntasAlumno(profileId, c.id).forEach(preg => allPreguntas.push({ ...preg, claseId: c.id, claseTitle: c.title || (this.data.getGroup(c.groupId) || {}).name || 'Clase' }));
         });
 
         if (!allPreguntas.length) {
@@ -6740,7 +6736,7 @@ class GuitarStudioApp {
         const todayStr = this.getTodayString();
         const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
         const now = new Date();
-        const groups = this._getGroups();
+        const groups = this.data.getAllGroups();
         const upcoming = groups.map(g => {
             const targetDay = dayNames.indexOf(g.day);
             if (targetDay < 0) return null;
@@ -6836,7 +6832,7 @@ class GuitarStudioApp {
     _tbRenderConsultasTab(profiles, allClases) {
         const allPreguntas = [];
         profiles.forEach(p => {
-            const groups = this._getGroups().filter(g => (g.memberIds || []).includes(p.id));
+            const groups = this.data.getAllGroups().filter(g => (g.memberIds || []).includes(p.id));
             const classes = allClases.filter(c => groups.some(g => g.id === c.groupId));
             classes.forEach(c => {
                 const pregs = this.data.getPreguntasAlumno(p.id, c.id);
@@ -6845,7 +6841,7 @@ class GuitarStudioApp {
                         ...preg,
                         profile: p,
                         claseId: c.id,
-                        claseTitle: c.title || (this._getGroups().find(g => g.id === c.groupId) || {}).name || 'Clase',
+                        claseTitle: c.title || (this.data.getGroup(c.groupId) || {}).name || 'Clase',
                         claseDate: c.date
                     });
                 });
@@ -6953,7 +6949,7 @@ class GuitarStudioApp {
         if (!container) return;
         container.innerHTML = '<div style="padding:24px;color:var(--tb-text-secondary)">Cargando...</div>';
         const [profiles, items] = await Promise.all([this.data.getProfiles(), this.data.getLibraryItems()]);
-        const groups = this._getGroups();
+        const groups = this.data.getAllGroups();
 
         let contentHtml = '';
         if (this._bibState === 'main') {
@@ -7876,7 +7872,7 @@ class GuitarStudioApp {
                 item.bytes = buf;
             }
 
-            const groups = this._getGroups().filter(g => (g.memberIds || []).includes(this.activeProfile.id));
+            const groups = this.data.getAllGroups().filter(g => (g.memberIds || []).includes(this.activeProfile.id));
             const allClases = this.data.getAllClases();
             const myClases = allClases
                 .filter(c => groups.some(g => g.id === c.groupId) && c.status === 'finalizada')
@@ -7959,7 +7955,7 @@ class GuitarStudioApp {
             group = this._bibEnsurePersonalGroup(profile);
             groupId = group.id;
         } else {
-            group = this._getGroups().find(g => g.id === ctx.id);
+            group = this.data.getGroup(ctx.id);
             groupId = ctx.id;
         }
         const categories = this._bibCategoriesFor({ profile, group });
@@ -8113,7 +8109,7 @@ class GuitarStudioApp {
             label = `Categorías de esta clase`;
         } else {
             const id = target.slice(6);
-            const groups = this._getGroups();
+            const groups = this.data.getAllGroups();
             const g = groups.find(x => x.id === id);
             list = (g && g.categories) ? g.categories : this.data.getDefaultCategories();
             label = `Categorías de ${g ? g.name : 'curso'}`;
@@ -8183,9 +8179,9 @@ class GuitarStudioApp {
             }
         } else if (target.startsWith('group:')) {
             const id = target.slice(6);
-            const groups = this._getGroups();
+            const groups = this.data.getAllGroups();
             const g = groups.find(x => x.id === id);
-            if (g) { g.categories = list; this._saveGroups(groups); }
+            if (g) { g.categories = list; this.data.saveGroups(groups); }
         }
         // Si hay una clase en construcción, refrescar sus categorías
         if (this._bibBuilding) this._bibBuilding.categories = list;
@@ -8251,9 +8247,9 @@ class GuitarStudioApp {
         const time = document.getElementById('bib-curso-time')?.value || '';
         const meetLink = document.getElementById('bib-curso-meet')?.value?.trim() || '';
         const memberIds = [...document.querySelectorAll('#bib-curso-members input:checked')].map(c => c.value);
-        const groups = this._getGroups();
+        const groups = this.data.getAllGroups();
         groups.push({ id: this.data.generateId('group'), name, day, time, meetLink, memberIds, createdAt: Date.now() });
-        this._saveGroups(groups);
+        this.data.saveGroups(groups);
         document.getElementById('bib-curso-modal').style.display = 'none';
         this._bibSidebarTab = 'cursos';
         this.renderBibliotecaView();

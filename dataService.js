@@ -560,6 +560,9 @@ class DataService {
     _saveGroupsRaw(arr) {
         localStorage.setItem('gs-groups', JSON.stringify(arr));
     }
+    saveGroups(arr) {
+        this._saveGroupsRaw(arr);
+    }
     getAllGroups() {
         return this._getGroupsRaw();
     }
