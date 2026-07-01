@@ -1178,12 +1178,14 @@
     <script src="metronome.js"></script>
     <script src="dataService.js"></script>
     <script src="exercisesData.js"></script>
-    <script src="app.js"></script>
-    <!-- Mixins: extienden GuitarStudioApp.prototype, deben cargar DESPUÉS de app.js -->
+    <script src="core.js"></script>
+    <!-- Mixins: extienden GuitarStudioApp.prototype, deben cargar DESPUÉS de core.js -->
     <script src="i18n.js"></script>
     <script src="alphatabPlayer.js"></script>
     <script src="bibliotecaProfesor.js"></script>
     <script src="tableroProfesor.js"></script>
     <script src="miEstudioPractica.js"></script>
+    <!-- bootstrap.js instancia la app: debe cargar ÚLTIMO -->
+    <script src="bootstrap.js"></script>
 </body>
 </html>

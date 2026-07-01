@@ -1,8 +1,10 @@
 /**
- * app.js - Lógica principal de Guitar Studio.
- * Controla navegación SPA, internacionalización (ES/EN), temporizadores,
- * metrónomo de UI, persistencia de racha (LocalStorage), base de datos (IndexedDB)
- * para Guitar Pro y la biblioteca de ejercicios.
+ * core.js - Clase principal GuitarStudioApp: constructor, navegación SPA,
+ * tema, sistema de perfiles/PIN, bindEvents() y helpers compartidos.
+ * Los demás archivos (i18n.js, alphatabPlayer.js, bibliotecaProfesor.js,
+ * tableroProfesor.js, miEstudioPractica.js) extienden GuitarStudioApp.prototype
+ * y deben cargarse DESPUÉS de este. bootstrap.js instancia la app y debe
+ * cargarse último de todos.
  */
 // ==========================================================================
 // ResizeObserver Harmless Error Suppression (Popups)
@@ -2514,46 +2516,3 @@ class GuitarStudioApp {
     }
 
 }
-
-// Inicializar la aplicación al cargar el DOM
-window.app = new GuitarStudioApp();
-document.addEventListener("DOMContentLoaded", () => {
-    window.app.init().catch(err => {
-        console.error("Error initializing app:", err);
-    });
-
-    // Test automation query helper
-    if (window.location.search.includes("test=true")) {
-        console.log("TEST AUTOMATION STARTING");
-        setTimeout(() => {
-            try {
-                console.log("Navigating to Practice View...");
-                window.app.navigateToView('practice');
-                
-                // Test Step 1
-                console.log("Testing Step 1...");
-                window.app.showWizardStep(1);
-                
-                setTimeout(() => {
-                    // Test Step 2
-                    console.log("Testing Step 2...");
-                    window.app.showWizardStep(2);
-                    
-                    setTimeout(() => {
-                        // Test Step 3
-                        console.log("Testing Step 3...");
-                        window.app.showWizardStep(3);
-                        
-                        setTimeout(() => {
-                            // Test Step 4
-                            console.log("Testing Step 4...");
-                            window.app.showWizardStep(4);
-                        }, 1000);
-                    }, 1000);
-                }, 1000);
-            } catch (e) {
-                console.error("Test automation crashed: " + e.message, e);
-            }
-        }, 1500);
-    }
-});
