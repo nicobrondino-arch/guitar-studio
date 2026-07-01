@@ -1,7 +1,7 @@
 /**
  * i18n.js - Diccionario de traducciones (ES/EN) y métodos de cambio de idioma.
  * Se agrega como mixin al prototipo de GuitarStudioApp (definido en core.js).
- * Debe cargarse ANTES de core.js/bootstrap.js.
+ * Debe cargarse DESPUÉS de core.js y antes de bootstrap.js.
  */
 const TRANSLATIONS = {
     es: {

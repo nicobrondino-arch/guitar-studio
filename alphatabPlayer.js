@@ -1,6 +1,6 @@
 /**
  * alphatabPlayer.js - Visor de Guitar Pro (inicialización y controles de AlphaTab).
- * Mixin del prototipo de GuitarStudioApp (definido en app.js). Debe cargarse DESPUÉS de app.js.
+ * Mixin del prototipo de GuitarStudioApp (definido en core.js). Debe cargarse DESPUÉS de core.js.
  */
 // ==========================================================================
 // AlphaTab Player

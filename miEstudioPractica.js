@@ -1,6 +1,6 @@
 /**
  * miEstudioPractica.js - Vista del alumno: Mi Estudio (racha, heatmap, proxima clase), Mi Biblioteca y Modo Practica (timers, wizard, visor PDF/YouTube).
- * Mixin del prototipo de GuitarStudioApp (definido en app.js). Debe cargarse DESPUES de app.js.
+ * Mixin del prototipo de GuitarStudioApp (definido en core.js). Debe cargarse DESPUES de core.js.
  */
 Object.assign(GuitarStudioApp.prototype, {
     _getNextClaseForStudent(groups, allClases) {

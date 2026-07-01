@@ -13,7 +13,7 @@ la casa. Hay que **traducir**, no copiar.
 | Motor | Design Component (`support.js`, `<x-dc>`, `{{ holes }}`, `<sc-for>`) | JavaScript "a mano" (vanilla), DOM + `innerHTML` |
 | Estilos | Inline + `<style>` en `<helmet>` | Clases CSS en `styles.css` |
 | Datos | `state = { … }` de mentira, fijo | `dataService.js` (localStorage + IndexedDB), real |
-| Lógica | `renderVals()` devuelve valores | métodos de la clase `app` que arman HTML |
+| Lógica | `renderVals()` devuelve valores | métodos de la clase `app` que arman HTML (repartidos en 9 archivos — ver [§6](#6-modularización-js--arquitectura-y-convenciones-etapa-2-2026-07-01)) |
 
 **La maqueta sirve para mirar el diseño. La app real es la única fuente de verdad.**
 
@@ -21,8 +21,12 @@ la casa. Hay que **traducir**, no copiar.
 
 ## 1. Una sola fuente de verdad
 
-- App real = los archivos en la **raíz** del proyecto: `index.html`, `app.js`,
-  `styles.css`, `dataService.js`, `metronome.js`.
+- App real = los archivos en la **raíz** del proyecto: `index.html`, `styles.css`,
+  y la lógica JS repartida en 9 archivos desde la modularización de Etapa 2
+  (`core.js`, `dataService.js`, `metronome.js`, `exercisesData.js`, `i18n.js`,
+  `alphatabPlayer.js`, `bibliotecaProfesor.js`, `tableroProfesor.js`,
+  `miEstudioPractica.js`) + `bootstrap.js`. **Ya no existe un `app.js` único** —
+  ver [§6](#6-modularización-js--arquitectura-y-convenciones-etapa-2-2026-07-01).
 - Borrá las copias con sufijos raros (`app-e8e3c3f0…`, `index-bffd19da…`,
   `styles-8c517827…`). Generan descoordinación: cada quien edita una copia distinta.
 - Las maquetas `.dc.html` quedan **solo como referencia visual** (acá guardadas como
@@ -124,3 +128,81 @@ Para evitar el "Síndrome de Frankenstein" (mezclar todo en una súper pantalla 
    - **Regla de oro:** Reutiliza el mismo componente visual de la Biblioteca del profesor, pero es **100% de solo lectura**. No hay botones de editar, eliminar ni subir contenido. Está filtrado solo para el ID del alumno.
 
 **Cualquier nuevo desarrollo debe encajar en estos 3 pilares sin inventar vistas híbridas u ocultas.**
+
+---
+
+## 6. Modularización JS — Arquitectura y convenciones (Etapa 2, 2026-07-01)
+
+`app.js` (8.402 líneas, todo en una sola clase `GuitarStudioApp`) se partió en **9
+archivos**, mediante split mecánico sin cambios de lógica (cada extracción fue un
+commit separado, auditado y confirmado sin alterar comportamiento).
+
+### Patrón: mixins sobre el prototipo
+
+Salvo `dataService.js`, `exercisesData.js` y `core.js`, cada archivo hace:
+
+```js
+Object.assign(GuitarStudioApp.prototype, { metodo1() {...}, metodo2() {...} });
+```
+
+Esto preserva 1:1 todas las llamadas cruzadas (`this.metodo()`) y los handlers
+inline en el HTML (`onclick="app.metodo()"`) sin tener que tocar ni reescribir
+ninguno de los dos.
+
+### ⚠️ Regla crítica: orden de `<script>`
+
+`core.js` (donde vive `class GuitarStudioApp`) **tiene que cargar antes** que
+cualquier mixin, y `bootstrap.js` (`window.app = new GuitarStudioApp()`) **va
+último**. Este orden está replicado en dos lugares — **si se agrega un archivo
+mixin nuevo, actualizar los dos**:
+- `index.html`
+- `check.html` (harness mínimo para detectar errores de sintaxis/orden sin
+  levantar toda la app — abre esto en el navegador y mirá el `<title>` del tab:
+  si dice `ERROR: <línea>: <mensaje>` hay un problema de carga)
+
+Orden actual: `metronome → dataService → exercisesData → core → i18n →
+alphatabPlayer → bibliotecaProfesor → tableroProfesor → miEstudioPractica →
+bootstrap`.
+
+### Mapa de archivos
+
+| Archivo | Rol |
+| :--- | :--- |
+| `metronome.js` | Clase independiente (metrónomo, desactivado — ver §Metronome en memoria del proyecto) |
+| `dataService.js` | Persistencia: `DataService` + `TabDatabase` (IndexedDB) + localStorage |
+| `exercisesData.js` | `EXERCISES_DATABASE` (datos estáticos) |
+| `core.js` | Constructor, ruteo/SPA, perfiles, PIN, `bindEvents()`, helpers compartidos |
+| `i18n.js` | Traducciones y actualización dinámica de UI |
+| `alphatabPlayer.js` | Init de AlphaTab, tempo, volumen, repetición |
+| `bibliotecaProfesor.js` | Biblioteca v2: CRUD, categorías, plantillas (métodos `bib*`/`_bib*`) |
+| `tableroProfesor.js` | Clases/asistencia/agenda (métodos `tb*`/`_tb*`) |
+| `miEstudioPractica.js` | Vista alumno: racha, heatmap, Modo Práctica |
+| `bootstrap.js` | `window.app = new GuitarStudioApp()` + `DOMContentLoaded` |
+
+Al tocar código: **biblioteca del profesor → `bibliotecaProfesor.js`**, **clases/
+tablero → `tableroProfesor.js`**, **vista alumno/práctica → `miEstudioPractica.js`**,
+**visor Guitar Pro → `alphatabPlayer.js`**.
+
+### Riesgos conocidos (y por qué no se resolvieron todavía)
+
+Una auditoría externa (2026-07-01) señaló tres riesgos estructurales del patrón
+mixin, verificados y confirmados:
+1. **Orden de carga crítico** (ver regla arriba).
+2. **Colisión de nombres silenciosa**: si dos archivos definen un método con el
+   mismo nombre, el segundo pisa al primero sin error. Ya pasó una vez en el
+   monolito (bug de "duplicate method header" — fue parte de lo que motivó
+   modularizar). Hoy no hay colisiones (verificado), pero no hay ningún guard
+   que lo prevenga hacia adelante.
+3. **Estado compartido implícito**: los mixins mutan las mismas propiedades de
+   `this` (`this._currentClaseId`, `this._bibState`, etc.) sin encapsulamiento.
+
+**Decisión:** no se migra a ES6 modules + composición de subsistemas (propuesta
+de Etapa 3) por ahora. Costo evaluado: `type="module"` rompe los ~28
+`onclick="app.metodo()"` inline en `index.html` (habría que exponer
+`window.app` a mano) y componer en subsistemas (`this.board`, `this.library`,
+etc.) obliga a reescribir cada llamada cruzada entre los métodos de los 6
+mixins — una migración grande para un riesgo hoy manejable. Si se necesita
+mitigar el riesgo #2 sin ese costo, la opción liviana pendiente es un guard de
+pocas líneas en `bootstrap.js` que detecte si `Object.assign` pisa una key ya
+existente del prototype y tire un warning en consola (no implementado aún,
+evaluar si en algún momento se vuelve necesario).

@@ -1,6 +1,6 @@
 /**
  * bibliotecaProfesor.js - Biblioteca del Profesor (v2): CRUD, plantillas, categorias, tabla filtrable.
- * Mixin del prototipo de GuitarStudioApp (definido en app.js). Debe cargarse DESPUES de app.js.
+ * Mixin del prototipo de GuitarStudioApp (definido en core.js). Debe cargarse DESPUES de core.js.
  */
 Object.assign(GuitarStudioApp.prototype, {
     _bibCatColor(name) {
