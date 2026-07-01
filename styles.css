@@ -7287,3 +7287,48 @@ textarea.form-control {
     box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.15);
 }
 
+/* ── Panel Semanal Inferior y Pestañas de Creación ── */
+.tl3-tab-bottom {
+    background: transparent;
+    border: 1px solid #2e1620;
+    color: #5e3a42;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+.tl3-tab-bottom:hover {
+    color: #a06070;
+    border-color: #3e2030;
+}
+.tl3-tab-bottom.active {
+    color: var(--tb-accent);
+    border-color: var(--tb-accent);
+    background: rgba(192, 57, 43, 0.05);
+}
+
+.dash-weekly-panel {
+    border-top: 1px solid #2e1620;
+    background: #0d0709;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+.dash-creation-tab {
+    transition: border-color 0.2s ease, color 0.2s ease;
+}
+.dash-creation-tab:hover {
+    color: var(--tb-text-primary) !important;
+}
+.dash-creation-tab.active {
+    border-bottom-color: var(--tb-accent) !important;
+    color: var(--tb-text-primary) !important;
+}
+
+

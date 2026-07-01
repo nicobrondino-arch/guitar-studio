@@ -346,6 +346,22 @@ class DataService {
         localStorage.setItem(this._profileKey(profileId, 'studio-last-reset-check'), dateStr);
     }
 
+    // Cadencia de racha: cuántos días por semana espera el profesor que practique este alumno (1-7, default 7 = diaria)
+    getStreakCadence(profileId) {
+        return parseInt(localStorage.getItem(this._profileKey(profileId, 'streak-cadence')) || '7', 10);
+    }
+    setStreakCadence(profileId, daysPerWeek) {
+        localStorage.setItem(this._profileKey(profileId, 'streak-cadence'), String(daysPerWeek));
+    }
+
+    // Semana calendario (lunes) ya evaluada para la racha semanal — evita re-evaluar la misma semana dos veces
+    getStreakWeekChecked(profileId) {
+        return localStorage.getItem(this._profileKey(profileId, 'streak-week-checked')) || '';
+    }
+    setStreakWeekChecked(profileId, mondayStr) {
+        localStorage.setItem(this._profileKey(profileId, 'streak-week-checked'), mondayStr);
+    }
+
     // Perfil activo
     getActiveProfileId() {
         return localStorage.getItem('studio-active-profile') || null;

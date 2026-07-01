@@ -148,9 +148,6 @@ const TRANSLATIONS = {
         "cat-repertoire": "Enfoque Semanal",
         "btn-back-exercises": "Ejercicios",
         "btn-complete-category": "Marcar Completado",
-        "card-weeks-title": "Semanas de Trabajo",
-        "btn-new-week": "+ Nueva Semana",
-        "no-weeks-yet": "No hay semanas creadas aún.",
         "card-library-title": "Biblioteca de Contenido",
         "no-library-items": "La biblioteca está vacía. Sube archivos o agrega URLs arriba.",
         "uploader-gp-title": "Archivo Guitar Pro",
@@ -160,17 +157,12 @@ const TRANSLATIONS = {
         "dropzone-gp-text": ".gp, .gp5, .gpx",
         "dropzone-pdf-text": ".pdf",
         "btn-add-url": "Agregar",
-        "lbl-week-assign": "Asignar a semana",
         "lbl-categories": "Categorías",
         "practice-empty-state": "No hay ejercicios asignados a esta categoría para ninguna semana.",
         "practice-empty-go-notebook": "Ir al Cuaderno para agregar contenido",
         "btn-open-player": "Abrir en Player",
         "btn-open-pdf": "Abrir PDF",
-        "week-new-title-placeholder": "Ej. Semana 3 - Escalas mayores",
-        "week-title-label": "Título de la semana",
-        "btn-create-week": "Crear Semana",
         "btn-cancel": "Cancelar",
-        "confirm-delete-week": "¿Eliminar esta semana y todos sus ejercicios asignados?",
         "confirm-delete-library-item": "¿Eliminar este ítem de la biblioteca?",
         "notebook-subtitle": "Anotaciones, semanas de trabajo y biblioteca de contenido",
         "timer-label": "Tiempo en esta categoría",
@@ -273,9 +265,6 @@ const TRANSLATIONS = {
         "cat-repertoire": "Weekly Focus",
         "btn-back-exercises": "Exercises",
         "btn-complete-category": "Mark Completed",
-        "card-weeks-title": "Work Weeks",
-        "btn-new-week": "+ New Week",
-        "no-weeks-yet": "No weeks created yet.",
         "card-library-title": "Content Library",
         "no-library-items": "Library is empty. Upload files or add URLs above.",
         "uploader-gp-title": "Guitar Pro File",
@@ -285,17 +274,12 @@ const TRANSLATIONS = {
         "dropzone-gp-text": ".gp, .gp5, .gpx",
         "dropzone-pdf-text": ".pdf",
         "btn-add-url": "Add",
-        "lbl-week-assign": "Assign to week",
         "lbl-categories": "Categories",
         "practice-empty-state": "No exercises assigned to this category for any week.",
         "practice-empty-go-notebook": "Go to Notebook to add content",
         "btn-open-player": "Open in Player",
         "btn-open-pdf": "Open PDF",
-        "week-new-title-placeholder": "E.g. Week 3 - Major Scales",
-        "week-title-label": "Week title",
-        "btn-create-week": "Create Week",
         "btn-cancel": "Cancel",
-        "confirm-delete-week": "Delete this week and all its assigned exercises?",
         "confirm-delete-library-item": "Delete this library item?",
         "notebook-subtitle": "Annotations, work weeks and content library",
         "timer-label": "Time in this category",
@@ -668,6 +652,7 @@ class GuitarStudioApp {
         this.isProfessorMode = false;
         this._currentClaseId = null; // clase abierta en el tablero
         this._timelineTab = 'hoy';   // tab activo del timeline: 'hoy' | 'manana' | 'semana'
+        this._dashActiveTab = 'clase'; // tab activo de creación: 'clase' | 'grupo' | 'plantilla'
         this._libSearch = '';        // búsqueda en biblioteca col 3
         this._libCatFilter = 'todos'; // filtro categoría biblioteca col 3
         this._weekOffset = 0;        // semana relativa al hoy (0 = esta semana, -1 = anterior)
@@ -698,7 +683,6 @@ class GuitarStudioApp {
         this._tbStatusFilter = 'todos';
         this._tbSort = 'nombre';
         this._tbFocusProfileId = null;
-        this._tbAllWeeksCache = [];
         this._tbConsultasSearch = '';
         this._tbConsultasFilter = 'todos'; // 'todos' | 'pendientes' | 'respondidas'
 
@@ -707,8 +691,7 @@ class GuitarStudioApp {
         this._myLibColFilters = { type: [], category: [], level: [], style: [] };
         this._myLibViewMode = 'clases';
         this._studioClassTab = 'next';
-        this._studioSelectedGroupId = null;
-        this._studioSelectedClaseId = null;
+        this._studioHistoryOpenClaseId = null; // clase del historial actualmente expandida (repaso, no afecta la Rutina Diaria)
 
         // Estado de práctica: categoría activa y player
         this.currentCategory = 'technique';
@@ -828,13 +811,37 @@ class GuitarStudioApp {
     }
 
     getTodayString() {
-        const d = new Date();
+        return this._formatDateString(new Date());
+    }
+
+    _formatDateString(d) {
         const year = d.getFullYear();
         const month = String(d.getMonth() + 1).padStart(2, '0');
         const day = String(d.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
     }
 
+    // Lunes (YYYY-MM-DD) de la semana calendario que contiene dateStr
+    getMondayString(dateStr) {
+        const d = new Date(dateStr + 'T12:00:00');
+        const dow = d.getDay(); // 0=domingo, 1=lunes...
+        const diffToMonday = dow === 0 ? 6 : dow - 1;
+        d.setDate(d.getDate() - diffToMonday);
+        return this._formatDateString(d);
+    }
+
+    addDaysToDateString(dateStr, n) {
+        const d = new Date(dateStr + 'T12:00:00');
+        d.setDate(d.getDate() + n);
+        return this._formatDateString(d);
+    }
+
+    /**
+     * Evalúa si la racha sigue vigente según la cadencia semanal que definió el profesor
+     * (en vez de exigir práctica todos los días). La racha solo se resetea si, al cerrarse
+     * una semana calendario (lunes-domingo), el alumno no llegó a la cantidad de días
+     * pactada — o si hubo una semana entera sin ninguna práctica.
+     */
     checkStreakValidity() {
         if (!this.lastPracticedDate) {
             this.streak = 0;
@@ -842,13 +849,25 @@ class GuitarStudioApp {
             return;
         }
 
-        const today = new Date(this.getTodayString());
-        const lastPracticed = new Date(this.lastPracticedDate);
+        const pid = this.activeProfile ? this.activeProfile.id : null;
+        const cadence = pid ? this.data.getStreakCadence(pid) : 7;
 
-        const diffTime = Math.abs(today - lastPracticed);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const todayStr = this.getTodayString();
+        const currentMonday = this.getMondayString(todayStr);
+        const lastPracticedMonday = this.getMondayString(this.lastPracticedDate);
 
-        if (diffDays > 1) {
+        if (lastPracticedMonday === currentMonday) return; // seguimos en la misma semana, nada que evaluar todavía
+
+        const weeksGap = Math.round(
+            (new Date(currentMonday) - new Date(lastPracticedMonday)) / (7 * 24 * 60 * 60 * 1000)
+        );
+
+        const weekEnd = this.addDaysToDateString(lastPracticedMonday, 6);
+        const practicedDaysInLastWeek = this.history.filter(d => d >= lastPracticedMonday && d <= weekEnd).length;
+        const metCadence = practicedDaysInLastWeek >= cadence;
+
+        // weeksGap > 1 implica al menos una semana calendario completa sin ninguna práctica registrada
+        if (weeksGap > 1 || !metCadence) {
             this.streak = 0;
             this.saveStreak();
         }
@@ -1268,86 +1287,31 @@ class GuitarStudioApp {
     // ==========================================================================
     // Próxima Clase — vista del alumno en Mi Estudio
     // ==========================================================================
-    async renderStudioSelectorAndDetails() {
-        const groupSelect = document.getElementById('studio-group-selector');
-        const classSelect = document.getElementById('studio-class-selector');
-        const detailsContainer = document.getElementById('studio-class-details-container');
-        
-        if (!groupSelect || !classSelect || !detailsContainer) return;
-        if (!this.activeProfile) return;
 
-        // 1. Obtener grupos del alumno
-        const groups = this.data.getAllGroups().filter(g => (g.memberIds || []).includes(this.activeProfile.id));
-        if (groups.length === 0) {
-            groupSelect.innerHTML = '<option value="">Sin cursos asignados</option>';
-            classSelect.innerHTML = '<option value="">Sin clases</option>';
-            detailsContainer.innerHTML = '<p class="text-muted" style="padding:16px; text-align:center">No estás asignado a ningún grupo o curso aún.</p>';
-            
-            // Actualizar tiempo de estudio a 0
-            const timeValEl = document.getElementById("studio-total-time-value");
-            if (timeValEl) timeValEl.textContent = "0 min";
-            return;
-        }
+    // La "próxima clase" entre TODOS los grupos del alumno (particular + cursos): la que está
+    // en curso ahora mismo, o si no hay ninguna, la pendiente más próxima en fecha.
+    _getNextClaseForStudent(groups, allClases) {
+        const myClases = allClases.filter(c => groups.some(g => g.id === c.groupId));
+        const enCurso = myClases.filter(c => c.status === 'en-curso').sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+        if (enCurso.length) return enCurso[0];
+        const pendientes = myClases
+            .filter(c => c.status !== 'finalizada' && c.status !== 'en-curso')
+            .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+        return pendientes[0] || null;
+    }
 
-        // 2. Poblar selector de grupos si es necesario o si cambió
-        if (!this._studioSelectedGroupId || !groups.some(g => g.id === this._studioSelectedGroupId)) {
-            this._studioSelectedGroupId = groups[0].id;
-        }
-        
-        const groupOptions = groups.map(g => `<option value="${g.id}" ${g.id === this._studioSelectedGroupId ? 'selected' : ''}>${this._escapeHtml(g.name)}</option>`).join('');
-        groupSelect.innerHTML = groupOptions;
+    // Arma el cuerpo (header + contenido por categoría + nota del profesor) de una clase,
+    // reusado tanto para la "Próxima Clase" como para el detalle de una clase del historial.
+    async _buildClaseCardBodyHtml(clase, group, opts) {
+        opts = opts || {};
+        const label = opts.label || 'Próxima Clase';
 
-        const selectedGroupId = this._studioSelectedGroupId;
-        const selectedGroup = groups.find(g => g.id === selectedGroupId) || {};
-
-        // 3. Obtener clases finalizadas del grupo seleccionado
-        const allClases = this.data.getAllClases();
-        const myClases = allClases
-            .filter(c => c.groupId === selectedGroupId && c.status === 'finalizada')
-            .sort((a, b) => {
-                const ta = b.finalizadaAt || b.date || '';
-                const tb = a.finalizadaAt || a.date || '';
-                return tb.localeCompare(ta); // Más reciente primero (la clase activa actual al inicio)
-            });
-
-        if (myClases.length === 0) {
-            classSelect.innerHTML = '<option value="">Sin clases finalizadas</option>';
-            detailsContainer.innerHTML = '<p class="text-muted" style="padding:16px; text-align:center">No hay clases registradas para este curso.</p>';
-            
-            // Actualizar tiempo de estudio a 0
-            const timeValEl = document.getElementById("studio-total-time-value");
-            if (timeValEl) timeValEl.textContent = "0 min";
-            return;
-        }
-
-        // Poblar selector de clases
-        if (!this._studioSelectedClaseId || !myClases.some(c => c.id === this._studioSelectedClaseId)) {
-            this._studioSelectedClaseId = myClases[0].id;
-        }
-
-        const classOptions = myClases.map((c, idx) => {
-            const dateLabel = c.date ? new Date(c.date + 'T12:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }) : 'Clase';
-            const label = idx === 0 ? `Clase Activa (${dateLabel})` : `Clase del ${dateLabel}`;
-            return `<option value="${c.id}" ${c.id === this._studioSelectedClaseId ? 'selected' : ''}>${label}</option>`;
-        }).join('');
-        classSelect.innerHTML = classOptions;
-
-        const selectedClaseId = this._studioSelectedClaseId;
-        const clase = myClases.find(c => c.id === selectedClaseId) || myClases[0];
-
-        // 4. Calcular y actualizar Tiempo Total de Estudio para esta clase
-        const totalPracticeSeconds = await this.getPracticeTimeForClass(clase);
-        const totalMinutes = Math.round(totalPracticeSeconds / 60);
-        const timeValEl = document.getElementById("studio-total-time-value");
-        if (timeValEl) timeValEl.textContent = `${totalMinutes} min`;
-
-        // 5. Renderizar detalles de la clase seleccionada
         const dateLabel = clase.date ? new Date(clase.date + 'T12:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }) : '';
         const capDate = dateLabel ? dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1) : '';
-        const timePart = selectedGroup.time ? ' · ' + selectedGroup.time.slice(0, 5) : '';
+        const timePart = group.time ? ' · ' + group.time.slice(0, 5) : '';
 
-        const meetHref = /^https?:/.test(selectedGroup.meetLink || '') ? selectedGroup.meetLink : 'https://' + (selectedGroup.meetLink || '');
-        const meetEl = selectedGroup.meetLink ? `
+        const meetHref = /^https?:/.test(group.meetLink || '') ? group.meetLink : 'https://' + (group.meetLink || '');
+        const meetEl = (!opts.readonly && group.meetLink) ? `
             <div class="proxima-meet" style="margin-top: 8px">
                 <a href="${this._escapeHtml(meetHref)}" target="_blank" class="btn-pill btn-meet-pill">
                     <svg viewBox="0 0 24 24" fill="none" style="width:12px;height:12px" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
@@ -1378,7 +1342,11 @@ class GuitarStudioApp {
                 const iconSvg = fileType === 'youtube'
                     ? `<svg viewBox="0 0 16 16" fill="none" style="width:13px;height:13px;flex-shrink:0;color:#FF0000" stroke="currentColor" stroke-width="1.2"><rect x="2" y="4" width="12" height="9" rx="1.5"/><path d="M6.5 7.5l4 2-4 2V7.5z" fill="currentColor" stroke="none"/></svg>`
                     : `<svg viewBox="0 0 16 16" fill="none" style="width:13px;height:13px;flex-shrink:0" stroke="${cfg.color}" stroke-width="1.5"><path d="M8 2v12M4 6l4-4 4 4"/></svg>`;
-                return `<div class="pc-item" onclick="app.openLibraryItemById('${c.id}')" style="cursor:pointer">${iconSvg}${this._escapeHtml(title)}</div>`;
+                const doubtBtn = opts.readonly ? '' : `<button onclick="event.stopPropagation(); app.sendItemDoubt('${clase.id}','${c.id}')" title="¿Duda con esto?" style="background:none; border:none; cursor:pointer; opacity:.5; font-size:12px; padding:2px; flex-shrink:0" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=.5">💬</button>`;
+                return `<div class="pc-item" style="display:flex; align-items:center; justify-content:space-between; gap:6px">
+                    <span onclick="app.openLibraryItemById('${c.id}')" style="display:flex; align-items:center; gap:6px; flex:1; min-width:0; cursor:pointer">${iconSvg}${this._escapeHtml(title)}</span>
+                    ${doubtBtn}
+                </div>`;
             }).join('');
             return `<div class="proxima-cat">
                 <div class="pc-label" style="color:${cfg.color}">
@@ -1397,38 +1365,126 @@ class GuitarStudioApp {
 
         const hasContent = contentByCat || notaAlumno;
 
-        detailsContainer.innerHTML = `
-            <div class="card proxima-card" style="margin-bottom:0">
-                <div class="proxima-header">
-                    <div>
-                        <div class="proxima-label">Detalles de la Clase</div>
-                        <div class="proxima-title" style="font-size:16px; margin: 2px 0">${this._escapeHtml(selectedGroup.name || clase.title || 'Clase')}</div>
-                        <div class="proxima-meta">${capDate}${timePart}</div>
-                    </div>
-                    ${meetEl}
+        return `
+            <div class="proxima-header">
+                <div>
+                    <div class="proxima-label">${label}</div>
+                    <div class="proxima-title" style="font-size:16px; margin: 2px 0">${this._escapeHtml(group.name || clase.title || 'Clase')}</div>
+                    <div class="proxima-meta">${capDate}${timePart}</div>
                 </div>
-                <div class="proxima-body">
-                    ${contentByCat}
-                    ${notaAlumno}
-                    ${!hasContent ? '<p class="text-muted" style="font:italic 13px var(--font-heading,serif); margin:0; padding: 8px 0">El profesor no asignó contenido específico en esta clase.</p>' : ''}
-                </div>
+                ${meetEl}
             </div>
-            
-            <button class="btn btn-primary" onclick="app.navigateToPractice()" style="width:100%; padding:14px; font-size:15px; font-weight:700; border-radius:10px; background:linear-gradient(135deg, var(--tb-accent), var(--tb-accent-hover)); border:none; box-shadow:0 4px 15px rgba(108,99,255,0.25); display:flex; align-items:center; justify-content:center; gap:8px">
-                🚀 Comenzar Práctica Diaria
-            </button>
+            <div class="proxima-body">
+                ${contentByCat}
+                ${notaAlumno}
+                ${!hasContent ? '<p class="text-muted" style="font:italic 13px var(--font-heading,serif); margin:0; padding: 8px 0">El profesor no asignó contenido específico en esta clase.</p>' : ''}
+            </div>
         `;
     }
 
-    handleStudioGroupChange(groupId) {
-        this._studioSelectedGroupId = groupId;
-        this._studioSelectedClaseId = null;
-        this.renderStudioSelectorAndDetails();
+    async renderStudioSelectorAndDetails() {
+        const detailsContainer = document.getElementById('studio-class-details-container');
+        if (!detailsContainer) return;
+        if (!this.activeProfile) return;
+
+        const practiceBtn = `<button class="btn btn-primary" onclick="app.navigateToPractice()" style="width:100%; padding:14px; font-size:15px; font-weight:700; border-radius:10px; background:linear-gradient(135deg, var(--tb-accent), var(--tb-accent-hover)); border:none; box-shadow:0 4px 15px rgba(108,99,255,0.25); display:flex; align-items:center; justify-content:center; gap:8px">
+            🚀 Comenzar Práctica Diaria
+        </button>`;
+
+        // 1. Obtener TODOS los grupos del alumno (particular + cursos)
+        const groups = this.data.getAllGroups().filter(g => (g.memberIds || []).includes(this.activeProfile.id));
+        if (groups.length === 0) {
+            detailsContainer.innerHTML = '<p class="text-muted" style="padding:16px; text-align:center">No estás asignado a ningún grupo o curso aún.</p>';
+            const timeValEl = document.getElementById("studio-total-time-value");
+            if (timeValEl) timeValEl.textContent = "0 min";
+            this.renderStudioHistoryList();
+            return;
+        }
+
+        // 2. Calcular la próxima clase entre todos los espacios del alumno
+        const allClases = this.data.getAllClases();
+        const clase = this._getNextClaseForStudent(groups, allClases);
+
+        if (!clase) {
+            detailsContainer.innerHTML = `
+                <div class="card proxima-card" style="margin-bottom:0">
+                    <div class="proxima-label">Próxima Clase</div>
+                    <p class="text-muted" style="padding:8px 0 0 0; margin:0">No tenés ninguna clase programada por ahora. Mientras tanto, seguí con tu Rutina Diaria.</p>
+                </div>
+                ${practiceBtn}
+            `;
+            const timeValEl = document.getElementById("studio-total-time-value");
+            if (timeValEl) timeValEl.textContent = "0 min";
+            this.renderStudioHistoryList();
+            return;
+        }
+
+        const group = groups.find(g => g.id === clase.groupId) || {};
+
+        // 3. Tiempo total de estudio para esta clase
+        const totalPracticeSeconds = await this.getPracticeTimeForClass(clase);
+        const totalMinutes = Math.round(totalPracticeSeconds / 60);
+        const timeValEl = document.getElementById("studio-total-time-value");
+        if (timeValEl) timeValEl.textContent = `${totalMinutes} min`;
+
+        // 4. Renderizar la próxima clase (automática, sin selección manual)
+        const bodyHtml = await this._buildClaseCardBodyHtml(clase, group, { label: 'Próxima Clase' });
+        detailsContainer.innerHTML = `
+            <div class="card proxima-card" style="margin-bottom:0">${bodyHtml}</div>
+            ${practiceBtn}
+        `;
+
+        this.renderStudioHistoryList();
     }
 
-    handleStudioClassChange(claseId) {
-        this._studioSelectedClaseId = claseId;
-        this.renderStudioSelectorAndDetails();
+    // ── Historial de clases (repaso, colapsable — no afecta la Rutina Diaria) ──
+    toggleStudioHistory() {
+        const listEl = document.getElementById('studio-history-list');
+        const chevron = document.getElementById('studio-history-chevron');
+        if (!listEl) return;
+        const opening = listEl.style.display === 'none';
+        listEl.style.display = opening ? 'block' : 'none';
+        if (chevron) chevron.style.transform = opening ? 'rotate(180deg)' : '';
+        if (opening) this.renderStudioHistoryList();
+    }
+
+    toggleStudioHistoryClase(claseId) {
+        this._studioHistoryOpenClaseId = this._studioHistoryOpenClaseId === claseId ? null : claseId;
+        this.renderStudioHistoryList();
+    }
+
+    async renderStudioHistoryList() {
+        const listEl = document.getElementById('studio-history-list');
+        if (!listEl || !this.activeProfile) return;
+        if (listEl.style.display === 'none') return; // colapsado: no hace falta renderizar
+
+        const groups = this.data.getAllGroups().filter(g => (g.memberIds || []).includes(this.activeProfile.id));
+        const groupById = {};
+        groups.forEach(g => { groupById[g.id] = g; });
+
+        const finalizadas = this.data.getAllClases()
+            .filter(c => groups.some(g => g.id === c.groupId) && c.status === 'finalizada')
+            .sort((a, b) => (b.finalizadaAt || 0) - (a.finalizadaAt || 0));
+
+        if (!finalizadas.length) {
+            listEl.innerHTML = '<p class="text-muted" style="font-size:12px; padding:8px 0; margin:0">Todavía no hay clases finalizadas para repasar.</p>';
+            return;
+        }
+
+        const itemsHtml = await Promise.all(finalizadas.map(async c => {
+            const group = groupById[c.groupId] || {};
+            const dateLabel = c.date ? new Date(c.date + 'T12:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }) : 'Clase';
+            const isOpen = this._studioHistoryOpenClaseId === c.id;
+            const detailHtml = isOpen ? await this._buildClaseCardBodyHtml(c, group, { label: 'Repaso', readonly: true }) : '';
+            return `<div class="studio-history-item" style="margin-top:6px">
+                <button onclick="app.toggleStudioHistoryClase('${c.id}')" style="width:100%; display:flex; justify-content:space-between; align-items:center; gap:8px; background:var(--tb-bg-primary); border:1px solid var(--tb-border); border-radius:8px; padding:8px 12px; cursor:pointer; font-size:12px; color:var(--tb-text-primary)">
+                    <span>${this._escapeHtml(group.name || 'Clase')} — ${dateLabel}</span>
+                    <span style="opacity:.5; flex-shrink:0">${isOpen ? '▲' : '▼'}</span>
+                </button>
+                ${isOpen ? `<div class="card" style="margin-top:6px; padding:12px">${detailHtml}</div>` : ''}
+            </div>`;
+        }));
+        listEl.innerHTML = itemsHtml.join('');
     }
 
     async getPracticeTimeForClass(clase) {
@@ -1647,6 +1703,31 @@ class GuitarStudioApp {
         await this.renderPracticeView();
     }
 
+    // Duda referida a un ítem puntual (ejercicio/partitura/video), no a la sesión en general
+    async sendItemDoubt(claseId, itemId) {
+        if (!this.activeProfile) {
+            alert("Iniciá sesión como alumno para enviar consultas.");
+            return;
+        }
+        const libItems = await this.data.getLibraryItems();
+        const item = libItems.find(i => i.id === itemId);
+        const itemTitle = item ? item.title : 'este ejercicio';
+        const text = prompt(`¿Cuál es tu duda sobre "${itemTitle}"?`);
+        if (!text || !text.trim()) return;
+
+        const preg = {
+            id: this.data.generateId('preg'),
+            text: text.trim(),
+            date: new Date().toISOString(),
+            author: this.activeProfile.name,
+            itemId: itemId,
+            itemTitle: itemTitle,
+            replies: []
+        };
+        this.data.savePreguntaAlumno(this.activeProfile.id, claseId, preg);
+        this.showToast('Consulta enviada sobre este ejercicio', '✓');
+    }
+
     renderMotivationalPhrase() {
         const phrases = [
             { text: "La práctica no hace la perfección. La práctica consciente hace la perfección.", author: "Vince Lombardi" },
@@ -1685,14 +1766,27 @@ class GuitarStudioApp {
         const countEls = document.querySelectorAll("#streak-count");
         countEls.forEach(el => el.textContent = this.streak);
 
+        const pid = this.activeProfile ? this.activeProfile.id : null;
+        const cadence = pid ? this.data.getStreakCadence(pid) : 7;
+        const isDaily = cadence >= 7;
+
+        const unitEls = document.querySelectorAll(".studio-streak-unit-b");
+        unitEls.forEach(el => el.textContent = isDaily ? "días seguidos" : `días (plan: ${cadence}/sem)`);
+
         const practicedToday = this.lastPracticedDate === this.getTodayString();
         const descEl = document.getElementById("studio-streak-desc");
         if (descEl) {
-            descEl.textContent = practicedToday
-                ? "¡Excelente trabajo! Ya practicaste hoy. Nos vemos mañana. 🎸"
-                : this.streak > 0
+            if (practicedToday) {
+                descEl.textContent = "¡Excelente trabajo! Ya practicaste hoy. Nos vemos pronto. 🎸";
+            } else if (this.streak > 0) {
+                descEl.textContent = isDaily
                     ? `Llevas ${this.streak} ${this.streak === 1 ? 'día' : 'días'} seguidos. ¡No pares!`
-                    : "Toca 15 minutos para encender el fuego de la constancia.";
+                    : `Llevas ${this.streak} ${this.streak === 1 ? 'día' : 'días'} practicados cumpliendo tu plan (${cadence}/semana). ¡Seguí así!`;
+            } else {
+                descEl.textContent = isDaily
+                    ? "Toca 15 minutos para encender el fuego de la constancia."
+                    : `Tu plan es practicar ${cadence} ${cadence === 1 ? 'día' : 'días'} por semana. ¡Arrancá hoy!`;
+            }
         }
     }
 
@@ -1774,10 +1868,6 @@ class GuitarStudioApp {
 
         // Guardar anotaciones del cuaderno
         document.getElementById("btn-save-notes")?.addEventListener("click", () => this.saveTeacherNotes());
-
-        // Botón Nueva Semana
-        const btnNewWeek = document.getElementById("btn-new-week");
-        if (btnNewWeek) btnNewWeek.addEventListener("click", () => this.showNewWeekForm());
 
         // GP file input (Drag & Drop + browse)
         const dropzone = document.getElementById("upload-dropzone");
@@ -2301,32 +2391,28 @@ class GuitarStudioApp {
                 resolvedItems = allLib.filter(item => item.category === 'supplementary');
             } catch(e) { console.warn(e); }
         } else {
-            // Obtener clase activa/seleccionada
-            const groups = this.data.getAllGroups().filter(g => (g.memberIds||[]).includes(this.activeProfile?.id));
-            let clase = null;
-            if (this._studioSelectedClaseId) {
-                clase = this.data.getAllClases().find(c => c.id === this._studioSelectedClaseId);
-            }
-            if (!clase && groups.length > 0) {
-                const clases = this.data.getAllClases()
-                    .filter(c => groups.some(g => g.id === c.groupId) && c.status === 'finalizada')
-                    .sort((a,b) => (b.finalizadaAt||0) - (a.finalizadaAt||0));
-                if (clases.length > 0) clase = clases[0];
-            }
-            
-            if (clase) {
-                const catMap = { 'Técnica': 0, 'Lectura': 1, 'Lectura Musical': 1, 'Repertorio': 2 };
-                const catItems = (clase.content || []).filter(item => {
+            // Rutina Diaria = feed combinado: última clase finalizada de CADA espacio del alumno (particular + cursos)
+            const entries = this._getLatestFinalizedClasesPerGroup();
+            const multiGroup = entries.length > 1;
+            const catMap = { 'Técnica': 0, 'Lectura': 1, 'Lectura Musical': 1, 'Repertorio': 2 };
+            const catItemsTagged = [];
+            entries.forEach(({ group, clase }) => {
+                (clase.content || []).forEach(item => {
                     let catVal = item.cat;
                     if (typeof catVal === 'string') catVal = catMap[catVal];
                     if (catVal === undefined || catVal === null) catVal = 0;
-                    return catVal === catIdx;
+                    if (catVal === catIdx) catItemsTagged.push({ cItem: item, groupName: group.name, claseId: clase.id });
                 });
-                try {
-                    const allLib = await this.data.getLibraryItems();
-                    resolvedItems = catItems.map(cItem => allLib.find(li => li.id === cItem.id)).filter(Boolean);
-                } catch(e) { console.warn(e); }
-            }
+            });
+            try {
+                const allLib = await this.data.getLibraryItems();
+                resolvedItems = catItemsTagged
+                    .map(({ cItem, groupName, claseId }) => {
+                        const li = allLib.find(l => l.id === cItem.id);
+                        return li ? { ...li, _origin: multiGroup ? groupName : null, _claseId: claseId } : null;
+                    })
+                    .filter(Boolean);
+            } catch(e) { console.warn(e); }
         }
 
         if (resolvedItems.length === 0) {
@@ -2360,9 +2446,14 @@ class GuitarStudioApp {
                     <ul class="week-type-list" style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:6px">`;
 
                 group.forEach(item => {
-                    html += `<li class="week-type-item" onclick="${action(item.id)}" style="background:var(--tb-bg-primary); border:1px solid var(--tb-border); border-radius:8px; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; transition:transform .2s">
-                        <span class="week-type-item-title" style="font-weight:500; font-size:13px">${this._escapeHtml(item.title)}</span>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0;opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+                    const originBadge = item._origin ? `<span class="week-type-item-origin" style="font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.03em; color:var(--tb-text-muted); margin-right:8px">${this._escapeHtml(item._origin)}</span>` : '';
+                    const doubtBtn = item._claseId ? `<button onclick="event.stopPropagation(); app.sendItemDoubt('${item._claseId}','${item.id}')" title="¿Duda con esto?" style="background:none; border:none; cursor:pointer; opacity:.5; font-size:13px; padding:2px; flex-shrink:0" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=.5">💬</button>` : '';
+                    html += `<li class="week-type-item" onclick="${action(item.id)}" style="background:var(--tb-bg-primary); border:1px solid var(--tb-border); border-radius:8px; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:8px; cursor:pointer; transition:transform .2s">
+                        <span class="week-type-item-title" style="font-weight:500; font-size:13px">${originBadge}${this._escapeHtml(item.title)}</span>
+                        <div style="display:flex; align-items:center; gap:6px; flex-shrink:0">
+                            ${doubtBtn}
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0;opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+                        </div>
                     </li>`;
                 });
 
@@ -2399,41 +2490,52 @@ class GuitarStudioApp {
     // ==========================================================================
     // Modo Práctica — nuevos métodos
     // ==========================================================================
+
+    // Última clase finalizada de CADA grupo del alumno activo (particular + cursos) — feed combinado
+    _getLatestFinalizedClasesPerGroup() {
+        if (!this.activeProfile) return [];
+        const groups = this.data.getAllGroups().filter(g => (g.memberIds||[]).includes(this.activeProfile.id));
+        const allClases = this.data.getAllClases();
+        return groups.map(group => {
+            const clases = allClases
+                .filter(c => c.groupId === group.id && c.status === 'finalizada')
+                .sort((a,b) => (b.finalizadaAt||0) - (a.finalizadaAt||0));
+            return clases.length ? { group, clase: clases[0] } : null;
+        }).filter(Boolean);
+    }
+
     async _renderPracticeObjectives() {
         if (!this.activeProfile || this.isProfessorMode) return '';
-        const groups = this.data.getAllGroups().filter(g => (g.memberIds||[]).includes(this.activeProfile.id));
-        if (!groups.length) return '';
-        let clase = null;
-        if (this._studioSelectedClaseId) {
-            clase = this.data.getAllClases().find(c => c.id === this._studioSelectedClaseId);
-        }
-        if (!clase) {
-            const clases = this.data.getAllClases()
-                .filter(c => groups.some(g => g.id === c.groupId) && c.status === 'finalizada')
-                .sort((a,b) => (b.finalizadaAt||0) - (a.finalizadaAt||0));
-            if (!clases.length) return '';
-            clase = clases[0];
-        }
-        const objetivos = clase.objetivos || [];
-        if (!objetivos.length) return '';
+        const entries = this._getLatestFinalizedClasesPerGroup();
+        if (!entries.length) return '';
+        const multiGroup = entries.length > 1;
         const completados = this.data.getObjetivosCompletados(this.activeProfile.id);
-        const done = objetivos.filter(o => completados[`${clase.id}__${o.id}`]).length;
-        const items = objetivos.map(o => {
-            const key = `${clase.id}__${o.id}`;
-            const isDone = !!completados[key];
-            return `<div class="obj-check-row${isDone?' done':''}" onclick="app.toggleObjetivo('${clase.id}','${o.id}')">
-                <div class="obj-checkbox${isDone?' checked':''}">
-                    ${isDone?'<svg viewBox="0 0 10 10" fill="none" style="width:9px;height:9px"><path d="M2 5l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}
-                </div>
-                <span class="obj-text">${this._escapeHtml(o.text)}</span>
-            </div>`;
-        }).join('');
+
+        let totalObjetivos = 0, totalDone = 0, itemsHtml = '';
+        entries.forEach(({ group, clase }) => {
+            const objetivos = clase.objetivos || [];
+            objetivos.forEach(o => {
+                totalObjetivos++;
+                const key = `${clase.id}__${o.id}`;
+                const isDone = !!completados[key];
+                if (isDone) totalDone++;
+                const originBadge = multiGroup ? `<span class="obj-origin" style="font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.03em; color:var(--tb-text-muted); margin-right:8px">${this._escapeHtml(group.name)}</span>` : '';
+                itemsHtml += `<div class="obj-check-row${isDone?' done':''}" onclick="app.toggleObjetivo('${clase.id}','${o.id}')">
+                    <div class="obj-checkbox${isDone?' checked':''}">
+                        ${isDone?'<svg viewBox="0 0 10 10" fill="none" style="width:9px;height:9px"><path d="M2 5l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}
+                    </div>
+                    <span class="obj-text">${originBadge}${this._escapeHtml(o.text)}</span>
+                </div>`;
+            });
+        });
+        if (!totalObjetivos) return '';
+
         return `<div class="practice-objectives-card">
             <div class="practice-objectives-header">
                 <span>Objetivos del profesor</span>
-                <span>${done}/${objetivos.length} completados</span>
+                <span>${totalDone}/${totalObjetivos} completados</span>
             </div>
-            <div class="practice-objectives-list">${items}</div>
+            <div class="practice-objectives-list">${itemsHtml}</div>
         </div>`;
     }
 
@@ -2683,105 +2785,6 @@ class GuitarStudioApp {
         window.open(item.url, '_blank');
     }
 
-    // Muestra el formulario de nueva semana en el Cuaderno
-    showNewWeekForm() {
-        const container = document.getElementById("weeks-list-notebook");
-        if (!container) return;
-        const t = (key) => TRANSLATIONS[this.lang][key] || key;
-
-        // Evitar duplicados
-        if (document.getElementById("new-week-form")) return;
-
-        const form = document.createElement("div");
-        form.id = "new-week-form";
-        form.className = "new-week-form";
-        form.innerHTML = `
-            <input type="text" class="form-control" id="new-week-title-input" placeholder="${t('week-new-title-placeholder')}" style="margin-bottom:8px;">
-            <div style="display:flex;gap:8px;">
-                <button class="btn btn-primary btn-sm" id="btn-confirm-new-week">${t('btn-create-week')}</button>
-                <button class="btn btn-outline btn-sm" id="btn-cancel-new-week">${t('btn-cancel')}</button>
-            </div>
-        `;
-        container.prepend(form);
-
-        document.getElementById("btn-cancel-new-week").onclick = () => form.remove();
-        document.getElementById("btn-confirm-new-week").onclick = async () => {
-            const title = document.getElementById("new-week-title-input").value.trim();
-            if (!title) return;
-            const weeks = await this.data.getWeeks();
-            const maxOrder = weeks.length > 0 ? Math.max(...weeks.map(w => w.order)) + 1 : 0;
-            const week = {
-                id: this.data.generateId('week'),
-                title,
-                createdAt: Date.now(),
-                order: maxOrder,
-                isActive: true
-            };
-            await this.data.saveWeek(week);
-            form.remove();
-            this.renderWeeksInNotebook();
-        };
-        document.getElementById("new-week-title-input").focus();
-    }
-
-    // Renderiza la lista de semanas en el Cuaderno
-    async renderWeeksInNotebook() {
-        const container = document.getElementById("weeks-list-notebook");
-        if (!container) return;
-        const t = (key) => TRANSLATIONS[this.lang][key] || key;
-
-        const weeks = await this.data.getWeeks();
-        if (weeks.length === 0) {
-            container.innerHTML = `<p class="text-muted">${t('no-weeks-yet')}</p>`;
-            return;
-        }
-
-        container.innerHTML = weeks.map(w => `
-            <div class="week-list-item" data-week-id="${w.id}">
-                <span class="week-list-title">${this._escapeHtml(w.title)}</span>
-                <div class="week-list-actions">
-                    <button class="btn btn-text btn-sm" onclick="app.renameWeek('${w.id}', this)" style="color:var(--tb-text-secondary)">
-                        <i class="fas fa-pencil-alt"></i>
-                    </button>
-                    <button class="btn btn-text btn-sm" onclick="app.deleteWeek('${w.id}')" style="color:var(--tb-accent)">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    async renameWeek(weekId, btn) {
-        const item = btn.closest('.week-list-item');
-        const titleEl = item.querySelector('.week-list-title');
-        const currentTitle = titleEl.textContent;
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.className = 'form-control';
-        input.value = currentTitle;
-        input.style.cssText = 'display:inline-block;width:auto;height:28px;font-size:13px;';
-        titleEl.replaceWith(input);
-        input.focus();
-        input.select();
-        const save = async () => {
-            const newTitle = input.value.trim() || currentTitle;
-            const weeks = await this.data.getWeeks();
-            const week = weeks.find(w => w.id === weekId);
-            if (week) { week.title = newTitle; await this.data.saveWeek(week); }
-            this.renderWeeksInNotebook();
-        };
-        input.onblur = save;
-        input.onkeydown = (e) => { if (e.key === 'Enter') input.blur(); if (e.key === 'Escape') { input.value = currentTitle; input.blur(); } };
-    }
-
-    async deleteWeek(weekId) {
-        const t = (key) => TRANSLATIONS[this.lang][key] || key;
-        if (!confirm(t('confirm-delete-week'))) return;
-        await this.data.deleteWeek(weekId);
-        this.renderWeeksInNotebook();
-        this.renderPracticeView();
-    }
-
     // Renderiza la biblioteca en el Cuaderno
     async renderLibraryInNotebook() {
         const container = document.getElementById("library-items-list");
@@ -3020,7 +3023,6 @@ class GuitarStudioApp {
         this.renderLibraryExercises();
         this.loadTeacherNotesUI();
         this.renderPracticeView();
-        this.renderWeeksInNotebook();
         this.renderLibraryInNotebook();
     }
 
@@ -4382,16 +4384,10 @@ class GuitarStudioApp {
         }
 
         const todayStr = this.getTodayString();
-        const tomorrowStr = new Date(new Date(todayStr+'T12:00').getTime() + 86400000).toISOString().slice(0,10);
         const allClases = this.data.getAllClases();
         const groups = this.data.getAllGroups();
         const dayNames = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
         const todayName = dayNames[new Date(todayStr+'T12:00').getDay()];
-        const tomorrowName = dayNames[new Date(tomorrowStr+'T12:00').getDay()];
-
-        const tab = this._timelineTab;
-        const targetDate = tab === 'manana' ? tomorrowStr : todayStr;
-        const targetDayName = tab === 'manana' ? tomorrowName : todayName;
 
         const buildTlItems = (dateStr, dayName) => {
             const now = new Date();
@@ -4421,28 +4417,25 @@ class GuitarStudioApp {
             return items;
         };
 
-        const tlItems = tab === 'semana' ? [] : buildTlItems(targetDate, targetDayName);
+        // El timeline de la barra lateral izquierda SIEMPRE muestra hoy
+        const todayItems = buildTlItems(todayStr, todayName);
+        const tlTodayHtml = todayItems.length
+            ? todayItems.map(it => `
+                <div class="tl3-item ${it.sel?'selected':''} ${it.status}" onclick="${it.click}">
+                    <div class="tl3-time-col">
+                        <span class="tl3-time ${it.status==='iniciada'?'active':''}">${it.time}</span>
+                        <div class="tl3-dot ${it.status} ${it.status==='iniciada'?'pulse':''}"></div>
+                        <div class="tl3-line"></div>
+                    </div>
+                    <div class="tl3-info">
+                        <div class="tl3-group">${this._escapeHtml(it.name)}</div>
+                        <div class="tl3-meta">${it.type} · ${it.count} alumno${it.count!==1?'s':''}</div>
+                        <span class="tl3-pill ${it.isNew?'new':it.status}">${it.isNew?'+ Crear clase':it.status==='iniciada'?'En curso':it.status==='finalizada'?'Finalizada':'Pendiente'}</span>
+                    </div>
+                </div>`).join('')
+            : `<div class="dash-tl-empty">No hay clases hoy.<br><span>Asigná un día a tus grupos en el Cuaderno.</span></div>`;
 
-        const semHtml = tab === 'semana' ? this._renderSemanaCols(allClases, groups, todayStr) : '';
-
-        const tlHtml = tab === 'semana'
-            ? semHtml
-            : tlItems.length
-                ? tlItems.map(it => `
-                    <div class="tl3-item ${it.sel?'selected':''} ${it.status}" onclick="${it.click}">
-                        <div class="tl3-time-col">
-                            <span class="tl3-time ${it.status==='iniciada'?'active':''}">${it.time}</span>
-                            <div class="tl3-dot ${it.status} ${it.status==='iniciada'?'pulse':''}"></div>
-                            <div class="tl3-line"></div>
-                        </div>
-                        <div class="tl3-info">
-                            <div class="tl3-group">${this._escapeHtml(it.name)}</div>
-                            <div class="tl3-meta">${it.type} · ${it.count} alumno${it.count!==1?'s':''}</div>
-                            <span class="tl3-pill ${it.isNew?'new':it.status}">${it.isNew?'+ Crear clase':it.status==='iniciada'?'En curso':it.status==='finalizada'?'Finalizada':'Pendiente'}</span>
-                        </div>
-                    </div>`).join('')
-                : `<div class="dash-tl-empty">No hay clases ${tab==='manana'?'mañana':'hoy'}.<br><span>Asigná un día a tus grupos en el Cuaderno.</span></div>`;
-
+        // Notificaciones pendientes
         const notifications = this.data.getNotifications().filter(n => !n.read);
         let notifHtml = '';
         if (notifications.length > 0) {
@@ -4464,41 +4457,206 @@ class GuitarStudioApp {
             `;
         }
 
+        // Agenda semanal en el panel inferior
+        const tab = this._timelineTab; // 'hoy' | 'semana'
+        const isSemanaActive = tab === 'semana';
+        const weekDates = this._getWeekDates(this._weekOffset);
+        const weekLabel = (() => {
+            const d0 = weekDates[0], d4 = weekDates[4];
+            const fmt = d => new Date(d+'T12:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'});
+            return `${fmt(d0)} – ${fmt(d4)}`;
+        })();
+        const weeklyGridHtml = isSemanaActive ? this._renderSemanaCols(allClases, groups, todayStr) : '';
+
+        // Contenido del panel central (Detalles o Creación)
+        let middleContentHtml = '';
+        if (this._currentClaseId) {
+            middleContentHtml = `
+            <div class="empty-hint" style="padding: 24px; color: var(--tb-text-secondary); text-align: center;">
+                Cargando detalles de la clase...
+            </div>`;
+        } else {
+            const activeTab = this._dashActiveTab || 'clase';
+            let tabBodyHtml = '';
+            
+            if (activeTab === 'clase') {
+                tabBodyHtml = `
+                <div class="dash-tab-content" style="padding: 16px; display: flex; flex-direction: column; gap: 16px;">
+                    <h3 style="margin: 0; font-size: 15px; color: var(--tb-text-primary); font-family: var(--font-heading);">Iniciar Sesión de Clase</h3>
+                    <p style="margin: 0; font-size: 13px; color: var(--tb-text-secondary);">Seleccioná un alumno o grupo de clase para iniciar la clase de hoy:</p>
+                    <div style="display: flex; gap: 8px;">
+                        <select id="dash-create-class-select" class="form-select" style="flex: 1; background: var(--tb-bg-primary); border: 1px solid var(--tb-border); color: var(--tb-text-primary); border-radius: 6px; padding: 6px 12px; font-size: 13px;">
+                            <option value="">— Seleccionar Alumno/Grupo —</option>
+                            ${groups.map(g => `<option value="${g.id}">${this._escapeHtml(g.name)}</option>`).join('')}
+                        </select>
+                        <button class="btn btn-primary" onclick="app.dashCreateClaseFromSelect()">Iniciar Clase</button>
+                    </div>
+                    <div style="margin-top: 32px; border-top: 1px solid var(--tb-border); padding-top: 24px; text-align: center; color: var(--tb-text-muted);">
+                        <svg viewBox="0 0 48 48" fill="none" style="width:48px;height:48px;display:block;margin:0 auto 12px;opacity:0.2" stroke="currentColor" stroke-width="1.5"><circle cx="24" cy="24" r="20"/><path d="M24 14v10l6 4"/></svg>
+                        <p style="font-size: 12px; max-width: 250px; margin: 0 auto;">También podés seleccionar una clase en curso o pendiente desde el panel de la izquierda.</p>
+                    </div>
+                </div>`;
+            } else if (activeTab === 'grupo') {
+                const membersChecks = profiles.map(p => {
+                    const displayName = p.displayName || p.name || '?';
+                    return `
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size:12px; padding: 4px; border-radius: 4px; transition: background 0.15s;">
+                        <input type="checkbox" name="dgf-member" value="${p.id}" style="accent-color: var(--tb-accent);">
+                        <span style="background:${p.color||'var(--tb-accent)'}; color:#fff; width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:600">${displayName[0].toUpperCase()}</span>
+                        <span style="color:var(--tb-text-primary);">${this._escapeHtml(displayName)}</span>
+                    </label>`;
+                }).join('') || '<p style="color:var(--tb-text-muted); font-size:12px; margin:0">No hay alumnos creados aún. Creá alumnos en el selector de perfiles.</p>';
+
+                const groupsListHtml = groups.map(g => {
+                    const memberCount = (g.memberIds || []).length;
+                    const dayTime = g.day ? `${g.day} a las ${g.time || '—'}` : 'Sin horario programado';
+                    return `
+                    <div style="background:var(--tb-bg-primary); border:1px solid var(--tb-border); padding:10px 12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; gap:16px;">
+                        <div style="flex:1; min-width:0;">
+                            <div style="font-weight:600; font-size:13px; color:var(--tb-text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${this._escapeHtml(g.name)}</div>
+                            <div style="font-size:11px; color:var(--tb-text-secondary); margin-top:2px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">📅 ${dayTime} · 👤 ${memberCount} alumno${memberCount!==1?'s':''}</div>
+                        </div>
+                        <button class="btn btn-outline btn-sm" onclick="app.dashDeleteGroup('${g.id}')" style="color:var(--tb-accent); border-color:rgba(192, 57, 43, 0.3); padding:4px 8px; font-size:11px; line-height:1; min-height:22px;" title="Eliminar Grupo">🗑️</button>
+                    </div>`;
+                }).join('') || '<p style="color:var(--tb-text-muted); font-size:12px; font-style:italic;">No hay grupos de clase creados.</p>';
+
+                tabBodyHtml = `
+                <div class="dash-tab-content" style="padding: 16px; display: flex; flex-direction: column; gap: 16px; max-height: 75vh; overflow-y: auto;">
+                    <h3 style="margin: 0; font-size: 15px; color: var(--tb-text-primary); font-family: var(--font-heading);">Crear Nuevo Grupo o Curso</h3>
+                    
+                    <div style="display:flex; flex-direction:column; gap:12px; background:rgba(255,255,255,0.02); border:1px solid var(--tb-border); padding:14px; border-radius:8px;">
+                        <div class="form-group" style="margin-bottom:8px">
+                            <label class="form-label" style="font-weight:600; font-size:11px; margin-bottom:4px; display:block;">Nombre del Grupo</label>
+                            <input class="form-control" id="dgf-name" placeholder="Ej. Técnica Martes 16hs" style="width:100%; background:var(--tb-bg-primary); border:1px solid var(--tb-border); color:var(--tb-text-primary); border-radius:6px; padding:6px 10px; font-size:13px;">
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-bottom:8px">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label" style="font-weight:600; font-size:11px; margin-bottom:4px; display:block;">Día de Clase</label>
+                                <select class="form-control" id="dgf-day" style="width:100%; background:var(--tb-bg-primary); border:1px solid var(--tb-border); color:var(--tb-text-primary); border-radius:6px; padding:6px 10px; font-size:13px;">
+                                    <option value="">Sin definir</option>
+                                    <option value="Lunes">Lunes</option>
+                                    <option value="Martes">Martes</option>
+                                    <option value="Miércoles">Miércoles</option>
+                                    <option value="Jueves">Jueves</option>
+                                    <option value="Viernes">Viernes</option>
+                                    <option value="Sábado">Sábado</option>
+                                    <option value="Domingo">Domingo</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label" style="font-weight:600; font-size:11px; margin-bottom:4px; display:block;">Horario</label>
+                                <input class="form-control" id="dgf-time" type="time" style="width:100%; background:var(--tb-bg-primary); border:1px solid var(--tb-border); color:var(--tb-text-primary); border-radius:6px; padding:6px 10px; font-size:13px;">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom:8px">
+                            <label class="form-label" style="font-weight:600; font-size:11px; margin-bottom:4px; display:block;">Enlace de Meet</label>
+                            <input class="form-control" id="dgf-meet" placeholder="https://meet.google.com/..." style="width:100%; background:var(--tb-bg-primary); border:1px solid var(--tb-border); color:var(--tb-text-primary); border-radius:6px; padding:6px 10px; font-size:13px;">
+                        </div>
+                        <div class="form-group" style="margin-bottom:8px">
+                            <label class="form-label" style="font-weight:600; font-size:11px; margin-bottom:4px; display:block;">Asignar Alumnos</label>
+                            <div style="max-height: 110px; overflow-y: auto; border: 1px solid var(--tb-border); border-radius: 6px; padding: 6px; display: flex; flex-direction: column; gap: 4px; background: var(--tb-bg-primary);">
+                                ${membersChecks}
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" onclick="app.dashSaveGroup()" style="align-self:flex-start; margin-top:4px;">Guardar Grupo</button>
+                    </div>
+
+                    <h4 style="margin: 16px 0 8px 0; font-size: 13px; color: var(--tb-text-primary); font-family: var(--font-heading);">Grupos Existentes</h4>
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        ${groupsListHtml}
+                    </div>
+                </div>`;
+            } else if (activeTab === 'plantilla') {
+                const templates = this.data.getTemplates();
+                const templatesListHtml = templates.map(t => {
+                    const itemCount = (t.items || []).length;
+                    return `
+                    <div style="background:var(--tb-bg-primary); border:1px solid var(--tb-border); padding:10px 12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; gap:16px;">
+                        <div style="flex:1; min-width:0;">
+                            <div style="font-weight:600; font-size:13px; color:var(--tb-text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${this._escapeHtml(t.name)}</div>
+                            <div style="font-size:11px; color:var(--tb-text-secondary); margin-top:2px;">📋 ${itemCount} ítem${itemCount!==1?'s':''} asignado${itemCount!==1?'s':''}</div>
+                        </div>
+                        <button class="btn btn-outline btn-sm" onclick="app.bibEditTemplate('${t.id}')" style="padding:4px 8px; font-size:11px; line-height:1; min-height:22px;">✏️ Editar</button>
+                    </div>`;
+                }).join('') || '<p style="color:var(--tb-text-muted); font-size:12px; font-style:italic;">No hay plantillas creadas.</p>';
+
+                tabBodyHtml = `
+                <div class="dash-tab-content" style="padding: 16px; display: flex; flex-direction: column; gap: 16px; max-height: 75vh; overflow-y: auto;">
+                    <div style="background:rgba(255,255,255,0.02); border:1px solid var(--tb-border); padding:16px; border-radius:8px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:10px;">
+                        <div style="font-size:24px;">📋</div>
+                        <h4 style="margin:0; font-size:14px; color:var(--tb-text-primary);">Planificá con Plantillas</h4>
+                        <p style="margin:0; font-size:12px; color:var(--tb-text-secondary); max-width:280px;">Podés definir secuencias de estudio preestablecidas (Técnica, Lectura, Repertorio) para aplicarlas en un solo clic al iniciar tus clases.</p>
+                        <button class="btn btn-primary btn-sm" onclick="app.bibNewTemplate()" style="margin-top:4px;">+ Crear Nueva Plantilla</button>
+                    </div>
+
+                    <h4 style="margin: 16px 0 8px 0; font-size: 13px; color: var(--tb-text-primary); font-family: var(--font-heading);">Plantillas Existentes</h4>
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        ${templatesListHtml}
+                    </div>
+                </div>`;
+            }
+
+            middleContentHtml = `
+            <div style="height:100%; display:flex; flex-direction:column; overflow:hidden;">
+                <div class="dash-creation-tabs" style="display:flex; border-bottom: 1px solid var(--tb-border); background: rgba(0,0,0,0.15); flex-shrink:0;">
+                    <button class="dash-creation-tab ${activeTab === 'clase' ? 'active' : ''}" onclick="app.switchDashCreationTab('clase')" style="flex:1; padding: 10px; background:none; border:none; border-bottom: 2px solid ${activeTab === 'clase' ? 'var(--tb-accent)' : 'transparent'}; color: ${activeTab === 'clase' ? 'var(--tb-text-primary)' : 'var(--tb-text-muted)'}; font-weight:600; cursor:pointer; font-size:11px; transition:all 0.2s;">🆕 Clase Nueva</button>
+                    <button class="dash-creation-tab ${activeTab === 'grupo' ? 'active' : ''}" onclick="app.switchDashCreationTab('grupo')" style="flex:1; padding: 10px; background:none; border:none; border-bottom: 2px solid ${activeTab === 'grupo' ? 'var(--tb-accent)' : 'transparent'}; color: ${activeTab === 'grupo' ? 'var(--tb-text-primary)' : 'var(--tb-text-muted)'}; font-weight:600; cursor:pointer; font-size:11px; transition:all 0.2s;">👥 Grupo Nuevo</button>
+                    <button class="dash-creation-tab ${activeTab === 'plantilla' ? 'active' : ''}" onclick="app.switchDashCreationTab('plantilla')" style="flex:1; padding: 10px; background:none; border:none; border-bottom: 2px solid ${activeTab === 'plantilla' ? 'var(--tb-accent)' : 'transparent'}; color: ${activeTab === 'plantilla' ? 'var(--tb-text-primary)' : 'var(--tb-text-muted)'}; font-weight:600; cursor:pointer; font-size:11px; transition:all 0.2s;">📋 Plantilla Nueva</button>
+                </div>
+                <div style="flex:1; overflow-y:auto; background: var(--tb-bg-secondary);">
+                    ${tabBodyHtml}
+                </div>
+            </div>`;
+        }
+
+        // Renderizar el layout dividido verticalmente
         content.innerHTML = `
-            <div class="prof-layout-3col">
-
-                <!-- COL 1: TIMELINE -->
-                <div class="tl3-col">
-                    ${notifHtml}
-                    <div class="tl3-tabs">
-                        <button class="tl3-tab ${tab==='hoy'?'active':''}" onclick="app.switchTimelineTab('hoy')">Hoy</button>
-                        <button class="tl3-tab ${tab==='manana'?'active':''}" onclick="app.switchTimelineTab('manana')">Mañana</button>
-                        <button class="tl3-tab ${tab==='semana'?'active':''}" onclick="app.switchTimelineTab('semana')">Semana</button>
+            <div style="display:flex; flex-direction:column; height:100%; overflow:hidden;">
+                
+                <!-- TOP AREA: 3 COLUMNS -->
+                <div style="flex:1; display:flex; min-height:0; overflow:hidden;">
+                    
+                    <!-- COL 1: TIMELINE (Hoy) -->
+                    <div class="tl3-col">
+                        ${notifHtml}
+                        <div class="tl3-tabs" style="border-bottom: 1px solid #2e1620;">
+                            <div class="tl3-tab active" style="cursor: default; font-weight:600; text-align:left; padding-left:14px; color:var(--tb-accent); border-bottom:none;">Clases de Hoy</div>
+                        </div>
+                        <div class="tl3-list">
+                            <button class="btn-demo-seed" onclick="app.seedDemoData()">Cargar datos de ejemplo</button>
+                            ${tlTodayHtml}
+                        </div>
+                        ${groups.some(g => g._isDemo) ? `<button class="btn-demo-clear" onclick="app.clearDemoData()">× Borrar datos de prueba</button>` : ''}
                     </div>
-                    <div class="tl3-list">
-                        <button class="btn-demo-seed" onclick="app.seedDemoData()">Cargar datos de ejemplo</button>
-                        ${tlHtml}
+                    
+                    <!-- COL 2: PANEL DE CLASE (Detalles / Creación) -->
+                    <div class="clase3-col" id="dash-class-panel">
+                        ${middleContentHtml}
                     </div>
-                    ${groups.some(g => g._isDemo) ? `<button class="btn-demo-clear" onclick="app.clearDemoData()">× Borrar datos de prueba</button>` : ''}
-                </div>
-
-                <!-- COL 2: PANEL DE CLASE -->
-                <div class="clase3-col" id="dash-class-panel">
-                    ${this._currentClaseId ? '' : `
-                    <div class="empty-hint">
-                        <svg viewBox="0 0 48 48" fill="none" style="width:56px;height:56px;display:block;margin:0 auto 14px" stroke="var(--tb-accent)" stroke-width="1"><circle cx="24" cy="24" r="20"/><path d="M24 14v10l6 4"/></svg>
-                        <p>Seleccioná una clase del panel izquierdo</p>
-                    </div>`}
-                </div>
-
-                <!-- COL 3: BIBLIOTECA -->
-                <div class="bib3-col" id="dash-bib-panel">
-                    <div class="bib3-header">Biblioteca</div>
-                    <div class="bib3-body" id="dash-bib-body">
-                        <div class="bib3-loading">Cargando…</div>
+                    
+                    <!-- COL 3: BIBLIOTECA (Asignación rápida) -->
+                    <div class="bib3-col" id="dash-bib-panel">
+                        <div class="bib3-header">Biblioteca</div>
+                        <div class="bib3-body" id="dash-bib-body">
+                            <div class="bib3-loading">Cargando…</div>
+                        </div>
                     </div>
+                    
                 </div>
-
+                
+                <!-- BOTTOM AREA: WEEKLY AGENDA (Full width) -->
+                <div class="dash-weekly-panel" style="height:${isSemanaActive ? '260px' : 'auto'};">
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 16px; border-bottom:1px solid ${isSemanaActive?'#2e1620':'transparent'};">
+                        <button class="tl3-tab-bottom ${isSemanaActive?'active':''}" onclick="app.switchTimelineTab('${isSemanaActive?'hoy':'semana'}')">
+                            📅 ${isSemanaActive ? 'Ocultar Agenda Semanal' : 'Ver Agenda Semanal'}
+                        </button>
+                    </div>
+                    ${isSemanaActive ? `
+                    <div style="flex:1; display:flex; flex-direction:column; min-height:0; padding:4px 16px 12px 16px;">
+                        ${weeklyGridHtml}
+                    </div>` : ''}
+                </div>
+                
             </div>`;
 
         const libRender = this._renderBibliotecaPanel();
@@ -4570,6 +4728,7 @@ class GuitarStudioApp {
             this.data.getProfiles(),
             this.data.getLibraryItems()
         ]);
+        const templates = this.data.getTemplates();
         const memberIds = (clase.memberOverride != null) ? clase.memberOverride : (group.memberIds || []);
         const members = profiles.filter(p => memberIds.includes(p.id));
         const type = members.length > 1 ? 'Grupal' : 'Individual';
@@ -4785,7 +4944,12 @@ class GuitarStudioApp {
                         <div class="h3-sub">${timeLabel} · ${type} · ${members.length} alumno${members.length!==1?'s':''}</div>
                     </div>
                     ${meetBarHtml}
-                    <button class="h3-btn h3-btn-edit" onclick="app._openEditClaseModal('${claseId}')">Editar</button>
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        <button class="h3-btn h3-btn-edit" onclick="app._openEditClaseModal('${claseId}')">Editar</button>
+                        <button class="h3-btn" onclick="app.closeClasetDetail()" title="Cerrar Clase y Volver" style="background:rgba(255,255,255,0.05); color:var(--tb-text-muted); border:1px solid var(--tb-border); padding:4px 8px; border-radius:4px; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:4px; transition:all 0.15s;">
+                            Cerrar ×
+                        </button>
+                    </div>
                 </div>
 
                 ${resumenAntHtml}
@@ -4806,9 +4970,13 @@ class GuitarStudioApp {
                 <!-- E: CONTENIDO -->
                 <div class="sec3-block">
                     <div class="sec3-label">E — Contenido de la clase <span class="sec3-hint">agregá desde Biblioteca →</span></div>
-                    <div class="cat3-chips" id="cat3-chips-${claseId}">
+                    <div class="cat3-chips" id="cat3-chips-${claseId}" style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
                         ${catChips}
                         <div class="cat3-add" onclick="app.bibOpenCatEditor('clase:${claseId}')" title="Configurar categorías para esta clase"><span>⚙️</span> Categorías</div>
+                        <select class="form-select" onchange="if(this.value){app.applyTemplateToClase(this.value); this.value='';}" style="font-size:11px; padding:4px 8px; border-radius:4px; height:auto; width:auto; max-width:135px; margin:0 0 0 auto; outline:none; background:var(--tb-bg-primary); border:1px solid var(--tb-border); color:var(--tb-text-primary); cursor:pointer;">
+                            <option value="">— Aplicar Plantilla —</option>
+                            ${templates.map(t => `<option value="${t.id}">${this._escapeHtml(t.name)}</option>`).join('')}
+                        </select>
                     </div>
                     <div class="ci3-list" id="ci3-list-${claseId}">${contentItems}</div>
                 </div>
@@ -5232,7 +5400,7 @@ class GuitarStudioApp {
                 ${filteredGeneralAssigned.length > 0 || (generalAssignedItems.length > 0 && !searchVal) ? `
                 <div style="margin-bottom:24px">
                     <div class="bib-zone-header" style="font-size:14px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center">
-                        <span>Material General de Práctica (Semanas)</span>
+                        <span>Material General de Práctica</span>
                     </div>
                     <div class="bib-table-wrap">
                         ${this._bibRenderTable(filteredGeneralAssigned, allItems, true)}
@@ -5690,6 +5858,52 @@ class GuitarStudioApp {
         this.renderDashboardView();
     }
 
+    switchDashCreationTab(tab) {
+        this._dashActiveTab = tab;
+        this.renderDashboardView();
+    }
+
+    dashCreateClaseFromSelect() {
+        const select = document.getElementById('dash-create-class-select');
+        const groupId = select ? select.value : '';
+        if (!groupId) {
+            alert('Por favor, seleccioná un alumno o grupo.');
+            return;
+        }
+        this.createClase(groupId);
+    }
+
+    async dashSaveGroup() {
+        const name = document.getElementById('dgf-name')?.value?.trim();
+        if (!name) { alert('Por favor, ingresá un nombre para el grupo.'); return; }
+        const day = document.getElementById('dgf-day')?.value || '';
+        const time = document.getElementById('dgf-time')?.value || '';
+        const meetLink = document.getElementById('dgf-meet')?.value?.trim() || '';
+        const memberIds = [...document.querySelectorAll('input[name="dgf-member"]:checked')].map(c => c.value);
+        
+        const groups = this.data.getAllGroups();
+        groups.push({
+            id: this._genGroupId(),
+            name,
+            day,
+            time,
+            meetLink,
+            memberIds,
+            createdAt: Date.now()
+        });
+        this.data.saveGroups(groups);
+        this.showToast('¡Grupo de clase creado con éxito!', '✓');
+        this.renderDashboardView();
+    }
+
+    async dashDeleteGroup(groupId) {
+        if (!confirm('¿Estás seguro de que deseas eliminar este grupo de clase?')) return;
+        const groups = this.data.getAllGroups().filter(g => g.id !== groupId);
+        this.data.saveGroups(groups);
+        this.showToast('Grupo eliminado.', '✓');
+        this.renderDashboardView();
+    }
+
     shiftWeek(delta) {
         this._weekOffset += delta;
         this.renderDashboardView();
@@ -5918,24 +6132,7 @@ class GuitarStudioApp {
               }).join('')
             : '<p class="text3-muted" style="padding:10px 0">Sin resultados</p>';
 
-        const templates = this.data.getTemplates();
-        const templatesHtml = `
-            <div class="bib3-templates-row" style="display:flex; justify-content:space-between; align-items:center; background:var(--tb-bg-secondary); border:1px solid var(--tb-border); padding:8px 12px; border-radius:8px; margin-bottom:12px">
-                <div style="font-size:12px; font-weight:600; color:var(--tb-text-primary); display:flex; align-items:center; gap:6px">
-                    <span>📋 Plantillas</span>
-                </div>
-                <div style="display:flex; gap:6px; align-items:center">
-                    <select class="form-select" id="dash-tpl-selector" onchange="if(this.value)app.applyTemplateToClase(this.value); this.value='';" style="font-size:11px; padding:4px 8px; border-radius:4px; height:auto; width:auto; max-width:130px; margin:0; outline:none; background:var(--tb-bg-primary); border:1px solid var(--tb-border); color:var(--tb-text-primary)">
-                        <option value="">— Aplicar —</option>
-                        ${templates.map(t => `<option value="${t.id}">${this._escapeHtml(t.name)}</option>`).join('')}
-                    </select>
-                    <button class="h3-btn" onclick="app.bibNewTemplate()" style="font-size:11px; padding:4px 8px; border-radius:4px; line-height:1; min-height:22px" title="Crear nueva plantilla">+</button>
-                </div>
-            </div>
-        `;
-
         body.innerHTML = `
-            ${templatesHtml}
             <div class="bib3-search-wrap">
                 <span class="bib3-search-icon">🔍</span>
                 <input type="text" class="bib3-search" placeholder="Buscar en biblioteca…" value="${this._escapeHtml(q)}" oninput="app.searchBiblioteca(this.value)">
@@ -6195,9 +6392,10 @@ class GuitarStudioApp {
 
     _canalPreguntasHtml(claseId, preguntas) {
         const prevHtml = preguntas.map(p => {
-            const timeStr = new Date(p.timestamp).toLocaleString('es-AR', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
+            const timeStr = new Date(p.timestamp || p.date || Date.now()).toLocaleString('es-AR', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
+            const itemBadge = p.itemId ? `<span class="duda-item-badge" style="display:inline-block; font-size:10px; font-weight:600; text-transform:uppercase; color:var(--tb-accent); background:rgba(108,99,255,.12); border-radius:4px; padding:1px 6px; margin-right:6px">${this._escapeHtml(p.itemTitle || 'ítem')}</span>` : '';
             return `<div class="duda-item">
-                <p class="duda-text">"${this._escapeHtml(p.text)}"</p>
+                <p class="duda-text">${itemBadge}"${this._escapeHtml(p.text)}"</p>
                 <div class="duda-meta">
                     <svg viewBox="0 0 16 16" fill="none" style="width:12px;height:12px" stroke="var(--tb-success)" stroke-width="1.5"><path d="M3 8l3 3 7-7" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     <span>Enviada · ${timeStr}</span>
@@ -6367,7 +6565,7 @@ class GuitarStudioApp {
         return { level: 'green', reason: 'Al día' };
     }
 
-    async _tbGetStudentData(profile, allClases, allProfileWeeks, weeks) {
+    async _tbGetStudentData(profile, allClases) {
         const pid = profile.id;
         const { bucket, daysSince } = this._tbActivityBucket(pid);
         const streak = this.data.getProfileStreak(pid);
@@ -6438,17 +6636,10 @@ class GuitarStudioApp {
             if (!nextClase || info.daysAway < nextClase.daysAway) nextClase = info;
         });
 
-        // Rutinas asignadas
-        const myProfileWeeks = allProfileWeeks.filter(pw => pw.profileId === pid);
-        const assignedWeeks = myProfileWeeks.map(pw => {
-            const w = weeks.find(w => w.id === pw.weekId);
-            return { pwId: pw.id, weekId: pw.weekId, title: w ? w.title : '?' };
-        }).filter(w => w.title !== '?' || true);
-
         return {
             profile, groupLabel, streak, stepsToday, lastPracticedTime,
             bucket, daysSince, pendingQuestions, objetivosPct, hasObjetivos,
-            alertStatus, nextClase, assignedWeeks, minutesToday
+            alertStatus, nextClase, minutesToday
         };
     }
 
@@ -6457,8 +6648,8 @@ class GuitarStudioApp {
         if (!container) return;
         container.innerHTML = '<div style="padding:24px;color:var(--tb-text-secondary)">Cargando...</div>';
 
-        const [profiles, items, weeks, allProfileWeeks] = await Promise.all([
-            this.data.getProfiles(), this.data.getLibraryItems(), this.data.getWeeks(), this.data.getAllProfileWeeks()
+        const [profiles, items] = await Promise.all([
+            this.data.getProfiles(), this.data.getLibraryItems()
         ]);
         const allClases = this.data.getAllClases();
 
@@ -6476,11 +6667,10 @@ class GuitarStudioApp {
         } else if (this._teacherBoardMainTab === 'consultas') {
             contentHtml = this._tbRenderConsultasTab(profiles, allClases);
         } else {
-            this._tbAllWeeksCache = weeks;
             if (!profiles.length) {
                 contentHtml = `<div style="padding:24px;color:var(--tb-text-secondary)">Todavía no hay alumnos.</div>`;
             } else {
-                const studentsData = await Promise.all(profiles.map(p => this._tbGetStudentData(p, allClases, allProfileWeeks, weeks)));
+                const studentsData = await Promise.all(profiles.map(p => this._tbGetStudentData(p, allClases)));
                 contentHtml = this._tbRenderControlTab(studentsData, allClases);
             }
         }
@@ -6642,13 +6832,6 @@ class GuitarStudioApp {
 
         const minutesToday = s.minutesToday;
 
-        const routineBadges = s.assignedWeeks.map(w => `
-            <span class="tb-routine-badge">${this._escapeHtml(w.title)} <button onclick="event.stopPropagation();app.tbRemoveRoutine('${w.pwId}','${p.id}')">×</button></span>
-        `).join('') || '<span class="tb-routine-empty">Sin rutinas asignadas</span>';
-
-        const weekOptions = (this._tbAllWeeksCache || []).map(w =>
-            `<option value="${w.id}">${this._escapeHtml(w.title)}</option>`).join('');
-
         const nextClaseHtml = s.nextClase
             ? `<div class="tb-nextclase">
                 <span>${s.nextClase.daysAway === 0 ? 'Hoy' : s.nextClase.daysAway === 1 ? 'Mañana' : `En ${s.nextClase.daysAway} días`} · ${s.nextClase.groupName} ${s.nextClase.time ? '· ' + s.nextClase.time : ''}</span>
@@ -6678,13 +6861,6 @@ class GuitarStudioApp {
                     <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();app.openTeacherFichaModal('${p.id}')">🗂️ Ficha</button>
                 </div>
                 ${nextClaseHtml}
-                <div class="tb-routines-block">
-                    <div class="tb-routines-badges">${routineBadges}</div>
-                    <select class="form-control tb-assign-select" onchange="if(this.value){app.tbAssignRoutine('${p.id}',this.value);this.value='';}">
-                        <option value="">+ Asignar rutina...</option>
-                        ${weekOptions}
-                    </select>
-                </div>
                 ${questionsPanel}
             </div>` : ''}
         </div>`;
@@ -6704,7 +6880,7 @@ class GuitarStudioApp {
 
         const rows = allPreguntas.map(preg => `
             <div class="tb-question-row${preg.resolved ? ' resolved' : ''}">
-                <div class="tb-question-text"><strong>${this._escapeHtml(preg.claseTitle)}:</strong> ${this._escapeHtml(preg.text || preg.pregunta || '')}</div>
+                <div class="tb-question-text"><strong>${this._escapeHtml(preg.claseTitle)}:</strong> ${preg.itemId ? `<span class="duda-item-badge" style="display:inline-block; font-size:10px; font-weight:600; text-transform:uppercase; color:var(--tb-accent); background:rgba(108,99,255,.12); border-radius:4px; padding:1px 6px; margin-right:4px">${this._escapeHtml(preg.itemTitle || 'ítem')}</span>` : ''}${this._escapeHtml(preg.text || preg.pregunta || '')}</div>
                 ${preg.reply ? `<div class="tb-question-reply">Tu respuesta: ${this._escapeHtml(preg.reply)}</div>` : `
                 <div class="tb-question-reply-form">
                     <input type="text" class="form-control" id="tb-reply-input-${preg.id}" placeholder="Escribir respuesta...">
@@ -6770,22 +6946,6 @@ class GuitarStudioApp {
     tbGoToClase(claseId) {
         this.navigateToView('dashboard');
         this.openClase(claseId);
-    }
-
-    async tbAssignRoutine(profileId, weekId) {
-        await this.data.saveProfileWeek({
-            id: this.data.generateId('pw'),
-            profileId, weekId,
-            assignedAt: new Date().toISOString()
-        });
-        this.showToast('Rutina asignada', '✓');
-        await this.renderTeacherBoardView();
-    }
-
-    async tbRemoveRoutine(profileWeekId, profileId) {
-        await this.data.deleteProfileWeek(profileWeekId);
-        this.showToast('Rutina desasignada', '✓');
-        await this.renderTeacherBoardView();
     }
 
     tbReplyQuestion(profileId, claseId, pregId) {
@@ -6860,7 +7020,7 @@ class GuitarStudioApp {
                             <div style="font-size:11px; color:var(--tb-text-secondary)">${this._escapeHtml(preg.claseTitle)} · ${preg.claseDate || 'Sin fecha'}</div>
                         </div>
                     </div>
-                    <div class="tb-question-text" style="font-size:13px; color:var(--tb-text-primary); line-height:1.4">${this._escapeHtml(preg.text || preg.pregunta || '')}</div>
+                    <div class="tb-question-text" style="font-size:13px; color:var(--tb-text-primary); line-height:1.4">${preg.itemId ? `<span class="duda-item-badge" style="display:inline-block; font-size:10px; font-weight:600; text-transform:uppercase; color:var(--tb-accent); background:rgba(108,99,255,.12); border-radius:4px; padding:1px 6px; margin-right:4px">${this._escapeHtml(preg.itemTitle || 'ítem')}</span>` : ''}${this._escapeHtml(preg.text || preg.pregunta || '')}</div>
                     
                     ${preg.resolved ? `
                         <div class="tb-question-reply" style="margin-top:12px; font-size:12px; color:var(--tb-success); background:var(--tb-bg-elevated); padding:10px; border-radius:6px">
@@ -7911,6 +8071,7 @@ class GuitarStudioApp {
         document.getElementById("tf-ficha-name").value = p.name || '';
         document.getElementById("tf-ficha-nivel").value = p.nivel || 'Inicial';
         document.getElementById("tf-ficha-observaciones").value = p.observaciones || '';
+        document.getElementById("tf-ficha-streak-cadence").value = String(this.data.getStreakCadence(studentId));
 
         this.switchTeacherFichaTab('ficha');
         document.getElementById("teacher-ficha-modal-overlay").style.display = "flex";
@@ -7972,6 +8133,10 @@ class GuitarStudioApp {
         p.name = document.getElementById("tf-ficha-name").value.trim();
         p.nivel = document.getElementById("tf-ficha-nivel").value;
         p.observaciones = document.getElementById("tf-ficha-observaciones").value.trim();
+
+        const cadenceVal = parseInt(document.getElementById("tf-ficha-streak-cadence").value, 10) || 7;
+        this.data.setStreakCadence(pid, cadenceVal);
+        if (this.activeProfile && this.activeProfile.id === pid) this.updateStreakUI();
 
         // Guardar valores dinámicos de los campos de Ficha
         p.fichaValues = p.fichaValues || {};
@@ -8036,7 +8201,8 @@ class GuitarStudioApp {
                     el.style.border = "1px solid var(--tb-border)";
                     el.style.borderRadius = "6px";
                     el.style.background = "var(--tb-bg-primary)";
-                    el.innerHTML = `<strong>${cDate}:</strong> "${this._escapeHtml(q.text)}"`;
+                    const itemBadge = q.itemId ? `<span class="duda-item-badge" style="display:inline-block; font-size:9px; font-weight:600; text-transform:uppercase; color:var(--tb-accent); background:rgba(108,99,255,.12); border-radius:4px; padding:1px 5px; margin-right:4px">${this._escapeHtml(q.itemTitle || 'ítem')}</span>` : '';
+                    el.innerHTML = `<strong>${cDate}:</strong> ${itemBadge}"${this._escapeHtml(q.text)}"`;
                     queriesContainer.appendChild(el);
                 });
             }
