@@ -5027,16 +5027,6 @@ class GuitarStudioApp {
         this.showToast('Datos de demo eliminados', '✓', 2500);
         this.renderDashboardView();
     }
-
-    async renderMyLibraryView() {
-        const container = document.getElementById("view-my-library");
-        if (!container) return;
-
-        if (!this.activeProfile) {
-            container.innerHTML = `<p class="text-muted" style="padding:24px">Seleccioná un perfil de alumno para ver tu biblioteca.</p>`;
-            return;
-        }
-
     async renderMyLibraryView() {
         const content = document.getElementById("my-lib-view-content");
         if (!content) return;
