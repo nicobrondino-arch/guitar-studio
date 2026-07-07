@@ -1055,26 +1055,6 @@ Object.assign(GuitarStudioApp.prototype, {
         window.open(item.url, '_blank');
     },
 
-    showLibItemMetadataModal(item, isNew = false) {
-        const modal = document.getElementById('lib-metadata-modal');
-        if (!modal) return;
-
-        document.getElementById('lib-metadata-modal-title').textContent = isNew ? 'Completar detalles' : 'Editar detalles';
-        document.getElementById('lib-metadata-item-id').value = item.id;
-        document.getElementById('lib-metadata-title').value = item.title || '';
-        document.getElementById('lib-metadata-level').value = item.level || '';
-        document.getElementById('lib-metadata-exerciseType').value = item.exerciseType || '';
-        document.getElementById('lib-metadata-musicalStyle').value = item.musicalStyle || '';
-
-        // Mostrar filas según tipo
-        const isMedia = item.type === 'youtube' || item.type === 'spotify';
-        document.getElementById('lib-metadata-row-exerciseType').style.display = isMedia ? 'none' : 'flex';
-        document.getElementById('lib-metadata-row-musicalStyle').style.display = isMedia ? 'flex' : 'none';
-
-        modal.style.display = 'flex';
-        document.getElementById('lib-metadata-title').focus();
-    },
-
     showWizardStep(stepNum) {
         if (stepNum === 4) { /* player activado vía card */ return; }
         const catMap = { 1: 'technique', 2: 'technique', 3: 'reading' };

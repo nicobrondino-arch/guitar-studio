@@ -700,58 +700,7 @@
         </div>
     </div>
 
-<!-- MODAL METADATOS DE BIBLIOTECA -->
-    <div class="modal-overlay" id="lib-metadata-modal" style="display:none">
-        <div class="modal-box modal-wide">
-            <h3 class="modal-title" id="lib-metadata-modal-title">Detalles del contenido</h3>
-            <input type="hidden" id="lib-metadata-item-id">
-            <div class="modal-form-row">
-                <label class="modal-label">Título</label>
-                <input type="text" class="form-input" id="lib-metadata-title" placeholder="Nombre del contenido">
-            </div>
-            <div class="modal-form-row" id="lib-metadata-row-level">
-                <label class="modal-label">Nivel</label>
-                <select class="form-select" id="lib-metadata-level">
-                    <option value="">— Sin especificar —</option>
-                    <option value="inicial">Inicial</option>
-                    <option value="intermedio">Intermedio</option>
-                    <option value="avanzado">Avanzado</option>
-                </select>
-            </div>
-            <div class="modal-form-row" id="lib-metadata-row-exerciseType">
-                <label class="modal-label">Tipo de ejercicio</label>
-                <select class="form-select" id="lib-metadata-exerciseType">
-                    <option value="">— Sin especificar —</option>
-                    <option value="tecnica">Técnica</option>
-                    <option value="lectura">Lectura</option>
-                    <option value="repertorio">Repertorio</option>
-                    <option value="teoria">Teoría</option>
-                    <option value="improvisacion">Improvisación</option>
-                </select>
-            </div>
-            <div class="modal-form-row" id="lib-metadata-row-musicalStyle">
-                <label class="modal-label">Estilo musical</label>
-                <select class="form-select" id="lib-metadata-musicalStyle">
-                    <option value="">— Sin especificar —</option>
-                    <option value="tango">Tango</option>
-                    <option value="folklore">Folklore</option>
-                    <option value="jazz">Jazz</option>
-                    <option value="clasico">Clásico</option>
-                    <option value="rock">Rock</option>
-                    <option value="pop">Pop</option>
-                    <option value="bossa">Bossa Nova</option>
-                    <option value="flamenco">Flamenco</option>
-                    <option value="otro">Otro</option>
-                </select>
-            </div>
-            <div class="modal-actions">
-                <button class="btn btn-outline" id="btn-lib-metadata-cancel">Cancelar</button>
-                <button class="btn btn-primary" id="btn-lib-metadata-save">Guardar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- PLAYER GUITAR PRO (compartido) - overlay fixed, accesible desde cualquier vista -->
+<!-- PLAYER GUITAR PRO (compartido) - overlay fixed, accesible desde cualquier vista -->
     <div class="wizard-step-view" id="step-view-4" style="display:none">
         <button class="gp-close-btn" onclick="app.exitPlayer()" title="Cerrar">×</button>
         <div class="at-wrap" style="display: flex;">

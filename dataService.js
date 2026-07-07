@@ -384,18 +384,6 @@ class DataService {
     }
 
     // ==========================================================================
-    // Notas del profesor
-    // ==========================================================================
-    getTeacherNotes() {
-        const raw = localStorage.getItem("studio-teacher-notes");
-        return raw ? JSON.parse(raw) : null;
-    }
-
-    setTeacherNotes(notesObj) {
-        localStorage.setItem("studio-teacher-notes", JSON.stringify(notesObj));
-    }
-
-    // ==========================================================================
     // Modo nocturno (player)
     // ==========================================================================
     getNightMode() {
@@ -877,10 +865,6 @@ class DataService {
         arr.push(group);
         this._saveGroupsRaw(arr);
     }
-    deleteGroup(id) {
-        this._saveGroupsRaw(this._getGroupsRaw().filter(g => g.id !== id));
-    }
-
     // ==========================================================================
     // Migración de Plantillas de clase a esquema unificado v2 (items:[{libraryItemId,cat}])
     // ==========================================================================
