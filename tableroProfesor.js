@@ -246,7 +246,8 @@ Object.assign(GuitarStudioApp.prototype, {
         // Renderizar el layout dividido verticalmente
         content.innerHTML = `
             <div style="display:flex; flex-direction:column; height:100%; overflow:hidden;">
-                
+                ${this._renderClasesTabsStrip('agenda')}
+
                 <!-- TOP AREA: 3 COLUMNS -->
                 <div style="flex:1; display:flex; min-height:0; overflow:hidden;">
                     
@@ -1279,6 +1280,30 @@ Object.assign(GuitarStudioApp.prototype, {
         this.renderTeacherBoardView();
     },
 
+    // Tira de tabs compartida de la vista "Clases": Agenda (dashboard) + tabs del tablero.
+    // Se renderiza idéntica arriba de view-dashboard y view-teacher-board para que se
+    // sientan una sola vista con sub-secciones (propuesta 1a del handoff UX).
+    _renderClasesTabsStrip(active) {
+        const tabs = [
+            { key: 'agenda', label: 'Agenda', action: "app.navigateToView('dashboard')" },
+            { key: 'control', label: 'Alumnos', action: "app.clasesGoToBoardTab('control')" },
+            { key: 'cargas', label: 'Cargas de Alumnos', action: "app.clasesGoToBoardTab('cargas')" },
+            { key: 'consultas', label: 'Consultas', action: "app.clasesGoToBoardTab('consultas')" }
+        ];
+        const btns = tabs.map(t => {
+            const isActive = t.key === active;
+            return `<button class="bib-main-tab ${isActive ? 'active' : ''}" onclick="${t.action}" style="padding:12px 18px; border:none; background:transparent; font-weight:600; font-size:13px; border-bottom:2px solid ${isActive ? 'var(--tb-accent)' : 'transparent'}; color:${isActive ? 'var(--tb-text-primary)' : 'var(--tb-text-secondary)'}; cursor:pointer; font-family:var(--font-primary)">${t.label}</button>`;
+        }).join('');
+        return `<div class="bib-main-tabs" style="display:flex; border-bottom:1px solid var(--tb-border); background:var(--tb-bg-secondary); padding:0 16px; flex-shrink:0">${btns}</div>`;
+    },
+
+    clasesGoToBoardTab(tab) {
+        this._teacherBoardMainTab = tab;
+        this._bibSelectedStudentCargaId = null;
+        if (this._currentView === 'teacher-board') this.renderTeacherBoardView();
+        else this.navigateToView('teacher-board');
+    },
+
     _tbActivityBucket(profileId) {
         const lastDate = this.data.getProfileLastPracticed(profileId);
         if (!lastDate) return { bucket: 'inactivo', daysSince: Infinity };
@@ -1394,13 +1419,7 @@ Object.assign(GuitarStudioApp.prototype, {
         ]);
         const allClases = this.data.getAllClases();
 
-        let tabHeaderHtml = `
-            <div class="bib-main-tabs" style="display:flex; border-bottom:1px solid var(--tb-border); background:var(--tb-bg-secondary); padding:0 16px; flex-shrink:0">
-                <button class="bib-main-tab ${this._teacherBoardMainTab === 'control' ? 'active' : ''}" onclick="app.teacherBoardSetMainTab('control')" style="padding:12px 18px; border:none; background:transparent; font-weight:600; font-size:13px; border-bottom:2px solid ${this._teacherBoardMainTab === 'control' ? 'var(--tb-accent)' : 'transparent'}; color:${this._teacherBoardMainTab === 'control' ? 'var(--tb-text-primary)' : 'var(--tb-text-secondary)'}; cursor:pointer; font-family:var(--font-primary)">Control de Alumnos</button>
-                <button class="bib-main-tab ${this._teacherBoardMainTab === 'cargas' ? 'active' : ''}" onclick="app.teacherBoardSetMainTab('cargas')" style="padding:12px 18px; border:none; background:transparent; font-weight:600; font-size:13px; border-bottom:2px solid ${this._teacherBoardMainTab === 'cargas' ? 'var(--tb-accent)' : 'transparent'}; color:${this._teacherBoardMainTab === 'cargas' ? 'var(--tb-text-primary)' : 'var(--tb-text-secondary)'}; cursor:pointer; font-family:var(--font-primary)">Cargas de Alumnos</button>
-                <button class="bib-main-tab ${this._teacherBoardMainTab === 'consultas' ? 'active' : ''}" onclick="app.teacherBoardSetMainTab('consultas')" style="padding:12px 18px; border:none; background:transparent; font-weight:600; font-size:13px; border-bottom:2px solid ${this._teacherBoardMainTab === 'consultas' ? 'var(--tb-accent)' : 'transparent'}; color:${this._teacherBoardMainTab === 'consultas' ? 'var(--tb-text-primary)' : 'var(--tb-text-secondary)'}; cursor:pointer; font-family:var(--font-primary)">Consultas</button>
-            </div>
-        `;
+        let tabHeaderHtml = this._renderClasesTabsStrip(this._teacherBoardMainTab);
 
         let contentHtml = '';
         if (this._teacherBoardMainTab === 'cargas') {

@@ -1097,7 +1097,7 @@ class GuitarStudioApp {
             studio: 'Mi Estudio', practice: 'Práctica Diaria',
             'my-library': 'Mi Biblioteca', dashboard: 'Clases',
             library: 'Contenido', biblioteca: 'Biblioteca',
-            'teacher-board': 'Tablero'
+            'teacher-board': 'Clases'
         };
         const labelEl = document.getElementById("header-view-label");
 
@@ -1120,8 +1120,10 @@ class GuitarStudioApp {
         });
 
         // Activar vista seleccionada
+        // teacher-board vive como tab interna de "Clases": resalta el mismo ítem de nav
         const targetView = document.getElementById(`view-${viewId}`);
-        const targetLink = document.querySelector(`.nav-item[data-view="${viewId}"]`);
+        const navViewId = viewId === 'teacher-board' ? 'dashboard' : viewId;
+        const targetLink = document.querySelector(`.nav-item[data-view="${navViewId}"]`);
 
         if (targetView) targetView.classList.add("active");
         if (targetLink) targetLink.classList.add("active");
@@ -1166,14 +1168,20 @@ class GuitarStudioApp {
     updateSidebarForMode() {
         const profSection = document.getElementById('nav-section-professor');
         const studSection = document.getElementById('nav-section-student');
+        const profLink = document.getElementById('btn-sidebar-professor');
         if (!profSection || !studSection) return;
 
         if (this.isProfessorMode) {
+            profSection.style.display = '';
             profSection.classList.remove('nav-section-locked');
             studSection.classList.add('nav-section-dimmed');
+            if (profLink) profLink.style.display = 'none';
         } else {
-            profSection.classList.add('nav-section-locked');
+            // Con alumno activo la sección Docente se oculta por completo;
+            // el acceso queda en el link discreto del pie del sidebar.
+            profSection.style.display = 'none';
             studSection.classList.remove('nav-section-dimmed');
+            if (profLink) profLink.style.display = 'flex';
         }
     }
 
