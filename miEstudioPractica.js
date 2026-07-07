@@ -565,6 +565,7 @@ Object.assign(GuitarStudioApp.prototype, {
             const tab = document.getElementById(`pcat-${c}`);
             if (tab) tab.classList.toggle("active", c === this.currentCategory);
         });
+        this._updatePracticeBreadcrumb();
 
         const cat = this.currentCategory;
         const isSupplementary = cat === 'supplementary';
@@ -757,6 +758,17 @@ Object.assign(GuitarStudioApp.prototype, {
         }
     },
 
+    // Breadcrumb de la barra de práctica: "Categoría › Ejercicio" (propuesta 5a).
+    // Toma el nombre de la categoría del texto de la tab activa para respetar i18n.
+    _updatePracticeBreadcrumb(leafTitle) {
+        const el = document.getElementById('practice-breadcrumb');
+        if (!el) return;
+        const tabSpan = document.querySelector(`#pcat-${this.currentCategory} span`);
+        const parts = [tabSpan ? tabSpan.textContent : ''];
+        if (leafTitle) parts.push(leafTitle);
+        el.textContent = parts.filter(Boolean).join(' › ');
+    },
+
     _getLatestFinalizedClasesPerGroup() {
         if (!this.activeProfile) return [];
         const groups = this.data.getAllGroups().filter(g => (g.memberIds||[]).includes(this.activeProfile.id));
@@ -829,10 +841,12 @@ Object.assign(GuitarStudioApp.prototype, {
 
         this.playerActiveItemId = libraryItemId;
 
-        // Mostrar back button, ocultar category tabs de práctica
+        // Mostrar back button, ocultar la fila de tabs de categoría y anotar el ejercicio en el breadcrumb
         const backBtn = document.getElementById("btn-back-to-exercises");
         if (backBtn) backBtn.style.display = "flex";
-        document.querySelectorAll(".pcat-tab").forEach(t => t.style.display = "none");
+        const tabsRow = document.getElementById("practice-cat-tabs-row");
+        if (tabsRow) tabsRow.style.display = "none";
+        this._updatePracticeBreadcrumb(item.title || '');
 
         // Cambiar a step-view-4
         const contentArea = document.getElementById("practice-content-area");
@@ -862,7 +876,8 @@ Object.assign(GuitarStudioApp.prototype, {
 
         const backBtn = document.getElementById("btn-back-to-exercises");
         if (backBtn) backBtn.style.display = "none";
-        document.querySelectorAll(".pcat-tab").forEach(t => t.style.display = "");
+        const tabsRow = document.getElementById("practice-cat-tabs-row");
+        if (tabsRow) tabsRow.style.display = "";
 
         const playerView = document.getElementById("step-view-4");
         if (playerView) {

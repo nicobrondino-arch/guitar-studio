@@ -3707,9 +3707,28 @@ textarea.form-control {
    ========================================================================== */
 .practice-cat-tabs {
     display: none; /* mostrado por JS cuando estás en práctica */
+    flex-direction: column; /* fila de navegación arriba, tabs abajo (5a) */
+    gap: 8px;
+    padding: 10px 24px 0;
+}
+.practice-nav-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.practice-breadcrumb {
+    margin-left: auto;
+    font: 400 12px var(--font-primary);
+    color: var(--tb-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+.practice-cat-tabs-row {
+    display: flex;
     align-items: center;
     gap: 6px;
-    padding: 10px 24px 0;
     flex-wrap: wrap;
 }
 .pcat-tab {
@@ -3779,8 +3798,6 @@ textarea.form-control {
     color: var(--tb-text-secondary);
     font-size: 13px;
     cursor: pointer;
-    margin-right: auto;
-    order: -1;
     transition: all .2s;
 }
 .pcat-back-btn:hover { border-color: var(--tb-accent); color: var(--tb-text-primary); }
