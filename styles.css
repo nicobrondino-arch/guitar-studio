@@ -356,55 +356,13 @@ button {
 /* ==========================================================================
    Grupos de Clase — Cuaderno del Profesor
    ========================================================================== */
-.notebook-groups-section {
-    padding: 20px 24px;
-    border-top: 1px solid var(--tb-border);
-}
-.group-card {
-    background: var(--tb-bg-secondary);
-    border: 1px solid var(--tb-border);
-    border-radius: 12px;
-    padding: 14px 16px;
-    margin-bottom: 10px;
-    transition: border-color var(--transition-fast);
-}
-.group-card:hover { border-color: var(--tb-border-hover); }
-.group-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
-.group-card-name { font: 600 14px var(--font-heading,'Outfit',sans-serif); color: var(--tb-text-primary); margin-bottom: 3px; }
-.group-card-meta { font: 400 12px Inter,sans-serif; color: var(--tb-text-muted); }
-.group-card-actions { display: flex; gap: 6px; flex-shrink: 0; }
-.group-card-members { display: flex; align-items: center; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
-.group-member-avatar { width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:700 11px Inter,sans-serif;color:#fff;flex-shrink:0; }
-.group-member-avatar.sm { width:22px;height:22px;font-size:10px; }
-.group-member-more { background:var(--tb-bg-elevated);color:var(--tb-text-muted);border:1px solid var(--tb-border);font:500 10px Inter,sans-serif; }
-.group-meet-bar { display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--tb-bg-elevated);border:1px solid var(--tb-border);border-radius:8px;flex-wrap:wrap; }
-.group-meet-url { font:400 11px 'Courier New',monospace;color:var(--tb-text-muted);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
-.group-meet-btns { display:flex;gap:6px;flex-shrink:0; }
 .group-whatsapp-btn { display:flex;align-items:center;gap:5px;background:rgba(37,211,102,.1);border:1px solid rgba(37,211,102,.25);color:#25d366;font:600 12px Inter,sans-serif;border-radius:7px;padding:5px 10px;cursor:pointer; }
-.group-form { padding:20px;margin-bottom:12px; }
-.group-form-title { font:600 15px var(--font-heading,'Outfit',sans-serif);color:var(--tb-text-primary);margin:0 0 16px; }
-.group-form-row { display:flex;gap:12px; }
-.group-members-grid { display:flex;flex-wrap:wrap;gap:8px;padding:10px;background:var(--tb-bg-elevated);border:1px solid var(--tb-border);border-radius:8px;max-height:160px;overflow-y:auto; }
-.group-member-check { display:flex;align-items:center;gap:7px;cursor:pointer;font:400 13px Inter,sans-serif;color:var(--tb-text-secondary);padding:4px 8px;border-radius:6px;transition:background var(--transition-fast); }
-.group-member-check:hover { background:var(--tb-bg-secondary); }
-.group-member-check input { display:none; }
-.group-member-check input:checked + .group-member-avatar.sm { outline:2px solid var(--tb-accent);outline-offset:1px; }
-.group-form-actions { display:flex;gap:8px;margin-top:16px; }
-.btn-danger-outline { border-color:rgba(225,79,61,.3);color:var(--tb-accent); }
-.btn-danger-outline:hover { background:rgba(225,79,61,.08); }
 .dash-classes-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;margin-bottom:6px; }
 .dash-class-card { display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;background:var(--tb-bg-secondary);border:1px solid var(--tb-border);border-radius:10px; }
 .dash-class-name { font:600 13px var(--font-heading,'Outfit',sans-serif);color:var(--tb-text-primary);margin-bottom:2px; }
 .dash-class-meta { font:400 11px Inter,sans-serif;color:var(--tb-text-muted); }
 .dash-class-btns { display:flex;gap:6px;flex-shrink:0; }
 
-/* ==========================================================================
-   Ítems de Biblioteca — indicador de asignado
-   ========================================================================== */
-.library-item-row[data-assigned="true"] {
-    border-left: 3px solid var(--tb-success);
-    padding-left: 13px;
-}
 
 /* ==========================================================================
    Mi Estudio — Layout B
@@ -1781,22 +1739,6 @@ textarea.form-control {
     font-size: 14px;
 }
 
-.notebook-layout {
-    display: grid;
-    grid-template-columns: 1.2fr 1fr;
-    gap: 32px;
-}
-
-.notebook-card-form {
-    background-color: var(--tb-bg-secondary);
-    border: 1px solid var(--tb-border);
-    border-radius: var(--border-radius);
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
 .form-group {
     display: flex;
     flex-direction: column;
@@ -1880,107 +1822,7 @@ textarea.form-control {
     max-width: 80%;
 }
 
-.save-status-msg {
-    font-size: 13px;
-    color: var(--tb-success);
-    margin-top: -10px;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
 
-.save-status-msg.show {
-    opacity: 1;
-}
-
-/* ==========================================================================
-   Library View
-   ========================================================================== */
-.library-filter-bar {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 32px;
-    border-bottom: 1px solid var(--tb-border);
-    padding-bottom: 12px;
-}
-
-.filter-tab {
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--tb-text-secondary);
-    transition: var(--transition-fast);
-}
-
-.filter-tab.active {
-    background-color: var(--tb-accent);
-    color: var(--tb-text-primary);
-}
-
-.filter-tab:hover:not(.active) {
-    background-color: var(--tb-bg-elevated);
-    color: var(--tb-text-primary);
-}
-
-.exercises-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 24px;
-}
-
-.library-card {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.library-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.difficulty-badge {
-    font-size: 10px;
-    font-weight: 700;
-    padding: 2px 6px;
-    border-radius: 4px;
-    text-transform: uppercase;
-}
-
-.difficulty-easy {
-    background-color: rgba(52, 199, 89, 0.1);
-    color: var(--tb-success);
-}
-
-.difficulty-medium {
-    background-color: rgba(255, 149, 0, 0.1);
-    color: #ff9500;
-}
-
-.difficulty-hard {
-    background-color: rgba(225, 79, 61, 0.1);
-    color: var(--tb-accent);
-}
-
-.library-card-desc {
-    font-size: 13px;
-    color: var(--tb-text-secondary);
-    line-height: 1.5;
-    flex: 1;
-}
-
-.library-card-ill {
-    background-color: var(--tb-bg-primary);
-    border-radius: 6px;
-    height: 80px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: monospace;
-    font-size: 11px;
-    border: 1px solid var(--tb-border);
-}
 
 /* ==========================================================================
    Responsive Adaptation (Mobile & Tablet)
@@ -1988,14 +1830,6 @@ textarea.form-control {
 @media (max-width: 1024px) {
     .practice-wizard-container {
         grid-template-columns: 1fr;
-    }
-    
-    .notebook-layout {
-        grid-template-columns: 1fr;
-    }
-    
-    .exercises-grid {
-        grid-template-columns: repeat(2, 1fr);
     }
 }
 
@@ -2079,10 +1913,6 @@ textarea.form-control {
     
     .card-featured-visual {
         display: none;
-    }
-    
-    .exercises-grid {
-        grid-template-columns: 1fr;
     }
     
     .app-header {
@@ -3602,47 +3432,6 @@ textarea.form-control {
     gap: 8px;
 }
 
-/* Library item rows */
-.library-item-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
-    background: var(--tb-bg-secondary);
-    border: 1px solid var(--tb-border);
-    border-radius: 8px;
-    margin-bottom: 8px;
-    flex-wrap: wrap;
-}
-.library-item-icon {
-    font-size: 18px;
-    width: 28px;
-    text-align: center;
-    flex-shrink: 0;
-}
-.library-item-info {
-    flex: 1;
-    min-width: 120px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-.library-item-title {
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--tb-text-primary);
-}
-.library-item-type {
-    font-size: 11px;
-    color: var(--tb-text-muted);
-    text-transform: uppercase;
-}
-.library-item-assign {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-}
 .form-select-sm {
     background: var(--tb-bg-primary);
     border: 1px solid var(--tb-border);
@@ -3786,8 +3575,6 @@ textarea.form-control {
     color: #a29bfe;
 }
 
-/* Badge de categoría complementario en la biblioteca */
-.lib-cat-supplementary { background: rgba(108,99,255,.12); color: #a29bfe; }
 
 .pcat-back-btn {
     display: flex;
@@ -4283,21 +4070,6 @@ textarea.form-control {
     gap: 10px;
     padding: 20px 24px 0;
 }
-.lib-filter-row {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-.lib-filter-label {
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    color: var(--tb-text-muted);
-    margin-right: 4px;
-    flex-shrink: 0;
-    align-self: center;
-}
 .lib-search-wrap {
     position: relative;
     flex: 1;
@@ -4347,148 +4119,6 @@ textarea.form-control {
 .lib-chip:hover { border-color: var(--tb-accent); color: var(--tb-text-primary); }
 .lib-chip.active { background: var(--tb-accent); border-color: var(--tb-accent); color: #fff; }
 
-#lib-view-content {
-    padding: 16px 24px 24px;
-}
-.lib-empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-    padding: 48px 24px;
-    color: var(--tb-text-muted);
-    text-align: center;
-    font-size: 14px;
-}
-.lib-week-group {
-    margin-bottom: 20px;
-}
-.lib-week-group-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 0 10px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--tb-text-primary);
-    border-bottom: 1px solid var(--tb-border);
-    margin-bottom: 6px;
-}
-.lib-week-count {
-    margin-left: auto;
-    font-size: 11px;
-    color: var(--tb-text-muted);
-    font-weight: 400;
-}
-.lib-week-unassigned .lib-week-group-header {
-    border-bottom-style: dashed;
-}
-.lib-items-list {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-.lib-item-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    transition: background .15s;
-}
-.lib-item-row:hover { background: var(--tb-bg-secondary); }
-.lib-item-icon {
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 8px;
-    background: var(--tb-bg-tertiary, #2a2a2a);
-    font-size: 13px;
-    flex-shrink: 0;
-}
-.lib-item-info {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-}
-.lib-item-title {
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--tb-text-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.lib-item-meta {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-.lib-item-type {
-    font-size: 10px;
-    color: var(--tb-text-muted);
-    letter-spacing: .05em;
-}
-.lib-cat-badge {
-    font-size: 10px;
-    font-weight: 600;
-    padding: 2px 7px;
-    border-radius: 10px;
-    text-transform: uppercase;
-    letter-spacing: .04em;
-}
-.lib-cat-technique  { background: rgba(108,99,255,.18); color: #a29bfe; }
-.lib-cat-reading    { background: rgba(0,184,148,.15);  color: #55efc4; }
-.lib-cat-repertoire { background: rgba(253,203,110,.15); color: #fdcb6e; }
-
-/* Tags de metadata (nivel, tipo ejercicio, estilo) */
-.lib-meta-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 2px;
-}
-.lib-meta-tag {
-    font-size: 10px;
-    font-weight: 600;
-    padding: 2px 7px;
-    border-radius: 10px;
-    text-transform: uppercase;
-    letter-spacing: .04em;
-}
-.lib-meta-level    { background: rgba(99,179,237,.15); color: #63b3ed; }
-.lib-meta-extype   { background: rgba(154,117,245,.15); color: #b794f4; }
-.lib-meta-style    { background: rgba(72,199,142,.15); color: #48c78e; }
-.lib-meta-empty    { font-size: 11px; color: var(--tb-text-muted); font-style: italic; }
-
-.lib-item-actions {
-    display: flex;
-    gap: 6px;
-    flex-shrink: 0;
-    opacity: 0;
-    transition: opacity .15s;
-}
-.lib-item-row:hover .lib-item-actions { opacity: 1; }
-.lib-action-btn {
-    width: 30px;
-    height: 30px;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    border: 1px solid var(--tb-border);
-    background: transparent;
-    cursor: pointer;
-    transition: all .15s;
-    color: var(--tb-text-secondary);
-}
-.lib-open-btn:hover   { background: var(--tb-accent); border-color: var(--tb-accent); color: #fff; }
-.lib-delete-btn:hover { background: #e17055; border-color: #e17055; color: #fff; }
 
 /* ==========================================================================
    CUADERNO — Sección Asignación

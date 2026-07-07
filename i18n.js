@@ -250,10 +250,7 @@ Object.assign(GuitarStudioApp.prototype, {
         this.data.setLang(lang);
         this.updateLanguageUI();
         this.updateStreakUI();
-        this.renderLibraryExercises();
-        this.loadTeacherNotesUI();
         this.renderPracticeView();
-        this.renderLibraryInNotebook();
     },
 
     updateLanguageUI() {

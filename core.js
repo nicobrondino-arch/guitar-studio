@@ -202,7 +202,6 @@ class GuitarStudioApp {
         this.updateStreakUI();
         this.updateProgressUI();
         this.renderHeatmap();
-        this.loadTeacherNotesUI();
         await this.renderPracticeView();
         await this.renderStudioSelectorAndDetails();
         this.renderMotivationalPhrase();
@@ -789,9 +788,6 @@ class GuitarStudioApp {
             document.getElementById('lib-metadata-modal').style.display = 'none';
         });
 
-        // Guardar anotaciones del cuaderno
-        document.getElementById("btn-save-notes")?.addEventListener("click", () => this.saveTeacherNotes());
-
         // GP file input (Drag & Drop + browse)
         const dropzone = document.getElementById("upload-dropzone");
         const fileInput = document.getElementById("gp-file-input");
@@ -912,121 +908,6 @@ class GuitarStudioApp {
     // ==========================================================================
     _genGroupId() { return 'grp_' + Date.now() + '_' + Math.random().toString(36).slice(2,7); }
 
-    async renderGroupsInNotebook() {
-        const container = document.getElementById('groups-list-notebook');
-        if (!container) return;
-        const groups = this.data.getAllGroups();
-        const profiles = await this.data.getProfiles();
-
-        if (groups.length === 0) {
-            container.innerHTML = '<p class="text-muted">No hay grupos creados aún.</p>';
-            return;
-        }
-        const self = this;
-        container.innerHTML = groups.map(function(g) {
-            const members = profiles.filter(function(p) { return (g.memberIds || []).includes(p.id); });
-            const avatars = members.slice(0,5).map(function(p) {
-                return '<div class="group-member-avatar" style="background:' + (p.color||'#6366f1') + '" title="' + self._escapeHtml(p.name) + '">' + ((p.name||'?')[0].toUpperCase()) + '</div>';
-            }).join('');
-            const extra = members.length > 5 ? '<div class="group-member-avatar group-member-more">+' + (members.length-5) + '</div>' : '';
-            const dayTime = [g.day, g.time].filter(Boolean).join(' · ') || 'Sin horario';
-            const meetShort = g.meetLink ? g.meetLink.replace(/^https?:\/\//, '').slice(0,36) + (g.meetLink.length > 40 ? '…' : '') : '';
-            const waBtnSvg = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:12px;height:12px"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>';
-            return '<div class="group-card" data-group-id="' + g.id + '">' +
-                '<div class="group-card-top">' +
-                  '<div class="group-card-info">' +
-                    '<div class="group-card-name">' + self._escapeHtml(g.name) + '</div>' +
-                    '<div class="group-card-meta">' + dayTime + ' · ' + members.length + ' alumno' + (members.length !== 1 ? 's' : '') + '</div>' +
-                  '</div>' +
-                  '<div class="group-card-actions">' +
-                    '<button class="btn btn-outline btn-sm" onclick="app.showEditGroupForm(\'' + g.id + '\')">Editar</button>' +
-                    '<button class="btn btn-outline btn-sm btn-danger-outline" onclick="app.deleteGroup(\'' + g.id + '\')">Eliminar</button>' +
-                  '</div>' +
-                '</div>' +
-                '<div class="group-card-members">' + avatars + extra +
-                  (members.length === 0 ? '<span class="text-muted" style="font-size:12px">Sin alumnos asignados</span>' : '') +
-                '</div>' +
-                (g.meetLink ? '<div class="group-meet-bar">' +
-                  '<span class="group-meet-url">' + self._escapeHtml(meetShort) + '</span>' +
-                  '<div class="group-meet-btns">' +
-                    '<button class="btn btn-outline btn-sm" onclick="app.copyMeetLink(\'' + g.id + '\')">Copiar link</button>' +
-                    '<button class="btn btn-sm group-whatsapp-btn" onclick="app.sendMeetWhatsApp(\'' + g.id + '\')">' + waBtnSvg + ' WhatsApp</button>' +
-                  '</div></div>' : '') +
-                '</div>';
-        }).join('');
-    }
-
-    async showNewGroupForm() { await this._showGroupForm(null); }
-    async showEditGroupForm(groupId) { await this._showGroupForm(groupId); }
-
-    async _showGroupForm(groupId) {
-        const groups = this.data.getAllGroups();
-        const existing = groupId ? groups.find(function(g) { return g.id === groupId; }) : null;
-        const profiles = await this.data.getProfiles();
-        const container = document.getElementById('groups-list-notebook');
-        if (!container) return;
-        const self = this;
-
-        const dayOptions = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'].map(function(d) {
-            return '<option value="' + d + '"' + (existing && existing.day === d ? ' selected' : '') + '>' + d + '</option>';
-        }).join('');
-
-        const memberChecks = profiles.map(function(p) {
-            const checked = existing && (existing.memberIds||[]).includes(p.id) ? ' checked' : '';
-            const displayName = p.displayName || p.name || '?';
-            return '<label class="group-member-check">' +
-                '<input type="checkbox" name="member" value="' + p.id + '"' + checked + '>' +
-                '<div class="group-member-avatar sm" style="background:' + (p.color||'#6366f1') + '">' + (displayName[0].toUpperCase()) + '</div>' +
-                '<span>' + self._escapeHtml(displayName) + '</span></label>';
-        }).join('');
-
-        container.innerHTML = '<div class="group-form card" id="group-form-card">' +
-            '<h4 class="group-form-title">' + (existing ? 'Editar Grupo' : 'Nuevo Grupo') + '</h4>' +
-            '<div class="form-group"><label class="form-label">Nombre del grupo</label>' +
-            '<input class="form-control" id="gf-name" value="' + self._escapeHtml(existing ? existing.name : '') + '" placeholder="Ej. Folklore Miércoles"></div>' +
-            '<div class="group-form-row">' +
-            '<div class="form-group" style="flex:1"><label class="form-label">Día</label>' +
-            '<select class="form-control" id="gf-day"><option value="">Sin definir</option>' + dayOptions + '</select></div>' +
-            '<div class="form-group" style="flex:1"><label class="form-label">Horario</label>' +
-            '<input class="form-control" id="gf-time" type="time" value="' + (existing && existing.time ? existing.time : '') + '"></div></div>' +
-            '<div class="form-group"><label class="form-label">Link de Google Meet</label>' +
-            '<input class="form-control" id="gf-meet" value="' + self._escapeHtml(existing ? (existing.meetLink||'') : '') + '" placeholder="https://meet.google.com/..."></div>' +
-            '<div class="form-group"><label class="form-label">Alumnos</label>' +
-            '<div class="group-members-grid" id="gf-members">' + (memberChecks || '<p class="text-muted" style="font-size:12px">No hay alumnos creados aún.</p>') + '</div></div>' +
-            '<div class="group-form-actions">' +
-            '<button class="btn btn-primary" onclick="app._saveGroupForm(\'' + (groupId||'') + '\')">Guardar</button>' +
-            '<button class="btn btn-outline" onclick="app.renderGroupsInNotebook()">Cancelar</button>' +
-            '</div></div>';
-
-        const nameInput = document.getElementById('gf-name');
-        if (nameInput) nameInput.focus();
-    }
-
-    async _saveGroupForm(groupId) {
-        const name = document.getElementById('gf-name').value.trim();
-        if (!name) { this.showToast('Ingresá un nombre para el grupo.', '⚠️', 3000); return; }
-        const day      = document.getElementById('gf-day').value;
-        const time     = document.getElementById('gf-time').value;
-        const meetLink = document.getElementById('gf-meet').value.trim();
-        const memberIds = Array.from(document.querySelectorAll('#gf-members input[name="member"]:checked')).map(function(el) { return el.value; });
-        const groups = this.data.getAllGroups();
-        if (groupId) {
-            const idx = groups.findIndex(function(g) { return g.id === groupId; });
-            if (idx > -1) groups[idx] = Object.assign({}, groups[idx], { name, day, time, meetLink, memberIds });
-        } else {
-            groups.push({ id: this._genGroupId(), name, day, time, meetLink, memberIds, createdAt: Date.now() });
-        }
-        this.data.saveGroups(groups);
-        this.showToast(groupId ? 'Grupo actualizado.' : '¡Grupo creado!', '✓');
-        await this.renderGroupsInNotebook();
-    }
-
-    async deleteGroup(groupId) {
-        if (!confirm('¿Eliminar este grupo?')) return;
-        this.data.saveGroups(this.data.getAllGroups().filter(function(g) { return g.id !== groupId; }));
-        await this.renderGroupsInNotebook();
-        this.showToast('Grupo eliminado.', '✓');
-    }
 
     copyMeetLink(groupId) {
         const group = this.data.getAllGroups().find(function(g) { return g.id === groupId; });
@@ -1092,11 +973,11 @@ class GuitarStudioApp {
             this.pauseStepTimer(this.activeTimerStep);
         }
 
-        const PROFESSOR_VIEWS = ['dashboard', 'library', 'biblioteca', 'teacher-board'];
+        const PROFESSOR_VIEWS = ['dashboard', 'biblioteca', 'teacher-board'];
         const labels = {
             studio: 'Mi Estudio', practice: 'Práctica Diaria',
             'my-library': 'Mi Biblioteca', dashboard: 'Clases',
-            library: 'Contenido', biblioteca: 'Biblioteca',
+            biblioteca: 'Biblioteca',
             'teacher-board': 'Clases'
         };
         const labelEl = document.getElementById("header-view-label");
@@ -1152,8 +1033,6 @@ class GuitarStudioApp {
             }
         } else if (viewId === 'studio') {
             this.renderStudioSelectorAndDetails();
-        } else if (viewId === 'library') {
-            this.renderLibraryView();
         } else if (viewId === 'biblioteca') {
             this.renderBibliotecaView();
         } else if (viewId === 'my-library') {
@@ -1216,112 +1095,6 @@ class GuitarStudioApp {
 
     // Abre Spotify en nueva pestaña
 
-    // Renderiza la biblioteca en el Cuaderno
-    async renderLibraryInNotebook() {
-        const container = document.getElementById("library-items-list");
-        if (!container) return;
-        const t = (key) => TRANSLATIONS[this.lang][key] || key;
-
-        const [items, weeks, allWeekItems] = await Promise.all([
-            this.data.getLibraryItems(),
-            this.data.getWeeks(),
-            this.data.getAllWeekItems()
-        ]);
-
-        if (items.length === 0) {
-            container.innerHTML = `<p class="text-muted">${t('no-library-items')}</p>`;
-            return;
-        }
-
-        const typeIcon = { score: 'fa-guitar', pdf: 'fa-file-pdf', youtube: 'fa-youtube', spotify: 'fa-spotify' };
-        const typeColor = { score: 'var(--tb-accent)', pdf: '#e53e3e', youtube: '#FF0000', spotify: '#1DB954' };
-
-        const levelLabel = { inicial: 'Inicial', intermedio: 'Intermedio', avanzado: 'Avanzado' };
-        const exTypeLabel = { tecnica: 'Técnica', lectura: 'Lectura', repertorio: 'Repertorio', teoria: 'Teoría', improvisacion: 'Improvisación' };
-        const styleLabel = { tango: 'Tango', folklore: 'Folklore', jazz: 'Jazz', clasico: 'Clásico', rock: 'Rock', pop: 'Pop', bossa: 'Bossa Nova', flamenco: 'Flamenco', otro: 'Otro' };
-
-        container.innerHTML = items.map(item => {
-            const weekOptions = weeks.map(w => {
-                const assigned = allWeekItems.find(wi => wi.libraryItemId === item.id && wi.weekId === w.id);
-                return `<option value="${w.id}" ${assigned ? 'selected' : ''}>${this._escapeHtml(w.title)}</option>`;
-            }).join('');
-
-            const catLabels = {
-                technique: t('cat-technique'), reading: t('cat-reading'),
-                repertoire: t('cat-repertoire'), supplementary: 'Complementario'
-            };
-            const wi = allWeekItems.find(wi => wi.libraryItemId === item.id);
-            const catOptions = [...this.categoryIds, 'supplementary'].map(cat => {
-                return `<option value="${cat}" ${wi && wi.category === cat ? 'selected' : ''}>${catLabels[cat] || cat}</option>`;
-            }).join('');
-
-            const isMedia = item.type === 'youtube' || item.type === 'spotify';
-            const metaTags = [
-                item.level ? `<span class="lib-meta-tag lib-meta-level">${levelLabel[item.level] || item.level}</span>` : '',
-                !isMedia && item.exerciseType ? `<span class="lib-meta-tag lib-meta-extype">${exTypeLabel[item.exerciseType] || item.exerciseType}</span>` : '',
-                isMedia && item.musicalStyle ? `<span class="lib-meta-tag lib-meta-style">${styleLabel[item.musicalStyle] || item.musicalStyle}</span>` : '',
-            ].filter(Boolean).join('');
-
-            return `<div class="library-item-row${wi ? ' assigned' : ''}" data-item-id="${item.id}" data-assigned="${wi ? 'true' : 'false'}">
-                <div class="library-item-icon" style="color:${typeColor[item.type] || 'var(--tb-text-secondary)'}">
-                    <i class="fas ${typeIcon[item.type] || 'fa-file'}"></i>
-                </div>
-                <div class="library-item-info">
-                    <span class="library-item-title">${this._escapeHtml(item.title)}</span>
-                    <div class="lib-meta-tags">${metaTags || '<span class="lib-meta-empty">Sin clasificar</span>'}</div>
-                </div>
-                <div class="library-item-assign">
-                    <select class="form-select-sm lib-week-select" data-item-id="${item.id}">
-                        <option value="">— ${t('lbl-week-assign')} —</option>
-                        ${weekOptions}
-                    </select>
-                    <select class="form-select-sm lib-cat-select" data-item-id="${item.id}">
-                        ${catOptions}
-                    </select>
-                    <button class="btn btn-outline btn-sm lib-assign-btn" data-item-id="${item.id}">Asignar</button>
-                </div>
-                <button class="btn btn-outline btn-sm" onclick="app.editLibraryItem('${item.id}')" title="Editar detalles">
-                    <i class="fas fa-pen"></i>
-                </button>
-                <button class="btn btn-text btn-sm" onclick="app.deleteLibraryItem('${item.id}')" style="color:var(--tb-accent)">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>`;
-        }).join('');
-
-        // Bind assign buttons
-        container.querySelectorAll('.lib-assign-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const itemId = btn.getAttribute('data-item-id');
-                const row = btn.closest('.library-item-row');
-                const weekId = row.querySelector('.lib-week-select').value;
-                const category = row.querySelector('.lib-cat-select').value;
-                if (!weekId) { alert(this.lang === 'es' ? 'Seleccioná una semana primero.' : 'Select a week first.'); return; }
-                // Remove existing weekItem for this library item in this week
-                const existing = allWeekItems.find(wi => wi.libraryItemId === itemId && wi.weekId === weekId);
-                if (existing) await this.data.deleteWeekItem(existing.id);
-                // Create new weekItem
-                await this.data.saveWeekItem({
-                    id: this.data.generateId('wi'),
-                    weekId, libraryItemId: itemId, category, addedAt: Date.now()
-                });
-                this.renderLibraryInNotebook();
-                this.renderPracticeView();
-            });
-        });
-    }
-
-    async deleteLibraryItem(itemId) {
-        const t = (key) => TRANSLATIONS[this.lang][key] || key;
-        if (!confirm(t('confirm-delete-library-item'))) return;
-        // Also remove all weekItems referencing this item
-        const allWI = await this.data.getAllWeekItems();
-        await Promise.all(allWI.filter(wi => wi.libraryItemId === itemId).map(wi => this.data.deleteWeekItem(wi.id)));
-        await this.data.deleteLibraryItem(itemId);
-        this.renderLibraryInNotebook();
-        this.renderPracticeView();
-    }
-
     // Sube un archivo GP a la biblioteca
     async handleGPUploadToLibrary(file) {
         const reader = new FileReader();
@@ -1336,7 +1109,6 @@ class GuitarStudioApp {
                 categories: ['repertoire']
             };
             await this.data.saveLibraryItem(item);
-            this.renderLibraryInNotebook();
             this.showLibItemMetadataModal(item, true);
         };
         reader.readAsArrayBuffer(file);
@@ -1356,7 +1128,6 @@ class GuitarStudioApp {
                 categories: []
             };
             await this.data.saveLibraryItem(item);
-            this.renderLibraryInNotebook();
             this.showLibItemMetadataModal(item, true);
         };
         reader.readAsArrayBuffer(file);
@@ -1411,8 +1182,6 @@ class GuitarStudioApp {
 
         await this.data.saveLibraryItem(item);
         document.getElementById('lib-metadata-modal').style.display = 'none';
-        this.renderLibraryInNotebook();
-        this.renderLibraryView();
     }
 
     // showWizardStep mantiene compatibilidad pero ya no se usa en el flujo principal
@@ -1444,73 +1213,6 @@ class GuitarStudioApp {
     // ==========================================================================
 
     // Mantener alias por compatibilidad con posibles llamadas externas
-
-
-
-    // ==========================================================================
-    // 8. Cuaderno del Profesor (Formulario y Notas)
-    // ==========================================================================
-    saveTeacherNotes() {
-        const name = document.getElementById("notes-teacher-name").value;
-        const focus = document.getElementById("notes-focus-task").value;
-        const corrections = document.getElementById("notes-corrections").value;
-        
-        const notesObj = { teacher: name, focus: focus, corrections: corrections };
-        this.data.setTeacherNotes(notesObj);
-        
-        // Actualizar UI
-        this.loadTeacherNotesUI();
-        
-        // Animación de éxito
-        const msg = document.getElementById("save-status-msg");
-        msg.textContent = TRANSLATIONS[this.lang]["note-saved-success"];
-        msg.classList.add("show");
-        setTimeout(() => msg.classList.remove("show"), 3000);
-    }
-
-    loadTeacherNotesUI() {
-        const notes = this.data.getTeacherNotes();
-        const container = document.getElementById("teacher-notes-preview");
-        
-        const teacherInput = document.getElementById("notes-teacher-name");
-        const focusInput = document.getElementById("notes-focus-task");
-        const correctionsInput = document.getElementById("notes-corrections");
-        
-        if (notes) {
-            if (teacherInput) teacherInput.value = notes.teacher || "";
-            if (focusInput) focusInput.value = notes.focus || "";
-            if (correctionsInput) correctionsInput.value = notes.corrections || "";
-            
-            if (container) {
-                container.innerHTML = "";
-                
-                if (notes.focus) {
-                    const item = document.createElement("div");
-                    item.className = "preview-item";
-                    item.innerHTML = `<div class="preview-label">${this.lang === 'es' ? 'Enfoque Semanal' : 'Weekly Focus'} ${notes.teacher ? `(Prof. ${notes.teacher})` : ''}</div>
-                                      <p>${notes.focus.replace(/\n/g, '<br>')}</p>`;
-                    container.appendChild(item);
-                }
-                
-                if (notes.corrections) {
-                    const item = document.createElement("div");
-                    item.className = "preview-item";
-                    item.innerHTML = `<div class="preview-label">${this.lang === 'es' ? 'Correcciones a recordar' : 'Corrections to remember'}</div>
-                                      <p>${notes.corrections.replace(/\n/g, '<br>')}</p>`;
-                    container.appendChild(item);
-                }
-                
-                if (!notes.focus && !notes.corrections) {
-                    container.innerHTML = `<p class="text-muted">${TRANSLATIONS[this.lang]["no-notes-yet"]}</p>`;
-                }
-            }
-        } else {
-            if (container) {
-                container.innerHTML = `<p class="text-muted">${TRANSLATIONS[this.lang]["no-notes-yet"]}</p>`;
-            }
-        }
-    }
-
     // ==========================================================================
     // 10. Biblioteca de Ejercicios (Visualización y Asignación)
     // ==========================================================================
@@ -1620,222 +1322,6 @@ class GuitarStudioApp {
 
 
 
-
-    async renderLibraryView() {
-        const content = document.getElementById("lib-view-content");
-        if (!content) return;
-
-        const [allItems, weeks, allWeekItems] = await Promise.all([
-            this.data.getLibraryItems(),
-            this.data.getWeeks(),
-            this.data.getAllWeekItems()
-        ]);
-
-        let visibleItems = allItems;
-        if (this.activeProfile && !this.isProfessorMode) {
-            const profileWeeks = await this.data.getProfileWeeks(this.activeProfile.id);
-            const assignedWeekIds = new Set(profileWeeks.map(pw => pw.weekId));
-            const assignedItemIds = new Set(
-                allWeekItems.filter(wi => assignedWeekIds.has(wi.weekId)).map(wi => wi.libraryItemId)
-            );
-            visibleItems = allItems.filter(it => assignedItemIds.has(it.id));
-        }
-
-        this._libAllItems = visibleItems;
-        this._libWeeks = weeks;
-        this._libAllWeekItems = allWeekItems;
-
-        this._renderLibraryContent(visibleItems, weeks, allWeekItems);
-        this._bindLibrarySearch();
-        this._bindLibraryFilters();
-    }
-
-    _getActiveLibFilters() {
-        return {
-            fileType: document.querySelector('#lib-filter-chips .lib-chip.active')?.dataset.filter || 'all',
-            level:    document.querySelector('#lib-filter-chips-level .lib-chip.active')?.dataset.filter || 'all',
-            exerciseType: document.querySelector('#lib-filter-chips-extype .lib-chip.active')?.dataset.filter || 'all',
-            musicalStyle: document.querySelector('#lib-filter-chips-style .lib-chip.active')?.dataset.filter || 'all',
-        };
-    }
-
-    _renderLibraryContent(items, weeks, allWeekItems, searchQuery = '', filters = {}) {
-        const content = document.getElementById("lib-view-content");
-        if (!content) return;
-
-        if (typeof filters === 'string') filters = { fileType: filters };
-        const { fileType = 'all', level = 'all', exerciseType = 'all', musicalStyle = 'all' } = filters;
-
-        const isProfessor = this.isProfessorMode;
-        const typeIcon = { score: 'fa-guitar', pdf: 'fa-file-pdf', youtube: 'fa-youtube', spotify: 'fa-spotify' };
-        const typeColor = { score: 'var(--tb-accent)', pdf: '#e53e3e', youtube: '#FF0000', spotify: '#1DB954' };
-        const catLabel = { technique: 'Técnica', reading: 'Lectura', repertoire: 'Repertorio', supplementary: 'Complementario' };
-
-        let filtered = items.filter(item => {
-            if (searchQuery && !item.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-            if (fileType !== 'all' && item.type !== fileType) return false;
-            if (level !== 'all' && item.level !== level) return false;
-            const isMedia = item.type === 'youtube' || item.type === 'spotify';
-            if (exerciseType !== 'all' && (isMedia || item.exerciseType !== exerciseType)) return false;
-            if (musicalStyle !== 'all' && (!isMedia || item.musicalStyle !== musicalStyle)) return false;
-            return true;
-        });
-
-        if (filtered.length === 0) {
-            content.innerHTML = `<div class="lib-empty-state">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;opacity:.3"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-                <p>${searchQuery ? 'Sin resultados para "' + this._escapeHtml(searchQuery) + '"' : isProfessor ? 'No hay ítems todavía. Subí contenido desde el Cuaderno.' : 'El profesor no te ha asignado contenido todavía.'}</p>
-            </div>`;
-            return;
-        }
-
-        let html = '';
-
-        if (isProfessor) {
-            const byWeek = new Map();
-            const unassigned = [];
-            filtered.forEach(item => {
-                const wi = allWeekItems.find(w => w.libraryItemId === item.id);
-                if (wi) {
-                    if (!byWeek.has(wi.weekId)) byWeek.set(wi.weekId, []);
-                    byWeek.get(wi.weekId).push({ item, wi });
-                } else {
-                    unassigned.push(item);
-                }
-            });
-
-            weeks.forEach(week => {
-                const group = byWeek.get(week.id);
-                if (!group) return;
-                html += `<div class="lib-week-group">
-                    <div class="lib-week-group-header">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                        <span>${this._escapeHtml(week.title)}</span>
-                        <span class="lib-week-count">${group.length} ítem${group.length !== 1 ? 's' : ''}</span>
-                    </div>
-                    <div class="lib-items-list">
-                        ${group.map(({ item, wi }) => this._libItemRowHtml(item, wi, typeIcon, typeColor, catLabel, true)).join('')}
-                    </div>
-                </div>`;
-            });
-
-            if (unassigned.length > 0) {
-                html += `<div class="lib-week-group lib-week-unassigned">
-                    <div class="lib-week-group-header">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;flex-shrink:0;opacity:.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                        <span style="opacity:.7">Sin asignar a semana</span>
-                        <span class="lib-week-count">${unassigned.length}</span>
-                    </div>
-                    <div class="lib-items-list">
-                        ${unassigned.map(item => this._libItemRowHtml(item, null, typeIcon, typeColor, catLabel, true)).join('')}
-                    </div>
-                </div>`;
-            }
-        } else {
-            const profileWeekMap = new Map();
-            filtered.forEach(item => {
-                const wi = allWeekItems.find(w => w.libraryItemId === item.id);
-                if (!wi) return;
-                const week = weeks.find(w => w.id === wi.weekId);
-                const weekTitle = week ? week.title : 'Semana';
-                if (!profileWeekMap.has(wi.weekId)) profileWeekMap.set(wi.weekId, { weekTitle, items: [] });
-                profileWeekMap.get(wi.weekId).items.push({ item, wi });
-            });
-            profileWeekMap.forEach(({ weekTitle, items: group }) => {
-                html += `<div class="lib-week-group">
-                    <div class="lib-week-group-header">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                        <span>${this._escapeHtml(weekTitle)}</span>
-                    </div>
-                    <div class="lib-items-list">
-                        ${group.map(({ item, wi }) => this._libItemRowHtml(item, wi, typeIcon, typeColor, catLabel, false)).join('')}
-                    </div>
-                </div>`;
-            });
-        }
-
-        content.innerHTML = html || '<div class="lib-empty-state"><p>Sin resultados.</p></div>';
-
-        content.querySelectorAll('[data-open-item]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const id = btn.getAttribute('data-open-item');
-                const type = btn.getAttribute('data-type');
-                if (type === 'score') this.openPlayerForItem(id);
-                else if (type === 'pdf') this.openPDF(id);
-                else if (type === 'youtube') this.openYouTube(id);
-                else if (type === 'spotify') this.openSpotify(id);
-            });
-        });
-    }
-
-    async editLibraryItem(itemId) {
-        const item = await this.data.getLibraryItem(itemId);
-        if (item) this.showLibItemMetadataModal(item, false);
-    }
-
-    _libItemRowHtml(item, wi, typeIcon, typeColor, catLabel, showDelete) {
-        const isMedia = item.type === 'youtube' || item.type === 'spotify';
-        const levelLabel = { inicial: 'Inicial', intermedio: 'Intermedio', avanzado: 'Avanzado' };
-        const exTypeLabel = { tecnica: 'Técnica', lectura: 'Lectura', repertorio: 'Repertorio', teoria: 'Teoría', improvisacion: 'Improvisación' };
-        const styleLabel = { tango: 'Tango', folklore: 'Folklore', jazz: 'Jazz', clasico: 'Clásico', rock: 'Rock', pop: 'Pop', bossa: 'Bossa Nova', flamenco: 'Flamenco', otro: 'Otro' };
-
-        const catBadge = wi && wi.category
-            ? `<span class="lib-cat-badge lib-cat-${wi.category}">${catLabel[wi.category] || wi.category}</span>`
-            : '';
-        const metaTags = [
-            item.level ? `<span class="lib-meta-tag lib-meta-level">${levelLabel[item.level] || item.level}</span>` : '',
-            !isMedia && item.exerciseType ? `<span class="lib-meta-tag lib-meta-extype">${exTypeLabel[item.exerciseType] || item.exerciseType}</span>` : '',
-            isMedia && item.musicalStyle ? `<span class="lib-meta-tag lib-meta-style">${styleLabel[item.musicalStyle] || item.musicalStyle}</span>` : '',
-        ].filter(Boolean).join('');
-
-        const deleteBtn = showDelete
-            ? `<button class="lib-action-btn lib-delete-btn" onclick="app.deleteLibraryItem('${item.id}')" title="Eliminar"><i class="fas fa-trash"></i></button>`
-            : '';
-        const editBtn = showDelete
-            ? `<button class="lib-action-btn" onclick="app.editLibraryItem('${item.id}')" title="Editar"><i class="fas fa-pen"></i></button>`
-            : '';
-        const iconClass = typeIcon[item.type] || 'fa-file';
-        const color = typeColor[item.type] || 'var(--tb-text-secondary)';
-        return `<div class="lib-item-row" data-item-id="${item.id}">
-            <div class="lib-item-icon" style="color:${color}"><i class="fas ${iconClass}"></i></div>
-            <div class="lib-item-info">
-                <span class="lib-item-title">${this._escapeHtml(item.title)}</span>
-                <div class="lib-item-meta">${catBadge}${metaTags}</div>
-            </div>
-            <div class="lib-item-actions">
-                <button class="lib-action-btn lib-open-btn" data-open-item="${item.id}" data-type="${item.type}" title="Abrir">
-                    <i class="fas fa-play"></i>
-                </button>
-                ${editBtn}
-                ${deleteBtn}
-            </div>
-        </div>`;
-    }
-
-    _bindLibrarySearch() {
-        const input = document.getElementById("lib-search-input");
-        if (!input) return;
-        if (this._libSearchHandler) input.removeEventListener('input', this._libSearchHandler);
-        this._libSearchHandler = () => {
-            this._renderLibraryContent(this._libAllItems, this._libWeeks, this._libAllWeekItems, input.value, this._getActiveLibFilters());
-        };
-        input.addEventListener('input', this._libSearchHandler);
-    }
-
-    _bindLibraryFilters() {
-        ['lib-filter-chips', 'lib-filter-chips-level', 'lib-filter-chips-extype', 'lib-filter-chips-style'].forEach(groupId => {
-            const group = document.getElementById(groupId);
-            if (!group) return;
-            group.querySelectorAll('.lib-chip').forEach(chip => {
-                chip.onclick = () => {
-                    group.querySelectorAll('.lib-chip').forEach(c => c.classList.remove('active'));
-                    chip.classList.add('active');
-                    const q = document.getElementById("lib-search-input")?.value || '';
-                    this._renderLibraryContent(this._libAllItems, this._libWeeks, this._libAllWeekItems, q, this._getActiveLibFilters());
-                };
-            });
-        });
-    }
 
     async renderAssignMatrix() {
         const container = document.getElementById("assign-matrix-container");
