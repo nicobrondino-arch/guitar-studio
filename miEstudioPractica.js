@@ -158,6 +158,15 @@ Object.assign(GuitarStudioApp.prototype, {
         if (opening) this.renderStudioHistoryList();
     },
 
+    toggleStudioHeatmap() {
+        const bodyEl = document.getElementById('studio-heatmap-body');
+        const chevron = document.getElementById('studio-heatmap-chevron');
+        if (!bodyEl) return;
+        const opening = bodyEl.style.display === 'none';
+        bodyEl.style.display = opening ? 'block' : 'none';
+        if (chevron) chevron.style.transform = opening ? 'rotate(180deg)' : '';
+    },
+
     toggleStudioHistoryClase(claseId) {
         this._studioHistoryOpenClaseId = this._studioHistoryOpenClaseId === claseId ? null : claseId;
         this.renderStudioHistoryList();

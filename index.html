@@ -250,24 +250,27 @@
                             
                             <!-- COLUMNA IZQUIERDA: Rutina Diaria y Progreso -->
                             <div class="studio-column studio-col-left">
-                                <!-- Streak Card -->
-                                <div class="card studio-streak-card-b">
+                                <!-- Hero: racha + tiempo de estudio fusionados (propuesta 2a) -->
+                                <div class="card hero-card studio-hero-card">
                                     <div class="studio-streak-eyebrow">Racha</div>
-                                    <div class="studio-streak-fire-b">🔥</div>
-                                    <div class="studio-streak-num-b" id="streak-count">0</div>
-                                    <div class="studio-streak-unit-b" data-i18n="streak-label">días seguidos</div>
+                                    <div class="studio-hero-main">
+                                        <span class="studio-hero-fire">🔥</span>
+                                        <span class="studio-streak-num-b" id="streak-count">0</span>
+                                        <span class="studio-streak-unit-b" data-i18n="streak-label">días seguidos</span>
+                                    </div>
+                                    <div class="studio-hero-time" id="studio-time-container">
+                                        ⏱️ <span id="studio-total-time-value">0 min</span>
+                                        <span class="studio-hero-time-label" id="studio-total-time-label">acumulados en esta clase</span>
+                                    </div>
                                     <p class="studio-streak-desc" id="studio-streak-desc" data-i18n="studio-streak-desc">Comenzá tu práctica de hoy.</p>
                                     <button class="btn btn-primary btn-sm studio-streak-cta" onclick="app.navigateToPractice()">
                                         <span data-i18n="btn-start-practice">Comenzar Práctica</span>
                                     </button>
-                                </div>
-
-                                <!-- Total Practice Time Card -->
-                                <div class="card studio-time-card" id="studio-time-container" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; position: relative; overflow: hidden">
-                                    <div style="font: 700 9px Inter, sans-serif; color: var(--tb-text-muted); text-transform: uppercase; letter-spacing: .05em">Tiempo de Estudio</div>
-                                    <div style="font-size: 22px; line-height: 1; margin: 4px 0 2px 0">⏱️</div>
-                                    <div id="studio-total-time-value" style="font: 700 36px/1 var(--font-heading, 'Outfit', sans-serif); color: var(--tb-accent)">0 min</div>
-                                    <div style="font: 400 italic 12px var(--font-heading, Georgia, serif); color: var(--tb-text-secondary)" id="studio-total-time-label">Acumulado en esta clase</div>
+                                    <!-- Tip rotativo (ex frase motivacional del fondo de la col. derecha — propuestas 2b y 6a) -->
+                                    <div class="studio-hero-tip">
+                                        <p class="studio-phrase-text" id="studio-phrase-text">"La práctica no hace la perfección. La práctica consciente hace la perfección."</p>
+                                        <span class="studio-phrase-author" id="studio-phrase-author">— Vince Lombardi</span>
+                                    </div>
                                 </div>
 
                                 <!-- Progress Card -->
@@ -307,13 +310,19 @@
                                     </div>
                                 </div>
 
-                                <!-- Heatmap -->
-                                <div class="card studio-heatmap-card">
-                                    <h3 class="card-title" data-i18n="card-heatmap-title">Registro de Consistencia</h3>
-                                    <p class="card-subtitle" data-i18n="card-heatmap-subtitle">Tus días practicados en el último mes</p>
-                                    <div class="heatmap-wrapper">
-                                        <div class="heatmap-grid" id="heatmap-grid"></div>
-                                                         </div>
+                                <!-- Heatmap (colapsado por defecto — propuesta 2a) -->
+                                <div class="card studio-heatmap-card" style="padding:0; overflow:hidden">
+                                    <button id="btn-studio-heatmap-toggle" onclick="app.toggleStudioHeatmap()" style="width:100%; display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:none; border:none; cursor:pointer; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--tb-text-muted)">
+                                        <span data-i18n="card-heatmap-title">Registro de Consistencia</span>
+                                        <svg id="studio-heatmap-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px; transition:transform .2s"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                    </button>
+                                    <div id="studio-heatmap-body" style="display:none; padding:0 16px 16px 16px">
+                                        <p class="card-subtitle" data-i18n="card-heatmap-subtitle" style="margin-top:0">Tus días practicados en el último mes</p>
+                                        <div class="heatmap-wrapper">
+                                            <div class="heatmap-grid" id="heatmap-grid"></div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- COLUMNA DERECHA: Próxima Clase (automática) + Historial -->
@@ -330,12 +339,6 @@
                                         <svg id="studio-history-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px; transition:transform .2s"><polyline points="6 9 12 15 18 9"></polyline></svg>
                                     </button>
                                     <div id="studio-history-list" style="display:none; padding:0 16px 16px 16px"></div>
-                                </div>
-
-                                <!-- Frase motivacional colocada elegantemente abajo de la columna de clase -->
-                                <div class="card studio-phrase-card-b" style="margin-top:auto">
-                                    <p class="studio-phrase-text" id="studio-phrase-text">"La práctica no hace la perfección. La práctica consciente hace la perfección."</p>
-                                    <span class="studio-phrase-author" id="studio-phrase-author">— Vince Lombardi</span>
                                 </div>
                             </div>
 

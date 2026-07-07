@@ -416,15 +416,15 @@ button {
     align-items: stretch;
 }
 
-/* Streak card tall */
-.studio-streak-card-b {
+/* Hero card: racha + tiempo fusionados (propuesta 2a del handoff UX) */
+.studio-hero-card {
     display: flex;
     flex-direction: column;
     padding: 22px 18px;
     position: relative;
     overflow: hidden;
 }
-.studio-streak-card-b::after {
+.studio-hero-card::after {
     content: '';
     position: absolute;
     bottom: -20px; left: 50%;
@@ -434,6 +434,43 @@ button {
     background: radial-gradient(circle, var(--tb-accent-glow) 0%, transparent 70%);
     pointer-events: none;
 }
+.studio-hero-main {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.studio-hero-fire { font-size: 26px; line-height: 1; align-self: center; }
+.studio-hero-time {
+    font: 400 13px Inter, sans-serif;
+    color: var(--tb-text-secondary);
+    margin-top: 8px;
+}
+.studio-hero-time #studio-total-time-value {
+    font: 700 15px var(--font-heading, 'Outfit', sans-serif);
+    color: var(--tb-accent);
+}
+.studio-hero-time-label {
+    font: 400 italic 11px var(--font-heading, Georgia, serif);
+    color: var(--tb-text-muted);
+}
+.studio-hero-tip {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--tb-border-hover);
+}
+.studio-hero-tip .studio-phrase-text {
+    font: 400 italic 12px/1.6 var(--font-heading, Georgia, serif);
+    color: var(--tb-text-secondary);
+    margin: 0 0 4px;
+}
+.studio-hero-tip .studio-phrase-author {
+    font: 400 10px Inter, sans-serif;
+    color: var(--tb-text-muted);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
 .studio-streak-eyebrow {
     font: 700 9px Inter, sans-serif;
     color: var(--tb-text-muted);
@@ -441,7 +478,6 @@ button {
     letter-spacing: .14em;
     margin-bottom: 12px;
 }
-.studio-streak-fire-b { font-size: 22px; line-height: 1; margin-bottom: 4px; }
 .studio-streak-num-b {
     font: 700 52px/1 var(--font-heading, 'Outfit', sans-serif);
     color: var(--tb-accent);
@@ -461,12 +497,21 @@ button {
 }
 .studio-streak-cta { margin-top: 14px; }
 
-/* Progress card */
+/* Progress card — fila compacta de 3 barras (propuesta 2a) */
 .studio-progress-card-b { padding: 20px; }
 
-.studio-cats-b { display: flex; flex-direction: column; gap: 14px; margin-top: 16px; }
+.studio-cats-b { display: flex; flex-direction: row; gap: 12px; margin-top: 16px; }
 
-.studio-cat-bar-row { display: flex; flex-direction: column; gap: 6px; }
+.studio-cat-bar-row { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+
+/* En la fila compacta el estado lo comunica el punto de color; el texto se oculta */
+.studio-cats-b .cat-bar-status-text { display: none; }
+.studio-cats-b .studio-cat-bar-label > span:first-of-type {
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 
 .studio-cat-bar-label {
     display: flex;
@@ -508,22 +553,8 @@ button {
     background: linear-gradient(90deg, var(--tb-accent), var(--tb-success));
 }
 
-/* Phrase card B */
-.studio-phrase-card-b {
-    padding: 16px 22px;
-    border-top: none;
-}
-.studio-phrase-card-b .studio-phrase-text {
-    font: 400 italic 15px/1.75 var(--font-heading, Georgia, serif);
-    color: var(--tb-text-secondary);
-    margin: 0 0 7px;
-}
-.studio-phrase-card-b .studio-phrase-author {
-    font: 400 11px Inter, sans-serif;
-    color: var(--tb-text-muted);
-    letter-spacing: .06em;
-    text-transform: uppercase;
-}
+/* La frase motivacional ahora vive como tip dentro de .studio-hero-card
+   (ver .studio-hero-tip) — propuesta 2b del handoff UX. */
 
 /* ==========================================================================
    Modo Práctica — Split layout con ring timer
@@ -938,6 +969,20 @@ button {
 
 .card:hover {
     border-color: var(--tb-border-hover);
+}
+
+/* Jerarquía de tarjetas (propuesta 6a del handoff UX):
+   "hero-card" queda reservado a 1-2 elementos por vista (métrica principal,
+   próxima clase); "support-card" es el tratamiento discreto para tarjetas
+   secundarias (tips, frases, ayudas). */
+.card.hero-card {
+    border: 2px solid var(--tb-accent);
+    background: linear-gradient(135deg, var(--tb-bg-elevated), var(--tb-accent-glow));
+}
+.card.support-card {
+    background: transparent;
+    border: 1px dashed var(--tb-border-hover);
+    box-shadow: none;
 }
 
 .card-title {
@@ -7264,14 +7309,6 @@ textarea.form-control {
 .bib-member-check input { accent-color: var(--tb-accent); }
 
 /* Selector y detalles del hub del alumno */
-.studio-time-card {
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.studio-time-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-}
-
 .studio-selector-card {
     background: var(--tb-bg-secondary);
     border: 1px solid var(--tb-border);
