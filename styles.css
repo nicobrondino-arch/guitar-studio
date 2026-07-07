@@ -3805,6 +3805,143 @@ textarea.form-control {
     justify-content: center;
 }
 
+/* ── Selector de perfil: última actividad + slot "Agregar" (propuesta 7a) ── */
+.profile-card-activity {
+    font-size: 10px;
+    color: var(--tb-text-muted);
+}
+.profile-card-activity.today { color: var(--tb-success); font-weight: 600; }
+.profile-card-activity.recent { color: var(--tb-text-secondary); }
+.profile-card.practiced-today .profile-card-avatar {
+    box-shadow: 0 0 0 2px var(--tb-success);
+}
+.profile-card-add {
+    background: transparent;
+    border: 1.5px dashed var(--tb-border-hover);
+}
+.profile-card-add:hover {
+    border-color: var(--tb-text-muted);
+    transform: translateY(-2px);
+}
+.profile-card-add-circle {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    border: 1.5px dashed var(--tb-text-muted);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--tb-text-muted);
+    font-size: 20px;
+}
+.profile-card-add .profile-card-name { color: var(--tb-text-muted); }
+
+/* ── Configuración de perfil: sub-tabs verticales (propuesta 7b) ── */
+.profile-config-layout {
+    display: flex;
+    gap: 16px;
+    height: 100%;
+    overflow: hidden;
+}
+.profile-config-nav {
+    width: 110px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.profile-config-nav-btn {
+    text-align: left;
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--tb-text-muted);
+    border: 1px solid transparent;
+    transition: all .15s;
+}
+.profile-config-nav-btn:hover {
+    color: var(--tb-text-primary);
+    background: var(--tb-bg-elevated);
+}
+.profile-config-nav-btn.active {
+    color: var(--tb-text-primary);
+    background: var(--tb-bg-elevated);
+    border-color: var(--tb-accent);
+}
+.profile-config-panels {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 4px;
+    min-width: 0;
+}
+
+/* ── Avatar con preview en vivo (propuesta 7c) ── */
+.pconf-avatar-row { display: flex; gap: 16px; align-items: center; }
+.pconf-avatar-preview {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: #6c63ff;
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+    font-weight: 700;
+    flex-shrink: 0;
+    border: 2px solid var(--tb-border-hover);
+}
+.pconf-avatar-controls { flex: 1; min-width: 0; }
+.pconf-swatch-label {
+    font: 600 9.5px var(--font-primary);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--tb-text-muted);
+    margin-bottom: 5px;
+}
+.pconf-emoji-swatches { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 10px; }
+.pconf-emoji-swatch {
+    padding: 4px 8px;
+    font-size: 16px;
+    border-radius: 8px;
+    border: 1px solid var(--tb-border);
+    background: var(--tb-bg-secondary);
+    cursor: pointer;
+    transition: border-color .15s;
+}
+.pconf-emoji-swatch:hover { border-color: var(--tb-border-hover); }
+.pconf-emoji-swatch.active { border-color: var(--tb-accent); background: var(--tb-accent-glow); }
+.pconf-color-swatches { display: flex; gap: 6px; flex-wrap: wrap; }
+.pconf-color-swatch {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+}
+.pconf-color-swatch.active { border-color: var(--tb-text-primary); }
+
+/* ── Tema visual como tarjetas con swatches (propuesta 7d) ── */
+.pconf-theme-cards { display: flex; gap: 8px; flex-wrap: wrap; }
+.pconf-theme-card {
+    flex: 1;
+    min-width: 96px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-start;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid var(--tb-border);
+    background: var(--tb-bg-secondary);
+    cursor: pointer;
+    transition: border-color .15s;
+}
+.pconf-theme-card:hover { border-color: var(--tb-border-hover); }
+.pconf-theme-card.active { border: 2px solid var(--tb-accent); padding: 9px; }
+.pconf-theme-swatches { display: flex; gap: 3px; }
+.pconf-theme-swatches span {
+    width: 14px; height: 14px;
+    border-radius: 4px;
+    display: inline-block;
+    border: 1px solid rgba(255,255,255,.12);
+}
+.pconf-theme-name { font: 600 11px var(--font-primary); color: var(--tb-text-primary); }
+
 /* ==========================================================================
    MODALES (PIN + Gestión de Perfiles)
    ========================================================================== */

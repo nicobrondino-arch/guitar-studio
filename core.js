@@ -305,20 +305,43 @@ class GuitarStudioApp {
         grid.innerHTML = "";
 
         profiles.forEach(p => {
+            const act = this._profileActivityInfo(p.id);
             const card = document.createElement("button");
-            card.className = "profile-card";
+            card.className = `profile-card${act.cls === 'today' ? ' practiced-today' : ''}`;
             card.style.setProperty("--pcolor", p.color || "#6c63ff");
             card.innerHTML = `
-                <div class="profile-card-avatar">${p.name.charAt(0).toUpperCase()}</div>
-                <span class="profile-card-name">${p.name}</span>
+                <div class="profile-card-avatar">${p.avatarChar || p.name.charAt(0).toUpperCase()}</div>
+                <span class="profile-card-name">${this._escapeHtml(p.name)}</span>
+                <span class="profile-card-activity ${act.cls}">${act.label}</span>
             `;
             card.addEventListener("click", () => this.selectProfile(p));
             grid.appendChild(card);
         });
 
+        // Slot "Agregar" punteado, visualmente distinto de un alumno real (propuesta 7a)
+        const addCard = document.createElement("button");
+        addCard.className = "profile-card profile-card-add";
+        addCard.innerHTML = `
+            <div class="profile-card-add-circle">+</div>
+            <span class="profile-card-name">Agregar</span>
+        `;
+        addCard.addEventListener("click", () => this.openProfilesModal());
+        grid.appendChild(addCard);
+
         if (profiles.length === 0) {
-            grid.innerHTML = `<p class="text-muted" style="grid-column:1/-1;text-align:center">No hay alumnos creados aún.<br>El profesor puede agregar perfiles abajo.</p>`;
+            grid.insertAdjacentHTML('afterbegin', `<p class="text-muted" style="grid-column:1/-1;text-align:center">No hay alumnos creados aún.<br>El profesor puede agregar perfiles abajo.</p>`);
         }
+    }
+
+    // Última actividad de un perfil para el selector "¿Quién practica hoy?" (propuesta 7a)
+    _profileActivityInfo(profileId) {
+        const last = this.data.getProfileLastPracticed(profileId);
+        if (!last) return { label: 'sin actividad', cls: 'idle' };
+        const today = this.getTodayString();
+        const days = Math.round((new Date(today + 'T12:00') - new Date(last + 'T12:00')) / 86400000);
+        if (days <= 0) return { label: '● hoy', cls: 'today' };
+        if (days === 1) return { label: 'ayer', cls: 'recent' };
+        return { label: `hace ${days} días`, cls: days > 6 ? 'idle' : 'recent' };
     }
 
     async selectProfile(profile) {
@@ -412,8 +435,10 @@ class GuitarStudioApp {
     confirmPin() {
         const val = document.getElementById("pin-input").value.trim();
         if (val.length < 4) { alert("El PIN debe tener al menos 4 dígitos."); return; }
+        // closePinModal() resetea _pinCallback: capturarlo antes de cerrar
+        const cb = this._pinCallback;
         this.closePinModal();
-        if (this._pinCallback) this._pinCallback(val);
+        if (cb) cb(val);
     }
 
     requestProfessorPin(callback) {
@@ -557,16 +582,23 @@ class GuitarStudioApp {
         const gmailInput = document.getElementById("profile-config-gmail");
         if (gmailInput) gmailInput.value = p.gmail || '';
         
-        // Tema
+        // Tema (select oculto + tarjetas visuales 7d)
         const themeSelect = document.getElementById("profile-config-theme");
         if (themeSelect) themeSelect.value = p.tema || 'default';
-        
-        // Avatar
+
+        // Avatar (inputs ocultos que alimentan el preview 7c)
         const avatarCharInput = document.getElementById("profile-config-avatar-char");
         if (avatarCharInput) avatarCharInput.value = p.avatarChar || p.name.charAt(0).toUpperCase();
-        
+
         const avatarColorInput = document.getElementById("profile-config-avatar-color");
         if (avatarColorInput) avatarColorInput.value = p.color || '#6c63ff';
+
+        // El swatch "inicial" muestra la letra real del alumno
+        const initialSwatch = document.getElementById("profile-avatar-initial-swatch");
+        if (initialSwatch) initialSwatch.textContent = p.name.charAt(0).toUpperCase();
+
+        this._syncProfileConfigSwatches();
+        this.profileConfigSetSection(this._profileConfigSection || 'cuenta');
 
         // Render Ficha dynamic fields
         const fields = this.data.getFichaFields();
@@ -604,6 +636,65 @@ class GuitarStudioApp {
 
     handleProfileThemeChange(theme) {
         this.applyTheme(theme);
+    }
+
+    // ── Configuración de perfil: sub-tabs verticales + avatar/tema visuales (7b, 7c, 7d) ──
+
+    profileConfigSetSection(section) {
+        this._profileConfigSection = section;
+        ['cuenta', 'avatar', 'tema', 'ficha'].forEach(s => {
+            const btn = document.getElementById(`pconf-nav-${s}`);
+            const panel = document.getElementById(`pconf-panel-${s}`);
+            if (btn) btn.classList.toggle('active', s === section);
+            if (panel) panel.style.display = s === section ? 'block' : 'none';
+        });
+    }
+
+    profileConfigSetAvatarChar(ch) {
+        const input = document.getElementById("profile-config-avatar-char");
+        if (!input) return;
+        // '' = usar la inicial del nombre (saveProfileConfig ya tiene ese fallback)
+        input.value = ch || (this.activeProfile ? this.activeProfile.name.charAt(0).toUpperCase() : '');
+        this._syncProfileConfigSwatches();
+    }
+
+    profileConfigSetAvatarColor(color) {
+        const input = document.getElementById("profile-config-avatar-color");
+        if (!input) return;
+        input.value = color;
+        this._syncProfileConfigSwatches();
+    }
+
+    profileConfigSetTheme(theme) {
+        const select = document.getElementById("profile-config-theme");
+        if (select) select.value = theme;
+        this.applyTheme(theme); // preview inmediato; se persiste al Guardar
+        this._syncProfileConfigSwatches();
+    }
+
+    // Refleja los valores actuales en el preview del avatar y el estado activo de swatches/tarjetas
+    _syncProfileConfigSwatches() {
+        const char = document.getElementById("profile-config-avatar-char")?.value || '';
+        const color = document.getElementById("profile-config-avatar-color")?.value || '#6c63ff';
+        const theme = document.getElementById("profile-config-theme")?.value || 'default';
+        const initial = this.activeProfile ? this.activeProfile.name.charAt(0).toUpperCase() : '';
+
+        const preview = document.getElementById("profile-avatar-preview");
+        if (preview) {
+            preview.textContent = char || initial || '?';
+            preview.style.background = color;
+        }
+
+        document.querySelectorAll('#profile-avatar-emoji-presets .pconf-emoji-swatch').forEach(btn => {
+            const c = btn.getAttribute('data-char');
+            btn.classList.toggle('active', c === char || (c === '' && char === initial));
+        });
+        document.querySelectorAll('#profile-avatar-color-presets .pconf-color-swatch').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-color').toLowerCase() === color.toLowerCase());
+        });
+        document.querySelectorAll('#profile-theme-cards .pconf-theme-card').forEach(cardBtn => {
+            cardBtn.classList.toggle('active', cardBtn.getAttribute('data-theme') === theme);
+        });
     }
 
     async saveProfileConfig() {

@@ -519,45 +519,86 @@
                 </div>
             </div>
 
-            <div id="profiles-tab-content-config" style="display: none; overflow-y: auto; flex: 1; padding-right: 4px;">
-                <!-- Avatar & Theme Row -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; border-bottom: 1px solid var(--tb-border); padding-bottom: 16px;">
-                    <div>
-                        <label class="form-label" style="font-weight: 600; font-size: 13px;">Gmail de Registro</label>
-                        <input type="email" class="form-input" id="profile-config-gmail" placeholder="ejemplo@gmail.com" style="width: 100%; margin-top: 4px;">
+            <!-- Configuración del perfil en sub-tabs verticales: Cuenta / Avatar / Tema / Mi Ficha (propuesta 7b) -->
+            <div id="profiles-tab-content-config" style="display: none; overflow: hidden; flex: 1;">
+                <div class="profile-config-layout">
+                    <div class="profile-config-nav">
+                        <button class="profile-config-nav-btn active" id="pconf-nav-cuenta" onclick="app.profileConfigSetSection('cuenta')">Cuenta</button>
+                        <button class="profile-config-nav-btn" id="pconf-nav-avatar" onclick="app.profileConfigSetSection('avatar')">Avatar</button>
+                        <button class="profile-config-nav-btn" id="pconf-nav-tema" onclick="app.profileConfigSetSection('tema')">Tema</button>
+                        <button class="profile-config-nav-btn" id="pconf-nav-ficha" onclick="app.profileConfigSetSection('ficha')">Mi Ficha</button>
                     </div>
-                    <div>
-                        <label class="form-label" style="font-weight: 600; font-size: 13px;">Tema Visual</label>
-                        <select class="form-select" id="profile-config-theme" onchange="app.handleProfileThemeChange(this.value)" style="width: 100%; margin-top: 4px;">
-                            <option value="default">Default (Estudio)</option>
-                            <option value="folklore">Folklore (Cálido/Tierra)</option>
-                            <option value="partitura">Partitura (Blanco/Negro)</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div style="margin-bottom: 20px; border-bottom: 1px solid var(--tb-border); padding-bottom: 16px;">
-                    <label class="form-label" style="font-weight: 600; font-size: 13px; display: block; margin-bottom: 8px;">Personalizar Avatar</label>
-                    <div style="display: flex; gap: 12px; align-items: center;">
-                        <input type="text" class="form-input" id="profile-config-avatar-char" placeholder="Emoji o Letra" maxlength="2" style="width: 100px; font-size: 20px; text-align: center;">
-                        <div id="profile-avatar-emoji-presets" style="display: flex; gap: 6px; flex-wrap: wrap;">
-                            <span onclick="document.getElementById('profile-config-avatar-char').value='🎸'" style="cursor:pointer; font-size: 20px; padding: 4px;">🎸</span>
-                            <span onclick="document.getElementById('profile-config-avatar-char').value='🎵'" style="cursor:pointer; font-size: 20px; padding: 4px;">🎵</span>
-                            <span onclick="document.getElementById('profile-config-avatar-char').value='🎼'" style="cursor:pointer; font-size: 20px; padding: 4px;">🎼</span>
-                            <span onclick="document.getElementById('profile-config-avatar-char').value='🎹'" style="cursor:pointer; font-size: 20px; padding: 4px;">🎹</span>
-                            <span onclick="document.getElementById('profile-config-avatar-char').value='🎤'" style="cursor:pointer; font-size: 20px; padding: 4px;">🎤</span>
-                            <span onclick="document.getElementById('profile-config-avatar-char').value='🎧'" style="cursor:pointer; font-size: 20px; padding: 4px;">🎧</span>
-                            <span onclick="document.getElementById('profile-config-avatar-char').value='🔥'" style="cursor:pointer; font-size: 20px; padding: 4px;">🔥</span>
-                        </div>
-                        <input type="color" class="form-input" id="profile-config-avatar-color" style="width: 44px; height: 38px; padding: 2px; cursor: pointer; border: 1px solid var(--tb-border);">
-                    </div>
-                </div>
+                    <div class="profile-config-panels">
 
-                <!-- Ficha Section (Dynamic Fields) -->
-                <div>
-                    <h4 style="margin: 0 0 12px 0; font-family: var(--font-heading); color: var(--tb-accent)">Mi Ficha de Alumno</h4>
-                    <div id="profiles-config-ficha-container" style="display: flex; flex-direction: column; gap: 12px;">
-                        <!-- Inyectado dinámicamente por JS -->
+                        <div class="profile-config-panel" id="pconf-panel-cuenta">
+                            <label class="form-label" style="font-weight: 600; font-size: 13px;">Gmail de Registro</label>
+                            <input type="email" class="form-input" id="profile-config-gmail" placeholder="ejemplo@gmail.com" style="width: 100%; margin-top: 4px;">
+                        </div>
+
+                        <!-- Avatar con preview en vivo + swatches clicables (propuesta 7c) -->
+                        <div class="profile-config-panel" id="pconf-panel-avatar" style="display:none">
+                            <div class="pconf-avatar-row">
+                                <div class="pconf-avatar-preview" id="profile-avatar-preview">?</div>
+                                <div class="pconf-avatar-controls">
+                                    <div class="pconf-swatch-label">Elegí ícono</div>
+                                    <div class="pconf-emoji-swatches" id="profile-avatar-emoji-presets">
+                                        <button class="pconf-emoji-swatch" id="profile-avatar-initial-swatch" data-char="" onclick="app.profileConfigSetAvatarChar('')" title="Usar la inicial del nombre">A</button>
+                                        <button class="pconf-emoji-swatch" data-char="🎸" onclick="app.profileConfigSetAvatarChar('🎸')">🎸</button>
+                                        <button class="pconf-emoji-swatch" data-char="🎵" onclick="app.profileConfigSetAvatarChar('🎵')">🎵</button>
+                                        <button class="pconf-emoji-swatch" data-char="🎼" onclick="app.profileConfigSetAvatarChar('🎼')">🎼</button>
+                                        <button class="pconf-emoji-swatch" data-char="🎹" onclick="app.profileConfigSetAvatarChar('🎹')">🎹</button>
+                                        <button class="pconf-emoji-swatch" data-char="🎤" onclick="app.profileConfigSetAvatarChar('🎤')">🎤</button>
+                                        <button class="pconf-emoji-swatch" data-char="🎧" onclick="app.profileConfigSetAvatarChar('🎧')">🎧</button>
+                                        <button class="pconf-emoji-swatch" data-char="🔥" onclick="app.profileConfigSetAvatarChar('🔥')">🔥</button>
+                                    </div>
+                                    <div class="pconf-swatch-label">Color</div>
+                                    <div class="pconf-color-swatches" id="profile-avatar-color-presets">
+                                        <button class="pconf-color-swatch" data-color="#6c63ff" style="background:#6c63ff" onclick="app.profileConfigSetAvatarColor('#6c63ff')" title="Violeta"></button>
+                                        <button class="pconf-color-swatch" data-color="#e84393" style="background:#e84393" onclick="app.profileConfigSetAvatarColor('#e84393')" title="Rosa"></button>
+                                        <button class="pconf-color-swatch" data-color="#00b894" style="background:#00b894" onclick="app.profileConfigSetAvatarColor('#00b894')" title="Verde"></button>
+                                        <button class="pconf-color-swatch" data-color="#0984e3" style="background:#0984e3" onclick="app.profileConfigSetAvatarColor('#0984e3')" title="Azul"></button>
+                                        <button class="pconf-color-swatch" data-color="#fdcb6e" style="background:#fdcb6e" onclick="app.profileConfigSetAvatarColor('#fdcb6e')" title="Amarillo"></button>
+                                        <button class="pconf-color-swatch" data-color="#e17055" style="background:#e17055" onclick="app.profileConfigSetAvatarColor('#e17055')" title="Rojo"></button>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Inputs ocultos: los sigue leyendo app.saveProfileConfig() -->
+                            <input type="hidden" id="profile-config-avatar-char">
+                            <input type="hidden" id="profile-config-avatar-color">
+                        </div>
+
+                        <!-- Tema visual como tarjetas con swatches reales de cada paleta (propuesta 7d) -->
+                        <div class="profile-config-panel" id="pconf-panel-tema" style="display:none">
+                            <label class="form-label" style="font-weight: 600; font-size: 13px; display:block; margin-bottom:10px;">Tema Visual</label>
+                            <div class="pconf-theme-cards" id="profile-theme-cards">
+                                <button class="pconf-theme-card" data-theme="default" onclick="app.profileConfigSetTheme('default')">
+                                    <span class="pconf-theme-swatches"><span style="background:#0d0709"></span><span style="background:#c0392b"></span><span style="background:#f2e6e8"></span></span>
+                                    <span class="pconf-theme-name">Estudio</span>
+                                </button>
+                                <button class="pconf-theme-card" data-theme="folklore" onclick="app.profileConfigSetTheme('folklore')">
+                                    <span class="pconf-theme-swatches"><span style="background:#0a0f08"></span><span style="background:#C8A045"></span><span style="background:#e8f0df"></span></span>
+                                    <span class="pconf-theme-name">Folklore</span>
+                                </button>
+                                <button class="pconf-theme-card" data-theme="partitura" onclick="app.profileConfigSetTheme('partitura')">
+                                    <span class="pconf-theme-swatches"><span style="background:#0d0b08"></span><span style="background:#C4963A"></span><span style="background:#f0e8d0"></span></span>
+                                    <span class="pconf-theme-name">Partitura</span>
+                                </button>
+                            </div>
+                            <!-- Select oculto: lo sigue leyendo app.saveProfileConfig() -->
+                            <select id="profile-config-theme" style="display:none">
+                                <option value="default">Default (Estudio)</option>
+                                <option value="folklore">Folklore (Cálido/Tierra)</option>
+                                <option value="partitura">Partitura (Blanco/Negro)</option>
+                            </select>
+                        </div>
+
+                        <div class="profile-config-panel" id="pconf-panel-ficha" style="display:none">
+                            <h4 style="margin: 0 0 12px 0; font-family: var(--font-heading); color: var(--tb-accent)">Mi Ficha de Alumno</h4>
+                            <div id="profiles-config-ficha-container" style="display: flex; flex-direction: column; gap: 12px;">
+                                <!-- Inyectado dinámicamente por JS -->
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </div>

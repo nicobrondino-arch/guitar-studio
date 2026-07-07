@@ -118,7 +118,7 @@ Object.assign(GuitarStudioApp.prototype, {
 
         if (!clase) {
             detailsContainer.innerHTML = `
-                <div class="card proxima-card" style="margin-bottom:0">
+                <div class="card hero-card proxima-card" style="margin-bottom:0">
                     <div class="proxima-label">Próxima Clase</div>
                     <p class="text-muted" style="padding:8px 0 0 0; margin:0">No tenés ninguna clase programada por ahora. Mientras tanto, seguí con tu Rutina Diaria.</p>
                 </div>
@@ -141,7 +141,7 @@ Object.assign(GuitarStudioApp.prototype, {
         // 4. Renderizar la próxima clase (automática, sin selección manual)
         const bodyHtml = await this._buildClaseCardBodyHtml(clase, group, { label: 'Próxima Clase' });
         detailsContainer.innerHTML = `
-            <div class="card proxima-card" style="margin-bottom:0">${bodyHtml}</div>
+            <div class="card hero-card proxima-card" style="margin-bottom:0">${bodyHtml}</div>
             ${practiceBtn}
         `;
 
