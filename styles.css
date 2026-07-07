@@ -4,8 +4,10 @@
    ========================================================================== */
 :root {
     --tb-bg-primary:     #0d0709;
-    --tb-bg-secondary:   #1a0c10;
-    --tb-bg-elevated:    #261218;
+    /* Salto de luminosidad ampliado entre superficies para que las tarjetas
+       "floten" del fondo (propuesta 6c del handoff UX) */
+    --tb-bg-secondary:   #241318;
+    --tb-bg-elevated:    #38202a;
     --tb-bg-tertiary:    #1f1014;
     --tb-accent:         #c0392b;
     --tb-accent-hover:   #e04060;
@@ -4735,7 +4737,7 @@ textarea.form-control {
 /* Right panel — library */
 .clase-lib-results { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:2px; }
 .lib-item { display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:7px; cursor:pointer; border:1px solid transparent; transition:all .12s; font-size:12px; }
-.lib-item:hover:not(.in-class) { background:#1a0c10; border-color:#2e1620; }
+.lib-item:hover:not(.in-class) { background:var(--tb-bg-secondary); border-color:#2e1620; }
 .lib-item.in-class { opacity:.45; cursor:default; }
 .li-title { flex:1; font:400 12px Inter,sans-serif; color:#f2e6e8; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .li-add { width:20px; height:20px; border-radius:5px; background:rgba(200,48,74,.12); border:1px solid rgba(200,48,74,.2); display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity .12s; flex-shrink:0; }
@@ -5334,8 +5336,8 @@ textarea.form-control {
     cursor: pointer;
     transition: background .15s, border-color .15s;
 }
-.tl3-item:hover { background: #1a0c10; }
-.tl3-item.selected { background: #1a0c10; border-color: var(--tb-accent); }
+.tl3-item:hover { background: var(--tb-bg-secondary); }
+.tl3-item.selected { background: var(--tb-bg-secondary); border-color: var(--tb-accent); }
 
 .tl3-time-col {
     display: flex;
@@ -6153,7 +6155,7 @@ textarea.form-control {
     justify-content: center;
     transition: background .12s;
 }
-.sem3-nav-btn:hover { background: #1a0c10; }
+.sem3-nav-btn:hover { background: var(--tb-bg-secondary); }
 .sem3-nav-label { font: 500 9px Inter, sans-serif; color: #5e3a42; text-align: center; }
 
 .sem3-grid {
@@ -6189,7 +6191,7 @@ textarea.form-control {
 .sem3-day-num.today { background: #c0392b; color: #fff; }
 
 .sem3-card {
-    background: #1a0c10;
+    background: var(--tb-bg-secondary);
     border: 1px solid #2e1620;
     border-radius: 4px;
     padding: 4px 5px;
