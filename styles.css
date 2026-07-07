@@ -6710,6 +6710,12 @@ textarea.form-control {
 }
 .tb-activity { font: 400 11px var(--font-primary); color: var(--tb-text-muted); flex-shrink: 0; width: 76px; text-align: right; }
 
+.tb-row-chevron {
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--tb-text-muted);
+}
+
 /* ── Panel expandido ── */
 .tb-row-expanded {
     border-top: 1px solid var(--tb-border);
@@ -6718,6 +6724,35 @@ textarea.form-control {
     flex-direction: column;
     gap: 12px;
 }
+
+/* Detalle por categoría + racha/minutos/actividad — visible solo al expandir (3a) */
+.tb-expanded-stats {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    background: var(--tb-bg-elevated);
+    border: 1px solid var(--tb-border);
+    border-radius: 8px;
+    padding: 8px 12px;
+}
+.tb-step-detail {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font: 400 11px var(--font-primary);
+    color: var(--tb-text-secondary);
+}
+.tb-expanded-stats .tb-steps { gap: 12px; }
+.tb-expanded-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.tb-expanded-meta .tb-minutes,
+.tb-expanded-meta .tb-streak,
+.tb-expanded-meta .tb-activity { width: auto; text-align: left; }
 .tb-expanded-actions { display: flex; gap: 8px; }
 .tb-nextclase {
     display: flex;

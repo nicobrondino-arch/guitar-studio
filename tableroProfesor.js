@@ -1570,7 +1570,8 @@ Object.assign(GuitarStudioApp.prototype, {
         const expanded = this._teacherBoardExpandedId === p.id;
         const statusColor = s.alertStatus.level === 'green' ? 'var(--tb-success)' : s.alertStatus.level === 'yellow' ? '#f5a623' : 'var(--tb-accent)';
 
-        const stepsHtml = s.stepsToday.map(done => `<span class="tb-step-check${done ? ' done' : ''}">${done ? '✓' : ''}</span>`).join('');
+        const stepLbls = ['Técnica', 'Lectura', 'Repertorio'];
+        const stepsHtml = s.stepsToday.map((done, i) => `<span class="tb-step-detail">${stepLbls[i] || ''} <span class="tb-step-check${done ? ' done' : ''}">${done ? '✓' : ''}</span></span>`).join('');
 
         let activityLabel = '—';
         let activityClass = 'inactive';
@@ -1601,6 +1602,8 @@ Object.assign(GuitarStudioApp.prototype, {
 
         const questionsPanel = expanded ? this._tbRenderQuestionsAccordion(p.id) : '';
 
+        // Fila colapsada = identidad + 1 semáforo (propuesta 3a); el detalle
+        // por categoría/racha/minutos se muestra solo al expandir.
         return `<div class="tb-student-row${expanded ? ' expanded' : ''}" data-profile-id="${p.id}">
             <div class="tb-row-header" onclick="app.tbToggleExpand('${p.id}')">
                 <div class="tb-avatar" style="background:${p.color || 'var(--tb-accent)'}">${displayName.charAt(0).toUpperCase()}</div>
@@ -1608,15 +1611,20 @@ Object.assign(GuitarStudioApp.prototype, {
                     <div class="tb-name">${this._escapeHtml(displayName)}</div>
                     <div class="tb-group">${this._escapeHtml(s.groupLabel)}</div>
                 </div>
-                <div class="tb-steps" title="Pasos diarios de hoy">${stepsHtml}</div>
-                <div class="tb-minutes">${minutesToday} min</div>
-                <div class="tb-streak">${s.streak > 0 ? `🔥 ${s.streak} d` : '— racha'}</div>
                 <div class="tb-status-dot-wrap" title="${this._escapeHtml(s.alertStatus.reason)}">
                     <span class="tb-status-dot tb-status-${s.alertStatus.level}" style="background:${statusColor}"></span>
                 </div>
-                <div class="tb-activity ${activityClass}">${activityLabel}</div>
+                <span class="tb-row-chevron">${expanded ? '▴' : '▾'}</span>
             </div>
             ${expanded ? `<div class="tb-row-expanded">
+                <div class="tb-expanded-stats">
+                    <div class="tb-steps" title="Pasos diarios de hoy">${stepsHtml}</div>
+                    <div class="tb-expanded-meta">
+                        <span class="tb-streak">${s.streak > 0 ? `🔥 ${s.streak} d` : '— racha'}</span>
+                        <span class="tb-minutes">${minutesToday} min hoy</span>
+                        <span class="tb-activity ${activityClass}">${activityLabel}</span>
+                    </div>
+                </div>
                 <div class="tb-expanded-actions">
                     <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();app.openTeacherFichaModal('${p.id}')">🗂️ Ficha</button>
                 </div>
