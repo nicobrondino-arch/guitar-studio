@@ -120,7 +120,7 @@
     <!-- Google Fonts: Inter & Outfit -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Josefin+Sans:wght@300;400;600;700&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=Yeseva+One&family=Nunito+Sans:wght@400;600;700&family=Bitter:wght@500;600;700&family=Karla:wght@400;500;600;700&family=DM+Serif+Display&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <!-- styles.css link -->
     <link rel="stylesheet" href="styles.css">
     <!-- FontAwesome icons for alphaTab tutorial player -->
@@ -572,23 +572,28 @@
                             <label class="form-label" style="font-weight: 600; font-size: 13px; display:block; margin-bottom:10px;">Tema Visual</label>
                             <div class="pconf-theme-cards" id="profile-theme-cards">
                                 <button class="pconf-theme-card" data-theme="default" onclick="app.profileConfigSetTheme('default')">
-                                    <span class="pconf-theme-swatches"><span style="background:#0d0709"></span><span style="background:#c0392b"></span><span style="background:#f2e6e8"></span></span>
-                                    <span class="pconf-theme-name">Estudio</span>
+                                    <span class="pconf-theme-swatches"><span style="background:#131314"></span><span style="background:#e63946"></span><span style="background:#f0efed"></span></span>
+                                    <span class="pconf-theme-name">Neutral</span>
+                                </button>
+                                <button class="pconf-theme-card" data-theme="tango" onclick="app.profileConfigSetTheme('tango')">
+                                    <span class="pconf-theme-swatches"><span style="background:#170b0e"></span><span style="background:#c22e3d"></span><span style="background:#f6ead9"></span></span>
+                                    <span class="pconf-theme-name">Tango</span>
                                 </button>
                                 <button class="pconf-theme-card" data-theme="folklore" onclick="app.profileConfigSetTheme('folklore')">
-                                    <span class="pconf-theme-swatches"><span style="background:#0a0f08"></span><span style="background:#C8A045"></span><span style="background:#e8f0df"></span></span>
+                                    <span class="pconf-theme-swatches"><span style="background:#ede4cf"></span><span style="background:#5b7340"></span><span style="background:#38301f"></span></span>
                                     <span class="pconf-theme-name">Folklore</span>
                                 </button>
-                                <button class="pconf-theme-card" data-theme="partitura" onclick="app.profileConfigSetTheme('partitura')">
-                                    <span class="pconf-theme-swatches"><span style="background:#0d0b08"></span><span style="background:#C4963A"></span><span style="background:#f0e8d0"></span></span>
-                                    <span class="pconf-theme-name">Partitura</span>
+                                <button class="pconf-theme-card" data-theme="jazz" onclick="app.profileConfigSetTheme('jazz')">
+                                    <span class="pconf-theme-swatches"><span style="background:#0a0f1e"></span><span style="background:#4f8fe6"></span><span style="background:#e9edf6"></span></span>
+                                    <span class="pconf-theme-name">Jazz</span>
                                 </button>
                             </div>
                             <!-- Select oculto: lo sigue leyendo app.saveProfileConfig() -->
                             <select id="profile-config-theme" style="display:none">
-                                <option value="default">Default (Estudio)</option>
-                                <option value="folklore">Folklore (Cálido/Tierra)</option>
-                                <option value="partitura">Partitura (Blanco/Negro)</option>
+                                <option value="default">Neutral</option>
+                                <option value="tango">Tango</option>
+                                <option value="folklore">Folklore (Claro)</option>
+                                <option value="jazz">Jazz</option>
                             </select>
                         </div>
 

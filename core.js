@@ -967,11 +967,11 @@ class GuitarStudioApp {
     // ==========================================================================
 
     /**
-     * Aplica un tema visual al app: tango | folklore | partitura
+     * Aplica un tema visual al app: tango | folklore | jazz (default/Neutral = sin atributo)
      * Persiste la elección en localStorage.
      */
     applyTheme(theme) {
-        if (!['folklore', 'partitura'].includes(theme)) {
+        if (!['tango', 'folklore', 'jazz'].includes(theme)) {
             document.documentElement.removeAttribute('data-theme');
             return;
         }
@@ -984,7 +984,7 @@ class GuitarStudioApp {
     }
 
     /**
-     * Carga el tema guardado en localStorage, o aplica tango por defecto.
+     * Carga el tema guardado en localStorage, o Neutral (default) si no hay ninguno.
      */
     loadSavedTheme() {
         const saved = localStorage.getItem('gs-theme') || '';

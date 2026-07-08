@@ -2,6 +2,17 @@
  * bibliotecaProfesor.js - Biblioteca del Profesor (v2): CRUD, plantillas, categorias, tabla filtrable.
  * Mixin del prototipo de GuitarStudioApp (definido en core.js). Debe cargarse DESPUES de core.js.
  */
+
+// Set de iconos duotono (currentColor) por tipo de contenido — handoff de temas visuales.
+const CONTENT_TYPE_ICONS_SVG = {
+    partitura: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 7h18M3 12h18M3 17h18" opacity=".4"/><circle cx="8" cy="7" r="2.6" fill="currentColor" stroke="none"/><circle cx="14" cy="12" r="2.6" fill="currentColor" stroke="none"/><circle cx="18" cy="17" r="2.6" fill="currentColor" stroke="none"/></svg>',
+    pdf: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" fill="currentColor" fill-opacity=".22"/><path d="M14 3v5h5"/><path d="M8.5 13.5h7M8.5 17h5"/></svg>',
+    audio: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 10v4M8 7v10" opacity=".4"/><path d="M12 4v16"/><path d="M16 8v8M20 11v2" opacity=".4"/></svg>',
+    video: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="4" fill="currentColor" fill-opacity=".22"/><path d="M10 9.5l5 2.5-5 2.5z" fill="currentColor" stroke="none"/></svg>',
+    spotify: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9" fill="currentColor" fill-opacity=".22"/><path d="M8 10c2.6-.8 5.6-.6 8 .8M8.6 13c2-.6 4.4-.4 6.4.7M9.2 15.6c1.5-.4 3.2-.3 4.6.5"/></svg>',
+    enlace: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10.5 13.5a4 4 0 0 0 5.7 0l2.3-2.3a4 4 0 0 0-5.7-5.7l-1.1 1.1" opacity=".45"/><path d="M13.5 10.5a4 4 0 0 0-5.7 0l-2.3 2.3a4 4 0 0 0 5.7 5.7l1.1-1.1"/></svg>'
+};
+
 Object.assign(GuitarStudioApp.prototype, {
     _bibCatColor(name) {
         const n = String(name || '').toLowerCase().trim();
@@ -56,10 +67,13 @@ Object.assign(GuitarStudioApp.prototype, {
     },
 
     _bibTypeIcon(t) {
-        if (t === 'youtube') return '▶';
-        if (t === 'spotify') return '♫';
-        if (t === 'pdf') return '📄';
-        return '🎵';
+        const kind = (t === 'gp' || t === 'gpx' || t === 'score') ? 'partitura'
+            : t === 'pdf' ? 'pdf'
+            : t === 'audio' ? 'audio'
+            : t === 'youtube' ? 'video'
+            : t === 'spotify' ? 'spotify'
+            : 'enlace';
+        return CONTENT_TYPE_ICONS_SVG[kind];
     },
 
     _bibValueLabel(col, val) {
@@ -200,7 +214,6 @@ Object.assign(GuitarStudioApp.prototype, {
             
             const types = ['score', 'gp', 'gpx', 'pdf', 'youtube', 'spotify'];
             const typeLabels = { score: 'Guitar Pro', gp: 'Guitar Pro', gpx: 'GPX', pdf: 'Documentos PDF', youtube: 'Videos de YouTube', spotify: 'Canciones de Spotify' };
-            const typeIcons = { score: '🎸', gp: '🎸', gpx: '🎸', pdf: '📄', youtube: '▶️', spotify: '🎵' };
             const typeColors = { score: '#a29bfe', gp: '#a29bfe', gpx: '#a29bfe', pdf: '#55efc4', youtube: '#fdcb6e', spotify: '#74b9ff' };
             
             const typeBlocks = types.map(type => {
@@ -228,7 +241,7 @@ Object.assign(GuitarStudioApp.prototype, {
                 return `
                     <div style="margin-top:12px">
                         <div style="font-size:11px; font-weight:600; text-transform:uppercase; color:var(--tb-text-muted); margin-bottom:6px; display:flex; align-items:center; gap:6px">
-                            <span class="bib-type-icon" style="background:${typeColors[type]}1f; width:20px; height:20px; font-size:10px">${typeIcons[type]}</span>
+                            <span class="bib-type-icon" style="background:${typeColors[type]}1f; color:${typeColors[type]}; width:20px; height:20px; font-size:10px">${this._bibTypeIcon(type)}</span>
                             <span>${typeLabels[type]}</span>
                         </div>
                         <div>${rows}</div>
@@ -346,7 +359,7 @@ Object.assign(GuitarStudioApp.prototype, {
                 ? this._escapeHtml(it.title || 'Sin título')
                 : `<span class="bib-title-link" onclick="event.stopPropagation(); app.openLibraryItemById('${it.id}')">${this._escapeHtml(it.title || 'Sin título')}</span>`;
             return `<tr class="bib-row${sel}" onclick="${clickAction}">
-  <td class="bib-td bib-td-title"><span class="bib-type-icon" style="background:${color}1f">${this._bibTypeIcon(it.type)}</span>${titleHtml}</td>
+  <td class="bib-td bib-td-title"><span class="bib-type-icon" style="background:${color}1f; color:${color}">${this._bibTypeIcon(it.type)}</span>${titleHtml}</td>
   <td class="bib-td">${this._bibTypeLabel(it.type)}</td>
   <td class="bib-td">${cat ? `<span class="bib-cat-dot" style="background:${color}"></span>${this._escapeHtml(cat)}` : '—'}</td>
   <td class="bib-td">${this._bibLevelLabel(it.level)}</td>

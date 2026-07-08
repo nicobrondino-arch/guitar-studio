@@ -81,7 +81,7 @@ Object.assign(GuitarStudioApp.prototype, {
                     </div>
                     <div style="max-height:120px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; margin-top:4px">
                         ${notifications.map(n => `
-                            <div onclick="app.handleNotificationClick('${n.id}', '${n.claseId}')" style="cursor:pointer; background:rgba(255,255,255,0.1); border-radius:6px; padding:6px 8px; display:flex; justify-content:space-between; align-items:center">
+                            <div onclick="app.handleNotificationClick('${n.id}', '${n.claseId}')" style="cursor:pointer; background:color-mix(in srgb, var(--tb-text-primary) 10%, transparent); border-radius:6px; padding:6px 8px; display:flex; justify-content:space-between; align-items:center">
                                 <span><strong>${this._escapeHtml(n.studentName)}</strong> cargó "${this._escapeHtml(n.itemTitle)}"</span>
                                 <span style="font-size:10px; opacity:0.8">Ver →</span>
                             </div>
@@ -150,7 +150,7 @@ Object.assign(GuitarStudioApp.prototype, {
                             <div style="font-weight:600; font-size:13px; color:var(--tb-text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${this._escapeHtml(g.name)}</div>
                             <div style="font-size:11px; color:var(--tb-text-secondary); margin-top:2px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">📅 ${dayTime} · 👤 ${memberCount} alumno${memberCount!==1?'s':''}</div>
                         </div>
-                        <button class="btn btn-outline btn-sm" onclick="app.dashDeleteGroup('${g.id}')" style="color:var(--tb-accent); border-color:rgba(192, 57, 43, 0.3); padding:4px 8px; font-size:11px; line-height:1; min-height:22px;" title="Eliminar Grupo">🗑️</button>
+                        <button class="btn btn-outline btn-sm" onclick="app.dashDeleteGroup('${g.id}')" style="color:var(--tb-accent); border-color:color-mix(in srgb, var(--tb-accent) 30%, transparent); padding:4px 8px; font-size:11px; line-height:1; min-height:22px;" title="Eliminar Grupo">🗑️</button>
                     </div>`;
                 }).join('') || '<p style="color:var(--tb-text-muted); font-size:12px; font-style:italic;">No hay grupos de clase creados.</p>';
 
@@ -158,7 +158,7 @@ Object.assign(GuitarStudioApp.prototype, {
                 <div class="dash-tab-content" style="padding: 16px; display: flex; flex-direction: column; gap: 16px; max-height: 75vh; overflow-y: auto;">
                     <h3 style="margin: 0; font-size: 15px; color: var(--tb-text-primary); font-family: var(--font-heading);">Crear Nuevo Grupo o Curso</h3>
                     
-                    <div style="display:flex; flex-direction:column; gap:12px; background:rgba(255,255,255,0.02); border:1px solid var(--tb-border); padding:14px; border-radius:8px;">
+                    <div style="display:flex; flex-direction:column; gap:12px; background:color-mix(in srgb, var(--tb-text-primary) 2%, transparent); border:1px solid var(--tb-border); padding:14px; border-radius:8px;">
                         <div class="form-group" style="margin-bottom:8px">
                             <label class="form-label" style="font-weight:600; font-size:11px; margin-bottom:4px; display:block;">Nombre del Grupo</label>
                             <input class="form-control" id="dgf-name" placeholder="Ej. Técnica Martes 16hs" style="width:100%; background:var(--tb-bg-primary); border:1px solid var(--tb-border); color:var(--tb-text-primary); border-radius:6px; padding:6px 10px; font-size:13px;">
@@ -216,7 +216,7 @@ Object.assign(GuitarStudioApp.prototype, {
 
                 tabBodyHtml = `
                 <div class="dash-tab-content" style="padding: 16px; display: flex; flex-direction: column; gap: 16px; max-height: 75vh; overflow-y: auto;">
-                    <div style="background:rgba(255,255,255,0.02); border:1px solid var(--tb-border); padding:16px; border-radius:8px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:10px;">
+                    <div style="background:color-mix(in srgb, var(--tb-text-primary) 2%, transparent); border:1px solid var(--tb-border); padding:16px; border-radius:8px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:10px;">
                         <div style="font-size:24px;">📋</div>
                         <h4 style="margin:0; font-size:14px; color:var(--tb-text-primary);">Planificá con Plantillas</h4>
                         <p style="margin:0; font-size:12px; color:var(--tb-text-secondary); max-width:280px;">Podés definir secuencias de estudio preestablecidas (Técnica, Lectura, Repertorio) para aplicarlas en un solo clic al iniciar tus clases.</p>
@@ -254,7 +254,7 @@ Object.assign(GuitarStudioApp.prototype, {
                     <!-- COL 1: TIMELINE (Hoy) -->
                     <div class="tl3-col">
                         ${notifHtml}
-                        <div class="tl3-tabs" style="border-bottom: 1px solid #2e1620;">
+                        <div class="tl3-tabs" style="border-bottom: 1px solid var(--tb-border);">
                             <div class="tl3-tab active" style="cursor: default; font-weight:600; text-align:left; padding-left:14px; color:var(--tb-accent); border-bottom:none;">Clases de Hoy</div>
                         </div>
                         <div class="tl3-list">
@@ -281,7 +281,7 @@ Object.assign(GuitarStudioApp.prototype, {
                 
                 <!-- BOTTOM AREA: WEEKLY AGENDA (Full width) -->
                 <div class="dash-weekly-panel" style="height:${isSemanaActive ? '260px' : 'auto'};">
-                    <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 16px; border-bottom:1px solid ${isSemanaActive?'#2e1620':'transparent'};">
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 16px; border-bottom:1px solid ${isSemanaActive?'var(--tb-border)':'transparent'};">
                         <button class="tl3-tab-bottom ${isSemanaActive?'active':''}" onclick="app.switchTimelineTab('${isSemanaActive?'hoy':'semana'}')">
                             📅 ${isSemanaActive ? 'Ocultar Agenda Semanal' : 'Ver Agenda Semanal'}
                         </button>
@@ -435,7 +435,7 @@ Object.assign(GuitarStudioApp.prototype, {
                         ${dudaHtml}
                     </div>`;
 
-                const nameColor = pracDot === 'full' ? '#34c759' : pracDot === 'partial' ? '#f5a623' : '#c0392b';
+                const nameColor = pracDot === 'full' ? 'var(--tb-success)' : pracDot === 'partial' ? '#f5a623' : 'var(--tb-danger)';
                 const firstName = (m.name||'').split(' ')[0];
 
                 const avatarChar = m.avatarChar || (m.name||'?')[0].toUpperCase();
@@ -482,7 +482,7 @@ Object.assign(GuitarStudioApp.prototype, {
                 <span class="cat3-rm" onclick="app.removeCategory('${claseId}','${this._escapeHtml(cat)}')">×</span>
             </div>`).join('');
 
-        const iconFor = ft => (ft==='gp'||ft==='gpx'||ft==='score')?'🎸':ft==='pdf'?'📄':ft==='audio'?'🎵':ft==='youtube'?'▶️':'📎';
+        const iconFor = ft => this._bibTypeIcon(ft);
         const contentItems = (clase.content||[]).map(c => {
             const libItem = libraryItems.find(it => it.id === c.id) || {};
             const title = libItem.title || c.title || c.name || 'Sin título';
@@ -578,7 +578,7 @@ Object.assign(GuitarStudioApp.prototype, {
                     ${meetBarHtml}
                     <div style="display:flex; gap:6px; align-items:center;">
                         <button class="h3-btn h3-btn-edit" onclick="app._openEditClaseModal('${claseId}')">Editar</button>
-                        <button class="h3-btn" onclick="app.closeClasetDetail()" title="Cerrar Clase y Volver" style="background:rgba(255,255,255,0.05); color:var(--tb-text-muted); border:1px solid var(--tb-border); padding:4px 8px; border-radius:4px; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:4px; transition:all 0.15s;">
+                        <button class="h3-btn" onclick="app.closeClasetDetail()" title="Cerrar Clase y Volver" style="background:color-mix(in srgb, var(--tb-text-primary) 5%, transparent); color:var(--tb-text-muted); border:1px solid var(--tb-border); padding:4px 8px; border-radius:4px; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:4px; transition:all 0.15s;">
                             Cerrar ×
                         </button>
                     </div>
@@ -651,7 +651,7 @@ Object.assign(GuitarStudioApp.prototype, {
         this.data.saveClase(clase);
         
         const libraryItems = await this.data.getLibraryItems();
-        const iconFor = ft => (ft==='gp'||ft==='gpx'||ft==='score')?'🎸':ft==='pdf'?'📄':ft==='audio'?'🎵':ft==='youtube'?'▶️':'📎';
+        const iconFor = ft => this._bibTypeIcon(ft);
         const listEl = document.getElementById(`ci3-list-${claseId}`);
         if (listEl) {
             listEl.innerHTML = clase.content.length
@@ -1002,7 +1002,7 @@ Object.assign(GuitarStudioApp.prototype, {
             items = items.filter(it => (it.category||it.exerciseType||'') === catF);
         }
 
-        const iconFor = ft => (ft==='gp'||ft==='gpx'||ft==='score')?'🎸':ft==='pdf'?'📄':ft==='audio'?'🎵':ft==='youtube'?'▶️':'📎';
+        const iconFor = ft => this._bibTypeIcon(ft);
 
         const panelCats = (clase && clase.categories && clase.categories.length) ? clase.categories : this.data.getDefaultCategories();
         const catChips = ['todos', ...panelCats].map(c =>
@@ -1069,7 +1069,7 @@ Object.assign(GuitarStudioApp.prototype, {
         
         // Cargar biblioteca para resolver dinámicamente títulos/iconos
         const libraryItems = await this.data.getLibraryItems();
-        const iconFor = ft => (ft==='gp'||ft==='gpx'||ft==='score')?'🎸':ft==='pdf'?'📄':ft==='audio'?'🎵':ft==='youtube'?'▶️':'📎';
+        const iconFor = ft => this._bibTypeIcon(ft);
         const listEl = document.getElementById(`ci3-list-${claseId}`);
         if (listEl) {
             listEl.innerHTML = clase.content.map(c => {

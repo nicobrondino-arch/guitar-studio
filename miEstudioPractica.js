@@ -1434,9 +1434,9 @@ Object.assign(GuitarStudioApp.prototype, {
                 const color = this._bibCatColor(it.category || '');
                 return `
                     <div onclick="app.openLibraryItemById('${it.id}')" style="cursor:pointer; display:flex; align-items:center; gap:8px; background:var(--tb-bg-primary); border:1px solid var(--tb-border); padding:8px 12px; border-radius:6px; transition: border-color 0.1s" onmouseover="this.style.borderColor='var(--tb-border-hover)'" onmouseout="this.style.borderColor='var(--tb-border)'">
-                        <span class="bib-type-icon" style="background:${color}1f; width:20px; height:20px; font-size:10px">${this._bibTypeIcon(it.type)}</span>
+                        <span class="bib-type-icon" style="background:${color}1f; color:${color}; width:20px; height:20px; font-size:10px">${this._bibTypeIcon(it.type)}</span>
                         <span style="font-size:13px; font-weight:500; color:var(--tb-text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap">${this._escapeHtml(it.title)}</span>
-                        <span style="font-size:10px; color:var(--tb-text-muted); background:rgba(0,0,0,0.1); padding:2px 6px; border-radius:4px; margin-left:auto; flex-shrink:0">${this._escapeHtml(it.category || 'Material')}</span>
+                        <span style="font-size:10px; color:var(--tb-text-muted); background:color-mix(in srgb, var(--tb-text-primary) 10%, transparent); padding:2px 6px; border-radius:4px; margin-left:auto; flex-shrink:0">${this._escapeHtml(it.category || 'Material')}</span>
                     </div>
                 `;
             }).join('') || '<p style="font-size:12px; color:var(--tb-text-muted); margin:0; font-style:italic">Sin material asignado por el docente.</p>';
@@ -1445,7 +1445,7 @@ Object.assign(GuitarStudioApp.prototype, {
                 const color = this._bibCatColor(it.category || '');
                 return `
                     <div onclick="app.openLibraryItemById('${it.id}')" style="cursor:pointer; display:flex; align-items:center; gap:8px; background:var(--tb-bg-primary); border:1px solid var(--tb-border); padding:8px 12px; border-radius:6px; transition: border-color 0.1s" onmouseover="this.style.borderColor='var(--tb-border-hover)'" onmouseout="this.style.borderColor='var(--tb-border)'">
-                        <span class="bib-type-icon" style="background:${color}1f; width:20px; height:20px; font-size:10px">${this._bibTypeIcon(it.type)}</span>
+                        <span class="bib-type-icon" style="background:${color}1f; color:${color}; width:20px; height:20px; font-size:10px">${this._bibTypeIcon(it.type)}</span>
                         <div style="flex:1; min-width:0">
                             <div style="font-size:13px; font-weight:500; color:var(--tb-text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap">${this._escapeHtml(it.title)}</div>
                             ${it.observation ? `<div style="font-size:11px; color:var(--tb-text-secondary); margin-top:2px; font-style:italic; text-overflow:ellipsis; overflow:hidden; white-space:nowrap">"${this._escapeHtml(it.observation)}"</div>` : ''}
@@ -1482,7 +1482,7 @@ Object.assign(GuitarStudioApp.prototype, {
                 const color = this._bibCatColor(it.category || '');
                 return `
                     <div onclick="app.openLibraryItemById('${it.id}')" style="cursor:pointer; display:flex; align-items:center; gap:8px; background:var(--tb-bg-primary); border:1px solid var(--tb-border); padding:8px 12px; border-radius:6px; transition: border-color 0.1s" onmouseover="this.style.borderColor='var(--tb-border-hover)'" onmouseout="this.style.borderColor='var(--tb-border)'">
-                        <span class="bib-type-icon" style="background:${color}1f; width:20px; height:20px; font-size:10px">${this._bibTypeIcon(it.type)}</span>
+                        <span class="bib-type-icon" style="background:${color}1f; color:${color}; width:20px; height:20px; font-size:10px">${this._bibTypeIcon(it.type)}</span>
                         <div style="flex:1; min-width:0">
                             <div style="font-size:13px; font-weight:500; color:var(--tb-text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap">${this._escapeHtml(it.title)}</div>
                             ${it.observation ? `<div style="font-size:11px; color:var(--tb-text-secondary); margin-top:2px; font-style:italic; text-overflow:ellipsis; overflow:hidden; white-space:nowrap">"${this._escapeHtml(it.observation)}"</div>` : ''}
@@ -1632,7 +1632,7 @@ Object.assign(GuitarStudioApp.prototype, {
             const clickAction = `app.openLibraryItemById('${it.id}')`;
             const dateStr = new Date(it.createdAt).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
             return `<tr class="bib-row" onclick="${clickAction}">
-  <td class="bib-td bib-td-title"><span class="bib-type-icon" style="background:${color}1f">${this._bibTypeIcon(it.type)}</span>${this._escapeHtml(it.title || 'Sin título')}</td>
+  <td class="bib-td bib-td-title"><span class="bib-type-icon" style="background:${color}1f; color:${color}">${this._bibTypeIcon(it.type)}</span>${this._escapeHtml(it.title || 'Sin título')}</td>
   <td class="bib-td">${this._bibTypeLabel(it.type)}</td>
   <td class="bib-td" style="max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-style:italic; color:var(--tb-text-secondary)" title="${this._escapeHtml(it.observation || '')}">${it.observation ? this._escapeHtml(it.observation) : '—'}</td>
   <td class="bib-td">${dateStr}</td>
