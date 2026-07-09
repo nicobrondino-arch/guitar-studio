@@ -142,23 +142,9 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- Sidebar Navigation (Desktop) / Bottom Nav (Mobile) -->
-        <nav class="sidebar">
-            <div class="sidebar-brand">
-                <svg class="brand-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M9 18V5l12-2v13"></path>
-                    <circle cx="6" cy="18" r="3"></circle>
-                    <circle cx="18" cy="16" r="3"></circle>
-                </svg>
-                <span class="brand-text">Guitar Studio</span>
-            </div>
-
-            <!-- Perfil activo + notificaciones, arriba a la izquierda -->
-            <div class="sidebar-user-row">
-                <button class="profile-chip sidebar-profile-chip" id="btn-profile-chip" title="Cambiar perfil">
-                    <span class="profile-chip-avatar" id="profile-chip-avatar">?</span>
-                    <span class="profile-chip-name" id="profile-chip-name">Sin perfil</span>
-                </button>
+        <!-- Perfil activo + notificaciones, arriba a la derecha (fijo, independiente del sidebar) -->
+        <div class="topbar-user-corner">
+            <div class="topbar-user-row">
                 <div class="notif-bell-wrap">
                     <button class="notif-bell-btn" id="btn-notif-bell" title="Notificaciones" onclick="app.toggleNotificationsPanel()" style="display:none">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -169,12 +155,28 @@
                     </button>
                     <div class="notif-panel" id="notif-panel" style="display:none"></div>
                 </div>
+                <button class="profile-chip topbar-profile-chip" id="btn-profile-chip" title="Cambiar perfil">
+                    <span class="profile-chip-avatar" id="profile-chip-avatar">?</span>
+                    <span class="profile-chip-name" id="profile-chip-name">Sin perfil</span>
+                </button>
             </div>
             <!-- Acceso discreto al modo profesor (visible solo con alumno activo) -->
-            <button class="sidebar-prof-link" id="btn-sidebar-professor" style="display:none" onclick="app.handleProfessorModeClick()">
+            <button class="topbar-prof-link" id="btn-sidebar-professor" style="display:none" onclick="app.handleProfessorModeClick()">
                 <span class="nav-text">Modo Profesor</span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;flex-shrink:0"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
             </button>
+        </div>
+
+        <!-- Sidebar Navigation (Desktop) / Bottom Nav (Mobile) -->
+        <nav class="sidebar">
+            <div class="sidebar-brand">
+                <svg class="brand-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 18V5l12-2v13"></path>
+                    <circle cx="6" cy="18" r="3"></circle>
+                    <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+                <span class="brand-text">Guitar Studio</span>
+            </div>
 
             <div class="nav-links">
                 <!-- Espacio del Docente -->
