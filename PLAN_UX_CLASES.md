@@ -31,8 +31,8 @@ Acordado el 2026-07-09. La clase deja de ser una "bolsa de contenido clasificado
 | # | Punto | Camino | Estado |
 |---|-------|--------|--------|
 | 1 | Textos y limpieza (ver detalle abajo) | Code directo | **HECHO 2026-07-09** |
-| 2 | Agenda semanal siempre abierta + card Próxima Clase | Design → Code | Pendiente (brief listo) |
-| 3 | Set de íconos SVG lineal (reemplaza todos los emoji) | Design → Code | Pendiente (brief listo) |
+| 2 | Agenda semanal siempre abierta + card Próxima Clase | Design → Code | **HECHO 2026-07-09** (24b8734) |
+| 3 | Set de íconos SVG lineal (reemplaza todos los emoji) | Design → Code | Sprite global en index.html (24b8734); falta el barrido de emojis |
 | 4 | Modal editor de Grupo (duración, horario compacto, Meet+WhatsApp arriba, próximas clases del grupo) + modal Plantilla agrandado con mini-biblioteca + filas compactas de "existentes" | Design → Code | Pendiente (brief listo) |
 | 5 | Modelo de Pasos (decisión central de arriba) — Fase A | Code (layout del paso lo diseña Design) | Pendiente (brief listo) |
 | 6 | Alertas Rápidas → campana de notificaciones (sección "Alertas" de estado vivo + config de tipos; NO convertir alertas en eventos). Fila de alumno gana racha+minutos inline; historial/métrica en hover reusando `hc-card` (fallback click en touch). Alta de alumno con "+ Nuevo alumno" | Code | Pendiente |
