@@ -169,7 +169,7 @@ Object.assign(GuitarStudioApp.prototype, {
         
         const allActive = !this._bibSelectedStudentCargaId ? ' active' : '';
         const allItemHtml = `<div class="bib-sidebar-item${allActive}" onclick="app.bibSelectStudentCarga(null)">
-            <div class="bib-avatar" style="background:var(--tb-border)">👥</div>
+            <div class="bib-avatar" style="background:var(--tb-border)"><svg width="16" height="16"><use href="#icon-grupo"/></svg></div>
             <div class="bib-item-info"><div class="bib-item-name">Todos los Alumnos</div><div class="bib-item-sub">Ver todas las cargas</div></div>
         </div>`;
 

@@ -137,9 +137,9 @@ Object.assign(GuitarStudioApp.prototype, {
                     <div style="background:var(--tb-bg-primary); border:1px solid var(--tb-border); padding:10px 12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; gap:16px;">
                         <div style="flex:1; min-width:0;">
                             <div style="font-weight:600; font-size:13px; color:var(--tb-text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${this._escapeHtml(g.name)}</div>
-                            <div style="font-size:11px; color:var(--tb-text-secondary); margin-top:2px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">📅 ${dayTime} · 👤 ${memberCount} alumno${memberCount!==1?'s':''}</div>
+                            <div style="display:flex; align-items:center; gap:10px; font-size:11px; color:var(--tb-text-secondary); margin-top:2px; overflow:hidden; white-space:nowrap;"><span style="display:inline-flex; align-items:center; gap:4px; min-width:0; overflow:hidden; text-overflow:ellipsis;"><svg width="12" height="12" style="flex-shrink:0"><use href="#icon-fecha"/></svg>${dayTime}</span><span style="display:inline-flex; align-items:center; gap:4px; flex-shrink:0;"><svg width="12" height="12"><use href="#icon-alumno"/></svg>${memberCount} alumno${memberCount!==1?'s':''}</span></div>
                         </div>
-                        <button class="btn btn-outline btn-sm" onclick="app.dashDeleteGroup('${g.id}')" style="color:var(--tb-accent); border-color:color-mix(in srgb, var(--tb-accent) 30%, transparent); padding:4px 8px; font-size:11px; line-height:1; min-height:22px;" title="Eliminar Grupo">🗑️</button>
+                        <button class="btn btn-outline btn-sm" onclick="app.dashDeleteGroup('${g.id}')" style="display:flex; align-items:center; justify-content:center; color:var(--tb-danger); border-color:color-mix(in srgb, var(--tb-danger) 30%, transparent); padding:4px 8px; font-size:11px; line-height:1; min-height:22px;" title="Eliminar Grupo"><svg width="14" height="14"><use href="#icon-borrar"/></svg></button>
                     </div>`;
                 }).join('') || '<p style="color:var(--tb-text-muted); font-size:12px; font-style:italic;">No hay grupos de clase creados.</p>';
 
@@ -197,16 +197,16 @@ Object.assign(GuitarStudioApp.prototype, {
                     <div style="background:var(--tb-bg-primary); border:1px solid var(--tb-border); padding:10px 12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; gap:16px;">
                         <div style="flex:1; min-width:0;">
                             <div style="font-weight:600; font-size:13px; color:var(--tb-text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${this._escapeHtml(t.name)}</div>
-                            <div style="font-size:11px; color:var(--tb-text-secondary); margin-top:2px;">📋 ${itemCount} ítem${itemCount!==1?'s':''} asignado${itemCount!==1?'s':''}</div>
+                            <div style="display:flex; align-items:center; gap:4px; font-size:11px; color:var(--tb-text-secondary); margin-top:2px;"><svg width="12" height="12" style="flex-shrink:0"><use href="#icon-plantilla"/></svg>${itemCount} ítem${itemCount!==1?'s':''} asignado${itemCount!==1?'s':''}</div>
                         </div>
-                        <button class="btn btn-outline btn-sm" onclick="app.bibEditTemplate('${t.id}')" style="padding:4px 8px; font-size:11px; line-height:1; min-height:22px;">✏️ Editar</button>
+                        <button class="btn btn-outline btn-sm" onclick="app.bibEditTemplate('${t.id}')" style="display:flex; align-items:center; gap:5px; padding:4px 8px; font-size:11px; line-height:1; min-height:22px;"><svg width="12" height="12"><use href="#icon-editar"/></svg> Editar</button>
                     </div>`;
                 }).join('') || '<p style="color:var(--tb-text-muted); font-size:12px; font-style:italic;">No hay plantillas creadas.</p>';
 
                 tabBodyHtml = `
                 <div class="dash-tab-content" style="padding: 16px; display: flex; flex-direction: column; gap: 16px; max-height: 75vh; overflow-y: auto;">
                     <div style="background:color-mix(in srgb, var(--tb-text-primary) 2%, transparent); border:1px solid var(--tb-border); padding:16px; border-radius:8px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:10px;">
-                        <div style="font-size:24px;">📋</div>
+                        <svg width="26" height="26" style="color:var(--tb-accent); display:block;"><use href="#icon-plantilla"/></svg>
                         <h4 style="margin:0; font-size:14px; color:var(--tb-text-primary);">Planificá con Plantillas</h4>
                         <p style="margin:0; font-size:12px; color:var(--tb-text-secondary); max-width:280px;">Podés definir secuencias de estudio preestablecidas (Técnica, Lectura, Repertorio) para aplicarlas en un solo clic al iniciar tus clases.</p>
                         <button class="btn btn-primary btn-sm" onclick="app.bibNewTemplate()" style="margin-top:4px;">+ Crear Nueva Plantilla</button>
@@ -222,9 +222,9 @@ Object.assign(GuitarStudioApp.prototype, {
             middleContentHtml = `
             <div style="height:100%; display:flex; flex-direction:column; overflow:hidden;">
                 <div class="dash-creation-tabs" style="display:flex; border-bottom: 1px solid var(--tb-border); background: rgba(0,0,0,0.15); flex-shrink:0;">
-                    <button class="dash-creation-tab ${activeTab === 'clase' ? 'active' : ''}" onclick="app.switchDashCreationTab('clase')" style="flex:1; padding: 10px; background:none; border:none; border-bottom: 2px solid ${activeTab === 'clase' ? 'var(--tb-accent)' : 'transparent'}; color: ${activeTab === 'clase' ? 'var(--tb-text-primary)' : 'var(--tb-text-muted)'}; font-weight:600; cursor:pointer; font-size:11px; transition:all 0.2s;">🆕 Clase Nueva</button>
-                    <button class="dash-creation-tab ${activeTab === 'grupo' ? 'active' : ''}" onclick="app.switchDashCreationTab('grupo')" style="flex:1; padding: 10px; background:none; border:none; border-bottom: 2px solid ${activeTab === 'grupo' ? 'var(--tb-accent)' : 'transparent'}; color: ${activeTab === 'grupo' ? 'var(--tb-text-primary)' : 'var(--tb-text-muted)'}; font-weight:600; cursor:pointer; font-size:11px; transition:all 0.2s;">👥 Grupo Nuevo</button>
-                    <button class="dash-creation-tab ${activeTab === 'plantilla' ? 'active' : ''}" onclick="app.switchDashCreationTab('plantilla')" style="flex:1; padding: 10px; background:none; border:none; border-bottom: 2px solid ${activeTab === 'plantilla' ? 'var(--tb-accent)' : 'transparent'}; color: ${activeTab === 'plantilla' ? 'var(--tb-text-primary)' : 'var(--tb-text-muted)'}; font-weight:600; cursor:pointer; font-size:11px; transition:all 0.2s;">📋 Plantilla Nueva</button>
+                    <button class="dash-creation-tab ${activeTab === 'clase' ? 'active' : ''}" onclick="app.switchDashCreationTab('clase')" style="flex:1; padding: 10px; background:none; border:none; border-bottom: 2px solid ${activeTab === 'clase' ? 'var(--tb-accent)' : 'transparent'}; color: ${activeTab === 'clase' ? 'var(--tb-text-primary)' : 'var(--tb-text-muted)'}; font-weight:600; cursor:pointer; font-size:11px; transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:6px;"><svg width="14" height="14" style="flex-shrink:0"><use href="#icon-nuevo"/></svg> Clase Nueva</button>
+                    <button class="dash-creation-tab ${activeTab === 'grupo' ? 'active' : ''}" onclick="app.switchDashCreationTab('grupo')" style="flex:1; padding: 10px; background:none; border:none; border-bottom: 2px solid ${activeTab === 'grupo' ? 'var(--tb-accent)' : 'transparent'}; color: ${activeTab === 'grupo' ? 'var(--tb-text-primary)' : 'var(--tb-text-muted)'}; font-weight:600; cursor:pointer; font-size:11px; transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:6px;"><svg width="14" height="14" style="flex-shrink:0"><use href="#icon-grupo"/></svg> Grupo Nuevo</button>
+                    <button class="dash-creation-tab ${activeTab === 'plantilla' ? 'active' : ''}" onclick="app.switchDashCreationTab('plantilla')" style="flex:1; padding: 10px; background:none; border:none; border-bottom: 2px solid ${activeTab === 'plantilla' ? 'var(--tb-accent)' : 'transparent'}; color: ${activeTab === 'plantilla' ? 'var(--tb-text-primary)' : 'var(--tb-text-muted)'}; font-weight:600; cursor:pointer; font-size:11px; transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:6px;"><svg width="14" height="14" style="flex-shrink:0"><use href="#icon-plantilla"/></svg> Plantilla Nueva</button>
                 </div>
                 <div style="flex:1; overflow-y:auto; background: var(--tb-bg-secondary);">
                     ${tabBodyHtml}
@@ -408,7 +408,7 @@ Object.assign(GuitarStudioApp.prototype, {
                 
                 let actionHtml = '';
                 if (label === 'Ausentes') {
-                    actionHtml = `<button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); app.rescheduleClassForAbsentStudent('${claseId}', '${m.id}')" style="margin-top: 6px; font-size: 11px; padding: 4px 8px; width: 100%; border-radius: 6px; display: flex; align-items: center; justify-content: center; gap: 4px; border-color: var(--tb-border); color: var(--tb-text-primary);">📅 Reprogramar</button>`;
+                    actionHtml = `<button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); app.rescheduleClassForAbsentStudent('${claseId}', '${m.id}')" style="margin-top: 6px; font-size: 11px; padding: 4px 8px; width: 100%; border-radius: 6px; display: flex; align-items: center; justify-content: center; gap: 4px; border-color: var(--tb-border); color: var(--tb-text-primary);"><svg width="12" height="12" style="flex-shrink:0"><use href="#icon-fecha"/></svg> Reprogramar</button>`;
                 }
 
                 return `<div class="stu3-card-wrapper" style="display: flex; flex-direction: column; gap: 4px; align-items: stretch; flex-shrink: 0; min-width: 70px;">
@@ -419,7 +419,7 @@ Object.assign(GuitarStudioApp.prototype, {
                             style="position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 10px 7px;">
                         <div class="stu3-av" style="background:${m.color||'#6366f1'}">${avatarChar}</div>
                         <span class="stu3-cname" style="color:${nameColor}">${this._escapeHtml(firstName)}</span>
-                        <button onclick="event.stopPropagation(); app.openTeacherFichaModal('${m.id}')" title="Ver Ficha" style="background:none; border:none; cursor:pointer; font-size:12px; padding:2px; display:flex; align-items:center; justify-content:center; opacity: 0.6; transition: opacity 0.2s;" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0.6">🗂️</button>
+                        <button onclick="event.stopPropagation(); app.openTeacherFichaModal('${m.id}')" title="Ver Ficha" style="background:none; border:none; cursor:pointer; font-size:12px; padding:2px; display:flex; align-items:center; justify-content:center; opacity: 0.6; transition: opacity 0.2s;" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0.6"><svg width="14" height="14" style="color:var(--tb-text-secondary)"><use href="#icon-ficha"/></svg></button>
                         ${hoverCard}
                     </div>
                     ${actionHtml}
@@ -1030,7 +1030,7 @@ Object.assign(GuitarStudioApp.prototype, {
 
         body.innerHTML = `
             <div class="bib3-search-wrap">
-                <span class="bib3-search-icon">🔍</span>
+                <span class="bib3-search-icon"><svg width="13" height="13"><use href="#icon-buscar"/></svg></span>
                 <input type="text" class="bib3-search" placeholder="Buscar en biblioteca…" value="${this._escapeHtml(q)}" oninput="app.searchBiblioteca(this.value)">
             </div>
             <div class="bib3-chips">${catChips}</div>
@@ -1038,7 +1038,7 @@ Object.assign(GuitarStudioApp.prototype, {
             <div class="bib3-upload">
                 <div class="bib3-upload-title">Subir nuevo</div>
                 <div class="bib3-dz" ondragover="event.preventDefault()" ondrop="app._handleLibDrop(event)">
-                    <div class="bib3-dz-icon">📁</div>
+                    <div class="bib3-dz-icon"><svg width="22" height="22"><use href="#icon-carpeta"/></svg></div>
                     <div class="bib3-dz-label">Arrastrá .gp · .pdf · .gpx</div>
                     <div class="bib3-dz-sub">o <label style="color:var(--tb-accent);cursor:pointer"><input type="file" style="display:none" accept=".gp,.gp4,.gp5,.gpx,.pdf" onchange="app._handleLibFileInput(event)">elegir archivo</label></div>
                 </div>
@@ -1640,7 +1640,7 @@ Object.assign(GuitarStudioApp.prototype, {
                     </div>
                 </div>
                 <div class="tb-expanded-actions">
-                    <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();app.openTeacherFichaModal('${p.id}')">🗂️ Ficha</button>
+                    <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();app.openTeacherFichaModal('${p.id}')" style="display:inline-flex; align-items:center; gap:5px;"><svg width="12" height="12"><use href="#icon-ficha"/></svg> Ficha</button>
                 </div>
                 ${nextClaseHtml}
                 ${questionsPanel}

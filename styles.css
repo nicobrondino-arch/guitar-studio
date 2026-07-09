@@ -5805,7 +5805,7 @@ textarea.form-control {
     padding: 7px 12px;
     flex-shrink: 0;
 }
-.bib3-search-icon { font-size: 12px; color: var(--tb-text-muted); flex-shrink: 0; }
+.bib3-search-icon { display: flex; align-items: center; color: var(--tb-text-muted); flex-shrink: 0; }
 .bib3-search {
     flex: 1;
     background: transparent;
@@ -5927,7 +5927,7 @@ textarea.form-control {
     transition: border-color .15s;
 }
 .bib3-dz:hover { border-color: var(--tb-text-muted); }
-.bib3-dz-icon { font-size: 22px; }
+.bib3-dz-icon { display: flex; align-items: center; justify-content: center; color: var(--tb-text-muted); }
 .bib3-dz-label { font: 500 11px Inter, sans-serif; color: var(--tb-text-muted); }
 .bib3-dz-sub   { font: 400 10px Inter, sans-serif; color: var(--tb-border-hover); }
 
