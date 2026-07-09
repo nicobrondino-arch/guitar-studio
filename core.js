@@ -1166,15 +1166,6 @@ class GuitarStudioApp {
     _genGroupId() { return 'grp_' + Date.now() + '_' + Math.random().toString(36).slice(2,7); }
 
 
-    copyMeetLink(groupId) {
-        const group = this.data.getAllGroups().find(function(g) { return g.id === groupId; });
-        if (!group || !group.meetLink) return;
-        const self = this;
-        navigator.clipboard.writeText(group.meetLink)
-            .then(function() { self.showToast('Link copiado al portapapeles.', '📋'); })
-            .catch(function() { self.showToast('Copiá manualmente: ' + group.meetLink, '⚠️', 6000); });
-    }
-
     sendMeetWhatsApp(groupId) {
         const group = this.data.getAllGroups().find(function(g) { return g.id === groupId; });
         if (!group || !group.meetLink) return;

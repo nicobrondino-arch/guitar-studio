@@ -94,14 +94,15 @@ Object.assign(GuitarStudioApp.prototype, {
             if (activeTab === 'clase') {
                 tabBodyHtml = `
                 <div class="dash-tab-content" style="padding: 16px; display: flex; flex-direction: column; gap: 16px;">
-                    <h3 style="margin: 0; font-size: 15px; color: var(--tb-text-primary); font-family: var(--font-heading);">Iniciar Sesión de Clase</h3>
-                    <p style="margin: 0; font-size: 13px; color: var(--tb-text-secondary);">Seleccioná un alumno o grupo de clase para iniciar la clase de hoy:</p>
+                    <h3 style="margin: 0; font-size: 15px; color: var(--tb-text-primary); font-family: var(--font-heading);">Crear Clase</h3>
+                    <p style="margin: 0; font-size: 13px; color: var(--tb-text-secondary);">Seleccioná un alumno o grupo y la fecha de la clase:</p>
                     <div style="display: flex; gap: 8px;">
                         <select id="dash-create-class-select" class="form-select" style="flex: 1; background: var(--tb-bg-primary); border: 1px solid var(--tb-border); color: var(--tb-text-primary); border-radius: 6px; padding: 6px 12px; font-size: 13px;">
                             <option value="">— Seleccionar Alumno/Grupo —</option>
                             ${groups.map(g => `<option value="${g.id}">${this._escapeHtml(g.name)}</option>`).join('')}
                         </select>
-                        <button class="btn btn-primary" onclick="app.dashCreateClaseFromSelect()">Iniciar Clase</button>
+                        <input type="date" id="dash-create-class-date" value="${todayStr}" class="form-select" style="background: var(--tb-bg-primary); border: 1px solid var(--tb-border); color: var(--tb-text-primary); border-radius: 6px; padding: 6px 12px; font-size: 13px;">
+                        <button class="btn btn-primary" onclick="app.dashCreateClaseFromSelect()">Crear Clase</button>
                     </div>
                     <div style="margin-top: 32px; border-top: 1px solid var(--tb-border); padding-top: 24px; text-align: center; color: var(--tb-text-muted);">
                         <svg viewBox="0 0 48 48" fill="none" style="width:48px;height:48px;display:block;margin:0 auto 12px;opacity:0.2" stroke="currentColor" stroke-width="1.5"><circle cx="24" cy="24" r="20"/><path d="M24 14v10l6 4"/></svg>
@@ -235,7 +236,7 @@ Object.assign(GuitarStudioApp.prototype, {
                             <div class="tl3-tab active" style="cursor: default; font-weight:600; text-align:left; padding-left:14px; color:var(--tb-accent); border-bottom:none;">Clases de Hoy</div>
                         </div>
                         <div class="tl3-list">
-                            <button class="btn-demo-seed" onclick="app.seedDemoData()">Cargar datos de ejemplo</button>
+                            ${groups.length === 0 ? `<button class="btn-demo-seed" onclick="app.seedDemoData()">Cargar datos de ejemplo</button>` : ''}
                             ${tlTodayHtml}
                         </div>
                         ${groups.some(g => g._isDemo) ? `<button class="btn-demo-clear" onclick="app.clearDemoData()">× Borrar datos de prueba</button>` : ''}
@@ -248,7 +249,13 @@ Object.assign(GuitarStudioApp.prototype, {
                     
                     <!-- COL 3: BIBLIOTECA (Asignación rápida) -->
                     <div class="bib3-col" id="dash-bib-panel">
-                        <div class="bib3-header">Biblioteca</div>
+                        <div class="bib3-header">${(() => {
+                            if (!this._currentClaseId) return 'Biblioteca';
+                            const cc = allClases.find(c => c.id === this._currentClaseId);
+                            const cg = cc ? groups.find(g => g.id === cc.groupId) : null;
+                            const nm = (cg && cg.name) || (cc && cc.title) || '';
+                            return nm ? `Agregar a: ${this._escapeHtml(nm)}` : 'Biblioteca';
+                        })()}</div>
                         <div class="bib3-body" id="dash-bib-body">
                             <div class="bib3-loading">Cargando…</div>
                         </div>
@@ -276,15 +283,15 @@ Object.assign(GuitarStudioApp.prototype, {
         await libRender;
     },
 
-    createClase(groupId) {
+    createClase(groupId, date) {
         const group = this.data.getGroup(groupId);
         if (!group) return;
-        const today = new Date().toISOString().slice(0, 10);
+        const claseDate = date || new Date().toISOString().slice(0, 10);
         const clase = {
             id: this.data.generateId('clase'),
             groupId,
-            title: `Clase ${new Date().toLocaleDateString('es-AR', { day:'numeric', month:'short' })}`,
-            date: today,
+            title: `Clase ${new Date(claseDate + 'T12:00').toLocaleDateString('es-AR', { day:'numeric', month:'short' })}`,
+            date: claseDate,
             status: 'programada',
             attendance: {},
             content: [],
@@ -543,22 +550,17 @@ Object.assign(GuitarStudioApp.prototype, {
 
                 ${resumenAntHtml}
 
-                <!-- C: TABLERO -->
+                <!-- ASISTENCIA -->
                 <div class="sec3-block">
-                    <div class="sec3-label">C — Tablero de control</div>
+                    <div class="sec3-label">Asistencia</div>
                     <div class="tab3-wrap" id="tablero-${claseId}">
                         ${tableroHtml}
                     </div>
-                    <div class="prac-legend">
-                        <div class="hc-prac-dot full"></div><span>Completo</span>
-                        <div class="hc-prac-dot partial"></div><span>Parcial</span>
-                        <div class="hc-prac-dot none"></div><span>Sin práctica</span>
-                    </div>
                 </div>
 
-                <!-- E: CONTENIDO -->
+                <!-- CONTENIDO -->
                 <div class="sec3-block">
-                    <div class="sec3-label">E — Contenido de la clase <span class="sec3-hint">agregá desde Biblioteca →</span></div>
+                    <div class="sec3-label">Contenido de la clase <span class="sec3-hint">agregá desde Biblioteca →</span></div>
                     <div class="cat3-chips" id="cat3-chips-${claseId}" style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
                         ${catChips}
                         <div class="cat3-add" onclick="app.bibOpenCatEditor('clase:${claseId}')" title="Configurar categorías para esta clase"><span>⚙️</span> Categorías</div>
@@ -570,14 +572,14 @@ Object.assign(GuitarStudioApp.prototype, {
                     <div class="ci3-list" id="ci3-list-${claseId}">${contentItems}</div>
                 </div>
 
-                <!-- F+G: RESUMEN + OBJETIVOS -->
+                <!-- RESUMEN + OBJETIVOS -->
                 <div class="sec3-fg-grid">
                     <div class="sec3-block">
-                        <div class="sec3-label">F — Resumen privado</div>
+                        <div class="sec3-label">Resumen privado</div>
                         <textarea class="sec3-ta" id="resumen-prof-${claseId}" placeholder="¿Qué se trabajó hoy?…" rows="4" onblur="app.saveResumenProfesor('${claseId}',this.value)">${this._escapeHtml(clase.resumenProfesor||clase.resumen||'')}</textarea>
                     </div>
                     <div class="sec3-block">
-                        <div class="sec3-label">G — Objetivos <span class="sec3-hint">el alumno los ve</span></div>
+                        <div class="sec3-label">Objetivos <span class="sec3-hint">el alumno los ve</span></div>
                         <div class="obj3-list" id="obj3-list-${claseId}">${objItems||'<p class="text3-muted">Sin objetivos</p>'}</div>
                         <div class="obj3-add-row">
                             <input type="text" class="obj3-input" id="new-obj-${claseId}" placeholder="Nuevo objetivo…" onkeydown="if(event.key==='Enter')app.addObjetivoToClase('${claseId}')">
@@ -721,7 +723,8 @@ Object.assign(GuitarStudioApp.prototype, {
             alert('Por favor, seleccioná un alumno o grupo.');
             return;
         }
-        this.createClase(groupId);
+        const dateInput = document.getElementById('dash-create-class-date');
+        this.createClase(groupId, dateInput && dateInput.value ? dateInput.value : null);
     },
 
     async dashSaveGroup() {
@@ -1251,7 +1254,7 @@ Object.assign(GuitarStudioApp.prototype, {
     // sientan una sola vista con sub-secciones (propuesta 1a del handoff UX).
     _renderClasesTabsStrip(active) {
         const tabs = [
-            { key: 'agenda', label: 'Agenda', action: "app.navigateToView('dashboard')" },
+            { key: 'agenda', label: 'Planificación', action: "app.navigateToView('dashboard')" },
             { key: 'control', label: 'Alumnos', action: "app.clasesGoToBoardTab('control')" },
             { key: 'cargas', label: 'Cargas de Alumnos', action: "app.clasesGoToBoardTab('cargas')" },
             { key: 'consultas', label: 'Consultas', action: "app.clasesGoToBoardTab('consultas')" }
@@ -1490,7 +1493,6 @@ Object.assign(GuitarStudioApp.prototype, {
                     ${this._tbFocusProfileId ? `<button class="btn btn-outline btn-sm" onclick="app.tbClearFocus()">Quitar filtro de alerta</button>` : ''}
                 </div>
                 <div class="tb-list-scroll">${listHtml}</div>
-                ${this._tbRenderProximasClases(allClases)}
             </div>
         </div>`;
     },
@@ -1624,41 +1626,6 @@ Object.assign(GuitarStudioApp.prototype, {
         `).join('');
 
         return `<div class="tb-questions-block"><div class="tb-zone-header">Consultas</div>${rows}</div>`;
-    },
-
-    _tbRenderProximasClases(allClases) {
-        const todayStr = this.getTodayString();
-        const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-        const now = new Date();
-        const groups = this.data.getAllGroups();
-        const upcoming = groups.map(g => {
-            const targetDay = dayNames.indexOf(g.day);
-            if (targetDay < 0) return null;
-            const diff = (targetDay - now.getDay() + 7) % 7;
-            const candidateDate = new Date(now);
-            candidateDate.setDate(now.getDate() + diff);
-            const candidateStr = candidateDate.toISOString().slice(0, 10);
-            return { groupId: g.id, name: g.name, date: candidateStr, time: g.time, daysAway: diff, meetLink: g.meetLink, count: (g.memberIds || []).length };
-        }).filter(Boolean).sort((a, b) => a.daysAway - b.daysAway).slice(0, 8);
-
-        if (!upcoming.length) return '';
-
-        const cards = upcoming.map(u => `
-            <div class="tb-class-card">
-                <div class="tb-class-when">${u.daysAway === 0 ? 'Hoy' : u.daysAway === 1 ? 'Mañana' : `En ${u.daysAway} días`}</div>
-                <div class="tb-class-name">${this._escapeHtml(u.name)}</div>
-                <div class="tb-class-meta">${u.time || ''} · ${u.count} alumno${u.count !== 1 ? 's' : ''}</div>
-                <div class="tb-class-actions">
-                    <button class="btn btn-outline btn-sm" onclick="app.copyMeetLink('${u.groupId}')">Copiar link</button>
-                    <button class="btn btn-sm group-whatsapp-btn" onclick="app.sendMeetWhatsApp('${u.groupId}')">WhatsApp</button>
-                </div>
-            </div>
-        `).join('');
-
-        return `<div class="tb-proximas-clases">
-            <div class="tb-zone-header">Próximas clases</div>
-            <div class="tb-classes-grid">${cards}</div>
-        </div>`;
     },
 
     tbToggleExpand(profileId) {

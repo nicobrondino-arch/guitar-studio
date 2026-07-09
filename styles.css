@@ -5472,7 +5472,7 @@ textarea.form-control {
     gap: 6px;
     flex-wrap: wrap;
 }
-.hc-prac-dot, .prac-legend .hc-prac-dot {
+.hc-prac-dot {
     width: 10px;
     height: 10px;
     border-radius: 50%;
@@ -5524,17 +5524,6 @@ textarea.form-control {
 .att3-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--tb-border); flex-shrink: 0; }
 .att3-dot.present { background: var(--tb-success); }
 .att3-dot.absent  { background: var(--tb-danger); }
-
-/* Leyenda práctica */
-.prac-legend {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-top: 4px;
-}
-.prac-legend .hc-prac-dot { width: 10px; height: 10px; }
-.prac-legend span { font: 400 10px Inter, sans-serif; color: var(--tb-text-muted); }
 
 /* E — CATEGORÍAS */
 .cat3-chips {
@@ -5941,7 +5930,6 @@ textarea.form-control {
 .clase3-col .finalizar3-hint { color: var(--tb-text-muted); }
 .clase3-col .finalizar3-hint strong { color: var(--tb-text-secondary); }
 
-.clase3-col .prac-legend span { color: var(--tb-text-muted); }
 .clase3-col .hc-prac-dot.full    { background: var(--tb-success); }
 .clase3-col .hc-prac-dot.partial { background: #f5a623; }
 .clase3-col .hc-prac-dot.none    { background: var(--tb-danger); }
@@ -6668,19 +6656,6 @@ textarea.form-control {
 .tb-question-reply-form { display: flex; gap: 8px; margin-top: 8px; }
 .tb-question-reply-form input { flex: 1; font: 400 12px var(--font-primary); padding: 6px 8px; }
 
-/* ── Próximas clases ── */
-.tb-proximas-clases { padding: 4px 20px 20px; flex-shrink: 0; }
-.tb-classes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
-.tb-class-card {
-    background: var(--tb-bg-secondary);
-    border: 1px solid var(--tb-border);
-    border-radius: 10px;
-    padding: 12px;
-}
-.tb-class-when { font: 700 11px var(--font-primary); color: var(--tb-accent); text-transform: uppercase; letter-spacing: .03em; }
-.tb-class-name { font: 600 13px var(--font-primary); color: var(--tb-text-primary); margin-top: 4px; }
-.tb-class-meta { font: 400 11px var(--font-primary); color: var(--tb-text-secondary); margin-top: 2px; }
-.tb-class-actions { display: flex; gap: 8px; margin-top: 10px; }
 .bib-search-input::placeholder { color: var(--tb-text-muted); }
 .bib-item-count { font: 500 12px var(--font-primary); color: var(--tb-text-secondary); white-space: nowrap; }
 
