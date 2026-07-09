@@ -361,6 +361,14 @@ class GuitarStudioApp {
         this.navigateToView('studio');
     }
 
+    // Foto de perfil por defecto para un tema, cuando el alumno no eligio avatar ni foto propia.
+    _defaultThemeAvatarPhoto(profile) {
+        if (profile && profile.tema === 'tango' && !profile.avatarPhoto && !profile.avatarChar) {
+            return 'assets/avatar-default-tango.png';
+        }
+        return null;
+    }
+
     updateProfileChip() {
         const avatar = document.getElementById("profile-chip-avatar");
         const name = document.getElementById("profile-chip-name");
@@ -370,9 +378,13 @@ class GuitarStudioApp {
             document.getElementById("btn-profile-chip").style.setProperty("--pcolor", "#e84393");
         } else if (this.activeProfile) {
             if (avatar) {
+                const themeDefault = this._defaultThemeAvatarPhoto(this.activeProfile);
                 if (this.activeProfile.avatarPhoto) {
                     avatar.textContent = '';
                     avatar.style.backgroundImage = `url(${this.activeProfile.avatarPhoto})`;
+                } else if (themeDefault) {
+                    avatar.textContent = '';
+                    avatar.style.backgroundImage = `url(${themeDefault})`;
                 } else {
                     avatar.style.backgroundImage = 'none';
                     avatar.textContent = this.activeProfile.avatarChar || this.activeProfile.name.charAt(0).toUpperCase();
@@ -743,6 +755,7 @@ class GuitarStudioApp {
         // Foto de perfil: arranca en lo que ya está guardado (staging separado hasta Guardar)
         this._pendingAvatarPhoto = p.avatarPhoto || null;
         this._pendingAvatarPhotoRemoved = false;
+        this._pendingAvatarCharTouched = false;
 
         // El swatch "inicial" muestra la letra real del alumno
         const initialSwatch = document.getElementById("profile-avatar-initial-swatch");
@@ -806,6 +819,7 @@ class GuitarStudioApp {
         if (!input) return;
         // '' = usar la inicial del nombre (saveProfileConfig ya tiene ese fallback)
         input.value = ch || (this.activeProfile ? this.activeProfile.name.charAt(0).toUpperCase() : '');
+        this._pendingAvatarCharTouched = true; // eligio un avatar explicitamente en esta sesion de edicion
         this._syncProfileConfigSwatches();
     }
 
@@ -874,9 +888,14 @@ class GuitarStudioApp {
         const preview = document.getElementById("profile-avatar-preview");
         if (preview) {
             preview.style.backgroundColor = color;
+            const persistedAvatarChar = this.activeProfile ? this.activeProfile.avatarChar : null;
+            const showThemeDefault = theme === 'tango' && !this._pendingAvatarPhoto && !persistedAvatarChar && !this._pendingAvatarCharTouched;
             if (this._pendingAvatarPhoto) {
                 preview.textContent = '';
                 preview.style.backgroundImage = `url(${this._pendingAvatarPhoto})`;
+            } else if (showThemeDefault) {
+                preview.textContent = '';
+                preview.style.backgroundImage = `url(assets/avatar-default-tango.png)`;
             } else {
                 preview.style.backgroundImage = 'none';
                 preview.textContent = char || initial || '?';

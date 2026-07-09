@@ -411,9 +411,9 @@ button {
 }
 
 .topbar-profile-chip {
-    border-radius: 10px;
-    padding: 7px 10px;
-    font-size: 12px;
+    border-radius: 14px;
+    padding: 8px 14px 8px 8px;
+    font-size: 13px;
     background: var(--tb-bg-elevated);
     box-shadow: 0 4px 16px var(--tb-shadow);
 }
@@ -3435,14 +3435,14 @@ textarea.form-control {
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--pcolor, var(--tb-accent)) 20%, transparent);
 }
 .profile-chip-avatar {
-    width: 26px;
-    height: 26px;
+    width: 56px;
+    height: 56px;
     border-radius: 50%;
     background: var(--pcolor, var(--tb-accent));
     background-size: cover;
     background-position: center;
     color: #fff;
-    font-size: 12px;
+    font-size: 22px;
     font-weight: 700;
     display: flex;
     align-items: center;
@@ -3455,6 +3455,29 @@ textarea.form-control {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* ── Marco decorativo del avatar por tema (hoy: Tango) ──
+   Geometria medida sobre assets/avatar-frame-tango.png (1024x1024):
+   hueco circular centrado en 50% / 44.2%, diametro ~48.7% del lienzo. */
+.avatar-frame-wrap {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+}
+[data-theme="tango"] .avatar-frame-wrap::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 205%;
+    height: 205%;
+    transform: translate(-50%, -44.2%);
+    background-image: url('assets/avatar-frame-tango.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    pointer-events: none;
+    z-index: 1;
 }
 
 /* ── Campana de notificaciones ── */

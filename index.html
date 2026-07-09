@@ -156,7 +156,9 @@
                     <div class="notif-panel" id="notif-panel" style="display:none"></div>
                 </div>
                 <button class="profile-chip topbar-profile-chip" id="btn-profile-chip" title="Cambiar perfil">
-                    <span class="profile-chip-avatar" id="profile-chip-avatar">?</span>
+                    <span class="avatar-frame-wrap" id="profile-chip-avatar-wrap">
+                        <span class="profile-chip-avatar" id="profile-chip-avatar">?</span>
+                    </span>
                     <span class="profile-chip-name" id="profile-chip-name">Sin perfil</span>
                 </button>
             </div>
@@ -554,7 +556,9 @@
                         <div class="profile-config-panel" id="pconf-panel-avatar" style="display:none">
                             <div class="pconf-avatar-row">
                                 <div class="pconf-avatar-preview-col">
-                                    <div class="pconf-avatar-preview" id="profile-avatar-preview">?</div>
+                                    <span class="avatar-frame-wrap" id="profile-avatar-preview-wrap">
+                                        <div class="pconf-avatar-preview" id="profile-avatar-preview">?</div>
+                                    </span>
                                     <label class="pconf-photo-upload-btn">
                                         <input type="file" accept="image/*" style="display:none" onchange="app.handleAvatarPhotoUpload(event)">
                                         📷 Subir foto
