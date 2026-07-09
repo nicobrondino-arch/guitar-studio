@@ -211,6 +211,23 @@
         <symbol id="icon-cerrar" viewBox="0 0 24 24">
           <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
         </symbol>
+        <symbol id="icon-whatsapp" viewBox="0 0 24 24">
+          <path d="M12 3.5a8.5 8.5 0 0 0-7.3 12.8L3.5 20.5l4.3-1.1A8.5 8.5 0 1 0 12 3.5z" fill="currentColor" fill-opacity=".16" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+          <path d="M8.7 8.6c.2-.5.5-.5.7-.5h.5c.2 0 .4 0 .6.5s.6 1.5.6 1.6.1.3 0 .5-.2.3-.4.5-.3.3-.1.6c.2.3.9 1.4 1.9 2.2 1.3 1 1.7 1 1.9.9s.5-.5.7-.8.4-.2.7-.1 1.6.7 1.9.9.4.2.5.4c0 .2 0 1-.4 1.5s-1.2.9-2 .9c-.7 0-2.8-.7-3.9-2.3-1.7-2-2.4-3.7-2.5-4.5-.1-.7-.1-1.4.3-1.9z" fill="currentColor" opacity=".85" stroke="none"/>
+        </symbol>
+        <symbol id="icon-saltear" viewBox="0 0 24 24">
+          <path d="M6 6v12l8-6z" fill="currentColor" fill-opacity=".2" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+          <path d="M17 6v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </symbol>
+        <symbol id="icon-mas" viewBox="0 0 24 24">
+          <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </symbol>
+        <symbol id="icon-arriba" viewBox="0 0 24 24">
+          <path d="M6 14l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </symbol>
+        <symbol id="icon-abajo" viewBox="0 0 24 24">
+          <path d="M6 10l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </symbol>
       </defs>
     </svg>
     <div class="app-container">
@@ -1157,30 +1174,11 @@
         </div>
     </div>
 
-    <!-- MODAL: EDITOR DE PLANTILLA (biblioteca) -->
-    <div class="modal-overlay" id="bib-tpl-editor-modal" style="display:none" onclick="if(event.target===this)app.bibCloseTplEditor()">
-        <div class="modal-box modal-wide">
-            <h3 class="modal-title">Plantilla</h3>
-            <div class="modal-form-row">
-                <label class="modal-label">Nombre *</label>
-                <input type="text" class="form-input" id="bib-tpl-name" placeholder="Ej. Rutina técnica inicial">
-            </div>
-            <div class="modal-form-row">
-                <label class="modal-label">Ítems</label>
-                <div class="bib-tpl-items-list" id="bib-tpl-items-list"></div>
-            </div>
-            <div class="bib-tpl-add-row">
-                <select class="form-select" id="bib-tpl-item-select" style="flex:2"></select>
-                <select class="form-select" id="bib-tpl-cat-select" style="flex:1"></select>
-                <button class="btn btn-outline btn-sm" onclick="app.bibTplAddItem()">+ Agregar</button>
-            </div>
-            <div class="modal-actions">
-                <button class="btn btn-danger btn-sm" id="bib-tpl-delete-btn" style="margin-right:auto;display:none" onclick="app.bibDeleteTemplate()">Eliminar</button>
-                <button class="btn btn-outline" onclick="app.bibCloseTplEditor()">Cancelar</button>
-                <button class="btn btn-primary" onclick="app.bibSaveTemplate()">Guardar plantilla</button>
-            </div>
-        </div>
-    </div>
+    <!-- MODAL: EDITOR DE PLANTILLA (Pieza 4 — contenido renderizado por bibliotecaProfesor.js) -->
+    <div class="modal-overlay" id="bib-tpl-editor-modal" style="display:none" onclick="if(event.target===this)app.bibCloseTplEditor()"></div>
+
+    <!-- MODAL: EDITAR GRUPO (Pieza 3 — contenido renderizado por tableroProfesor.js) -->
+    <div class="modal-overlay" id="modal-edit-group" style="display:none" onclick="if(event.target===this)app.closeGroupModal()"></div>
 
     <!-- JavaScript Application Scripts -->
     <script src="metronome.js"></script>

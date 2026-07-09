@@ -120,72 +120,26 @@ Object.assign(GuitarStudioApp.prototype, {
                     </div>
                 </div>`;
             } else if (activeTab === 'grupo') {
-                const membersChecks = profiles.map(p => {
-                    const displayName = p.displayName || p.name || '?';
-                    return `
-                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size:12px; padding: 4px; border-radius: 4px; transition: background 0.15s;">
-                        <input type="checkbox" name="dgf-member" value="${p.id}" style="accent-color: var(--tb-accent);">
-                        <span style="background:${p.color||'var(--tb-accent)'}; color:#fff; width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:600">${displayName[0].toUpperCase()}</span>
-                        <span style="color:var(--tb-text-primary);">${this._escapeHtml(displayName)}</span>
-                    </label>`;
-                }).join('') || '<p style="color:var(--tb-text-muted); font-size:12px; margin:0">No hay alumnos creados aún. Creá alumnos en el selector de perfiles.</p>';
-
+                // Filas compactas (Pieza 3): una línea por grupo, edición en modal
                 const groupsListHtml = groups.map(g => {
                     const memberCount = (g.memberIds || []).length;
-                    const dayTime = g.day ? `${g.day} a las ${g.time || '—'}` : 'Sin horario programado';
+                    const dayTime = g.day ? `${g.day} · ${(g.time||'').slice(0,5) || '—'}` : 'Sin horario';
                     return `
-                    <div style="background:var(--tb-bg-primary); border:1px solid var(--tb-border); padding:10px 12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; gap:16px;">
-                        <div style="flex:1; min-width:0;">
-                            <div style="font-weight:600; font-size:13px; color:var(--tb-text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${this._escapeHtml(g.name)}</div>
-                            <div style="display:flex; align-items:center; gap:10px; font-size:11px; color:var(--tb-text-secondary); margin-top:2px; overflow:hidden; white-space:nowrap;"><span style="display:inline-flex; align-items:center; gap:4px; min-width:0; overflow:hidden; text-overflow:ellipsis;"><svg width="12" height="12" style="flex-shrink:0"><use href="#icon-fecha"/></svg>${dayTime}</span><span style="display:inline-flex; align-items:center; gap:4px; flex-shrink:0;"><svg width="12" height="12"><use href="#icon-alumno"/></svg>${memberCount} alumno${memberCount!==1?'s':''}</span></div>
-                        </div>
-                        <button class="btn btn-outline btn-sm" onclick="app.dashDeleteGroup('${g.id}')" style="display:flex; align-items:center; justify-content:center; color:var(--tb-danger); border-color:color-mix(in srgb, var(--tb-danger) 30%, transparent); padding:4px 8px; font-size:11px; line-height:1; min-height:22px;" title="Eliminar Grupo"><svg width="14" height="14"><use href="#icon-borrar"/></svg></button>
+                    <div class="row3">
+                        <div class="row3-name">${this._escapeHtml(g.name)}</div>
+                        <div class="row3-meta">${this._escapeHtml(dayTime)}</div>
+                        <div class="row3-count"><svg width="12" height="12"><use href="#icon-alumno"/></svg>${memberCount}</div>
+                        <button class="row3-btn" onclick="app.openGroupModal('${g.id}')" title="Editar grupo"><svg width="13" height="13"><use href="#icon-editar"/></svg></button>
+                        <button class="row3-btn danger" onclick="app.dashDeleteGroup('${g.id}')" title="Eliminar grupo"><svg width="13" height="13"><use href="#icon-borrar"/></svg></button>
                     </div>`;
-                }).join('') || '<p style="color:var(--tb-text-muted); font-size:12px; font-style:italic;">No hay grupos de clase creados.</p>';
+                }).join('') || '<p style="color:var(--tb-text-muted); font-size:12px; font-style:italic; margin:0;">No hay grupos de clase creados.</p>';
 
                 tabBodyHtml = `
-                <div class="dash-tab-content" style="padding: 16px; display: flex; flex-direction: column; gap: 16px; max-height: 75vh; overflow-y: auto;">
-                    <h3 style="margin: 0; font-size: 15px; color: var(--tb-text-primary); font-family: var(--font-heading);">Crear Nuevo Grupo o Curso</h3>
-                    
-                    <div style="display:flex; flex-direction:column; gap:12px; background:color-mix(in srgb, var(--tb-text-primary) 2%, transparent); border:1px solid var(--tb-border); padding:14px; border-radius:8px;">
-                        <div class="form-group" style="margin-bottom:8px">
-                            <label class="form-label" style="font-weight:600; font-size:11px; margin-bottom:4px; display:block;">Nombre del Grupo</label>
-                            <input class="form-control" id="dgf-name" placeholder="Ej. Técnica Martes 16hs" style="width:100%; background:var(--tb-bg-primary); border:1px solid var(--tb-border); color:var(--tb-text-primary); border-radius:6px; padding:6px 10px; font-size:13px;">
-                        </div>
-                        <div style="display: flex; gap: 10px; margin-bottom:8px">
-                            <div class="form-group" style="flex: 1;">
-                                <label class="form-label" style="font-weight:600; font-size:11px; margin-bottom:4px; display:block;">Día de Clase</label>
-                                <select class="form-control" id="dgf-day" style="width:100%; background:var(--tb-bg-primary); border:1px solid var(--tb-border); color:var(--tb-text-primary); border-radius:6px; padding:6px 10px; font-size:13px;">
-                                    <option value="">Sin definir</option>
-                                    <option value="Lunes">Lunes</option>
-                                    <option value="Martes">Martes</option>
-                                    <option value="Miércoles">Miércoles</option>
-                                    <option value="Jueves">Jueves</option>
-                                    <option value="Viernes">Viernes</option>
-                                    <option value="Sábado">Sábado</option>
-                                    <option value="Domingo">Domingo</option>
-                                </select>
-                            </div>
-                            <div class="form-group" style="flex: 1;">
-                                <label class="form-label" style="font-weight:600; font-size:11px; margin-bottom:4px; display:block;">Horario</label>
-                                <input class="form-control" id="dgf-time" type="time" style="width:100%; background:var(--tb-bg-primary); border:1px solid var(--tb-border); color:var(--tb-text-primary); border-radius:6px; padding:6px 10px; font-size:13px;">
-                            </div>
-                        </div>
-                        <div class="form-group" style="margin-bottom:8px">
-                            <label class="form-label" style="font-weight:600; font-size:11px; margin-bottom:4px; display:block;">Enlace de Meet</label>
-                            <input class="form-control" id="dgf-meet" placeholder="https://meet.google.com/..." style="width:100%; background:var(--tb-bg-primary); border:1px solid var(--tb-border); color:var(--tb-text-primary); border-radius:6px; padding:6px 10px; font-size:13px;">
-                        </div>
-                        <div class="form-group" style="margin-bottom:8px">
-                            <label class="form-label" style="font-weight:600; font-size:11px; margin-bottom:4px; display:block;">Asignar Alumnos</label>
-                            <div style="max-height: 110px; overflow-y: auto; border: 1px solid var(--tb-border); border-radius: 6px; padding: 6px; display: flex; flex-direction: column; gap: 4px; background: var(--tb-bg-primary);">
-                                ${membersChecks}
-                            </div>
-                        </div>
-                        <button class="btn btn-primary" onclick="app.dashSaveGroup()" style="align-self:flex-start; margin-top:4px;">Guardar Grupo</button>
-                    </div>
-
-                    <h4 style="margin: 16px 0 8px 0; font-size: 13px; color: var(--tb-text-primary); font-family: var(--font-heading);">Grupos Existentes</h4>
-                    <div style="display:flex; flex-direction:column; gap:8px;">
+                <div class="dash-tab-content" style="padding: 16px; display: flex; flex-direction: column; gap: 16px;">
+                    <h3 style="margin: 0; font-size: 15px; color: var(--tb-text-primary); font-family: var(--font-heading);">Grupos y Cursos</h3>
+                    <button class="btn btn-primary" onclick="app.openGroupModal()" style="align-self:flex-start; display:flex; align-items:center; gap:6px;"><svg width="14" height="14"><use href="#icon-nuevo"/></svg> Nuevo Grupo</button>
+                    <h4 style="margin: 8px 0 0 0; font-size: 13px; color: var(--tb-text-primary); font-family: var(--font-heading);">Grupos Existentes</h4>
+                    <div style="display:flex; flex-direction:column; gap:6px;">
                         ${groupsListHtml}
                     </div>
                 </div>`;
@@ -194,26 +148,25 @@ Object.assign(GuitarStudioApp.prototype, {
                 const templatesListHtml = templates.map(t => {
                     const itemCount = (t.items || []).length;
                     return `
-                    <div style="background:var(--tb-bg-primary); border:1px solid var(--tb-border); padding:10px 12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; gap:16px;">
-                        <div style="flex:1; min-width:0;">
-                            <div style="font-weight:600; font-size:13px; color:var(--tb-text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${this._escapeHtml(t.name)}</div>
-                            <div style="display:flex; align-items:center; gap:4px; font-size:11px; color:var(--tb-text-secondary); margin-top:2px;"><svg width="12" height="12" style="flex-shrink:0"><use href="#icon-plantilla"/></svg>${itemCount} ítem${itemCount!==1?'s':''} asignado${itemCount!==1?'s':''}</div>
-                        </div>
-                        <button class="btn btn-outline btn-sm" onclick="app.bibEditTemplate('${t.id}')" style="display:flex; align-items:center; gap:5px; padding:4px 8px; font-size:11px; line-height:1; min-height:22px;"><svg width="12" height="12"><use href="#icon-editar"/></svg> Editar</button>
+                    <div class="row3">
+                        <div class="row3-name">${this._escapeHtml(t.name)}</div>
+                        <div class="row3-count">${itemCount} paso${itemCount!==1?'s':''}</div>
+                        <button class="row3-btn" onclick="app.bibEditTemplate('${t.id}')" title="Editar plantilla"><svg width="13" height="13"><use href="#icon-editar"/></svg></button>
+                        <button class="row3-btn danger" onclick="app.bibDeleteTemplateById('${t.id}')" title="Eliminar plantilla"><svg width="13" height="13"><use href="#icon-borrar"/></svg></button>
                     </div>`;
-                }).join('') || '<p style="color:var(--tb-text-muted); font-size:12px; font-style:italic;">No hay plantillas creadas.</p>';
+                }).join('') || '<p style="color:var(--tb-text-muted); font-size:12px; font-style:italic; margin:0;">No hay plantillas creadas.</p>';
 
                 tabBodyHtml = `
-                <div class="dash-tab-content" style="padding: 16px; display: flex; flex-direction: column; gap: 16px; max-height: 75vh; overflow-y: auto;">
+                <div class="dash-tab-content" style="padding: 16px; display: flex; flex-direction: column; gap: 16px;">
                     <div style="background:color-mix(in srgb, var(--tb-text-primary) 2%, transparent); border:1px solid var(--tb-border); padding:16px; border-radius:8px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:10px;">
                         <svg width="26" height="26" style="color:var(--tb-accent); display:block;"><use href="#icon-plantilla"/></svg>
                         <h4 style="margin:0; font-size:14px; color:var(--tb-text-primary);">Planificá con Plantillas</h4>
-                        <p style="margin:0; font-size:12px; color:var(--tb-text-secondary); max-width:280px;">Podés definir secuencias de estudio preestablecidas (Técnica, Lectura, Repertorio) para aplicarlas en un solo clic al iniciar tus clases.</p>
+                        <p style="margin:0; font-size:12px; color:var(--tb-text-secondary); max-width:280px;">Una plantilla es un plan de clase reutilizable: una secuencia de pasos con consigna y objetivo, con o sin material de la biblioteca.</p>
                         <button class="btn btn-primary btn-sm" onclick="app.bibNewTemplate()" style="margin-top:4px;">+ Crear Nueva Plantilla</button>
                     </div>
 
-                    <h4 style="margin: 16px 0 8px 0; font-size: 13px; color: var(--tb-text-primary); font-family: var(--font-heading);">Plantillas Existentes</h4>
-                    <div style="display:flex; flex-direction:column; gap:8px;">
+                    <h4 style="margin: 8px 0 0 0; font-size: 13px; color: var(--tb-text-primary); font-family: var(--font-heading);">Plantillas Existentes</h4>
+                    <div style="display:flex; flex-direction:column; gap:6px;">
                         ${templatesListHtml}
                     </div>
                 </div>`;
@@ -724,26 +677,237 @@ Object.assign(GuitarStudioApp.prototype, {
         this.createClase(groupId, dateInput && dateInput.value ? dateInput.value : null);
     },
 
-    async dashSaveGroup() {
-        const name = document.getElementById('dgf-name')?.value?.trim();
-        if (!name) { alert('Por favor, ingresá un nombre para el grupo.'); return; }
-        const day = document.getElementById('dgf-day')?.value || '';
-        const time = document.getElementById('dgf-time')?.value || '';
-        const meetLink = document.getElementById('dgf-meet')?.value?.trim() || '';
-        const memberIds = [...document.querySelectorAll('input[name="dgf-member"]:checked')].map(c => c.value);
-        
-        const groups = this.data.getAllGroups();
-        groups.push({
-            id: this._genGroupId(),
-            name,
-            day,
-            time,
-            meetLink,
-            memberIds,
-            createdAt: Date.now()
+    // ── Modal Editar Grupo (Pieza 3) ──
+    async openGroupModal(groupId) {
+        const overlay = document.getElementById('modal-edit-group');
+        if (!overlay) return;
+        const existing = groupId ? this.data.getGroup(groupId) : null;
+        const d = existing ? JSON.parse(JSON.stringify(existing)) : {
+            id: this._genGroupId(), name: '', day: '', time: '', meetLink: '', whatsapp: '',
+            frecuencia: 'Semanal', duracionTipo: 'fin', duracionN: 8, skippedDates: [],
+            memberIds: [], createdAt: Date.now(), _new: true
+        };
+        d.skippedDates = d.skippedDates || [];
+        d.frecuencia = d.frecuencia || 'Semanal';
+        d.duracionTipo = d.duracionTipo || 'fin';
+        d.duracionN = d.duracionN || 8;
+        this._dgfDraft = d;
+
+        const profiles = await this.data.getProfiles();
+        const memberSet = new Set(d.memberIds || []);
+        const memberRows = profiles.map(p => {
+            const displayName = p.displayName || p.name || '?';
+            return `
+            <label class="dgf-member-row" data-name="${this._escapeHtml(displayName.toLowerCase())}">
+                <input type="checkbox" name="dgf-member" value="${p.id}" ${memberSet.has(p.id) ? 'checked' : ''}>
+                <span class="dgf-member-av" style="background:${p.color || 'var(--tb-accent)'}">${displayName[0].toUpperCase()}</span>
+                <span class="dgf-member-name">${this._escapeHtml(displayName)}</span>
+            </label>`;
+        }).join('') || '<p style="color:var(--tb-text-muted); font-size:12px; margin:0;">No hay alumnos creados aún.</p>';
+
+        const days = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+        const frecs = ['Semanal','Cada 15 días','Mensual'];
+
+        overlay.innerHTML = `
+        <div class="big3-modal dgf-modal">
+            <div class="big3-modal-header">
+                <div class="big3-modal-title">${existing ? 'Editar Grupo' : 'Nuevo Grupo'}</div>
+                <button class="big3-modal-close" onclick="app.closeGroupModal()"><svg width="18" height="18"><use href="#icon-cerrar"/></svg></button>
+            </div>
+            <div class="big3-modal-body">
+                <div class="dgf-col">
+                    <div>
+                        <label class="dgf-label">Nombre del grupo</label>
+                        <input id="dgf-name" class="dgf-input" type="text" placeholder="Ej. Técnica Martes 16hs" value="${this._escapeHtml(d.name || '')}">
+                    </div>
+                    <div>
+                        <label class="dgf-label inline"><svg width="12" height="12"><use href="#icon-meet"/></svg>Meet</label>
+                        <input id="dgf-meet" class="dgf-input" type="text" placeholder="https://meet.google.com/…" value="${this._escapeHtml(d.meetLink || '')}">
+                    </div>
+                    <div>
+                        <label class="dgf-label inline"><svg width="12" height="12" style="color:#25d366;"><use href="#icon-whatsapp"/></svg>WhatsApp</label>
+                        <input id="dgf-whatsapp" class="dgf-input" type="text" placeholder="Link al chat del grupo" value="${this._escapeHtml(d.whatsapp || '')}">
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <div style="flex:1; min-width:0;">
+                            <label class="dgf-label">Día</label>
+                            <select id="dgf-day" class="dgf-input" onchange="app.dgfRefreshProximas()">
+                                <option value="">Sin definir</option>
+                                ${days.map(x => `<option value="${x}" ${d.day === x ? 'selected' : ''}>${x}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div style="flex-shrink:0; width:120px;">
+                            <label class="dgf-label" for="dgf-time" style="cursor:pointer;">Horario</label>
+                            <input id="dgf-time" class="dgf-input" type="time" value="${this._escapeHtml(d.time || '')}" onchange="app.dgfRefreshProximas()">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="dgf-label" style="margin-bottom:7px;">Duración</label>
+                        <div style="display:flex; flex-direction:column; gap:6px;">
+                            <label class="dgf-radio-row"><input type="radio" name="dgf-duracion" value="fin" ${d.duracionTipo !== 'n' ? 'checked' : ''} onchange="app.dgfRefreshProximas()">Hasta fin de año</label>
+                            <label class="dgf-radio-row"><input type="radio" name="dgf-duracion" value="n" ${d.duracionTipo === 'n' ? 'checked' : ''} onchange="app.dgfRefreshProximas()">N clases
+                                <input id="dgf-duracion-n" class="dgf-duracion-n" type="number" min="1" value="${d.duracionN}" onchange="app.dgfRefreshProximas()">
+                            </label>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="dgf-label">Frecuencia</label>
+                        <select id="dgf-frecuencia" class="dgf-input" onchange="app.dgfRefreshProximas()">
+                            ${frecs.map(x => `<option value="${x}" ${d.frecuencia === x ? 'selected' : ''}>${x}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:7px;">
+                            <label class="dgf-label" style="margin-bottom:0;">Alumnos</label>
+                            <div class="dgf-member-search">
+                                <svg width="11" height="11" style="flex-shrink:0;"><use href="#icon-buscar"/></svg>
+                                <input id="dgf-member-search" type="text" placeholder="Buscar alumno…" oninput="app.dgfFilterMembers(this.value)">
+                            </div>
+                        </div>
+                        <div class="dgf-member-list" id="dgf-member-list">${memberRows}</div>
+                    </div>
+                </div>
+                <div class="dgf-prox-col">
+                    <label class="dgf-label" style="margin-bottom:7px;">Próximas clases del grupo</label>
+                    <div class="dgf-prox-list" id="dgf-prox-list"></div>
+                </div>
+            </div>
+            <div class="big3-modal-footer">
+                <button class="big3-btn" onclick="app.closeGroupModal()">Cancelar</button>
+                <button class="big3-btn pri" onclick="app.dashSaveGroup()">Guardar</button>
+            </div>
+        </div>`;
+        overlay.style.display = 'flex';
+        this.dgfRefreshProximas();
+    },
+
+    closeGroupModal() {
+        const overlay = document.getElementById('modal-edit-group');
+        if (overlay) { overlay.style.display = 'none'; overlay.innerHTML = ''; }
+        this._dgfDraft = null;
+    },
+
+    dgfFilterMembers(q) {
+        const query = (q || '').toLowerCase().trim();
+        document.querySelectorAll('#dgf-member-list .dgf-member-row').forEach(row => {
+            row.style.display = !query || (row.dataset.name || '').includes(query) ? '' : 'none';
         });
+    },
+
+    _dgfCollectForm() {
+        const d = this._dgfDraft;
+        if (!d) return null;
+        d.name = document.getElementById('dgf-name')?.value?.trim() || '';
+        d.meetLink = document.getElementById('dgf-meet')?.value?.trim() || '';
+        d.whatsapp = document.getElementById('dgf-whatsapp')?.value?.trim() || '';
+        d.day = document.getElementById('dgf-day')?.value || '';
+        d.time = document.getElementById('dgf-time')?.value || '';
+        d.frecuencia = document.getElementById('dgf-frecuencia')?.value || 'Semanal';
+        d.duracionTipo = document.querySelector('input[name="dgf-duracion"]:checked')?.value || 'fin';
+        d.duracionN = Math.max(1, parseInt(document.getElementById('dgf-duracion-n')?.value, 10) || 8);
+        d.memberIds = [...document.querySelectorAll('input[name="dgf-member"]:checked')].map(c => c.value);
+        return d;
+    },
+
+    // Fechas futuras del grupo según día/frecuencia/duración, respetando salteadas (lógica nueva, Pieza 3)
+    _getProximasClasesGrupo(d) {
+        const dayIdx = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'].indexOf(d.day);
+        if (dayIdx < 0) return [];
+        const pad = n => String(n).padStart(2, '0');
+        const fmt = x => `${x.getFullYear()}-${pad(x.getMonth()+1)}-${pad(x.getDate())}`;
+        const step = d.frecuencia === 'Cada 15 días' ? 14 : d.frecuencia === 'Mensual' ? 28 : 7;
+        const endOfYear = new Date(new Date().getFullYear(), 11, 31);
+        const cur = new Date(); cur.setHours(0, 0, 0, 0);
+        while (cur.getDay() !== dayIdx) cur.setDate(cur.getDate() + 1);
+        const out = [];
+        let usable = 0;
+        while (out.length < 60) {
+            if (d.duracionTipo === 'n') { if (usable >= d.duracionN) break; }
+            else if (cur > endOfYear) break;
+            const dateStr = fmt(cur);
+            const skipped = (d.skippedDates || []).includes(dateStr);
+            out.push({ dateStr, skipped });
+            if (!skipped) usable++;
+            cur.setDate(cur.getDate() + step);
+        }
+        return out;
+    },
+
+    dgfRefreshProximas() {
+        const d = this._dgfCollectForm();
+        const cont = document.getElementById('dgf-prox-list');
+        if (!d || !cont) return;
+        const todayStr = this.getTodayString();
+        const fechas = this._getProximasClasesGrupo(d);
+        if (!fechas.length) {
+            cont.innerHTML = '<p class="dgf-prox-empty">Definí un día de clase para ver las próximas fechas.</p>';
+            return;
+        }
+        const fmtLabel = ds => {
+            const s = new Date(ds+'T12:00').toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '').replace(/\./g, '');
+            return s.charAt(0).toUpperCase() + s.slice(1);
+        };
+        cont.innerHTML = fechas.map(f => f.skipped ? `
+            <div class="dgf-prox-row salteada">
+                <span class="dgf-prox-date">${fmtLabel(f.dateStr)}</span>
+                <span class="dgf-prox-tag">Salteada</span>
+                <button class="dgf-prox-btn" title="Restaurar esta clase" onclick="app.dgfToggleSkip('${f.dateStr}')"><svg width="11" height="11"><use href="#icon-nuevo"/></svg></button>
+            </div>` : `
+            <div class="dgf-prox-row">
+                <span class="dgf-prox-date">${fmtLabel(f.dateStr)}</span>
+                ${f.dateStr === todayStr ? '<span class="dgf-prox-hoy">Hoy</span>' : ''}
+                <button class="dgf-prox-btn" title="Editar esta clase" onclick="app.dgfEditProximaClase('${f.dateStr}')"><svg width="11" height="11"><use href="#icon-editar"/></svg></button>
+                <button class="dgf-prox-btn" title="Saltear esta clase" onclick="app.dgfToggleSkip('${f.dateStr}')"><svg width="11" height="11"><use href="#icon-saltear"/></svg></button>
+            </div>`).join('');
+    },
+
+    dgfToggleSkip(dateStr) {
+        const d = this._dgfDraft;
+        if (!d) return;
+        d.skippedDates = d.skippedDates || [];
+        const i = d.skippedDates.indexOf(dateStr);
+        if (i >= 0) d.skippedDates.splice(i, 1); else d.skippedDates.push(dateStr);
+        this.dgfRefreshProximas();
+    },
+
+    async dgfEditProximaClase(dateStr) {
+        // Guarda el grupo con lo cargado en el form y abre la clase de esa fecha (creándola si no existe)
+        const d = this._dgfCollectForm();
+        if (!d) return;
+        if (!d.name) { alert('Poné un nombre al grupo antes de editar sus clases.'); return; }
+        this._dgfPersistDraft();
+        let clase = this.data.getAllClases().find(c => c.groupId === d.id && c.date === dateStr);
+        if (!clase) {
+            clase = {
+                id: this.data.generateId('clase'), groupId: d.id,
+                title: `Clase ${new Date(dateStr+'T12:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}`,
+                date: dateStr, status: 'programada', attendance: {}, content: [], objetivos: [], resumen: ''
+            };
+            this.data.saveClase(clase);
+        }
+        this.closeGroupModal();
+        await this.renderDashboardView();
+        this._openEditClaseModal(clase.id);
+    },
+
+    _dgfPersistDraft() {
+        const d = this._dgfDraft;
+        if (!d) return;
+        delete d._new;
+        const groups = this.data.getAllGroups();
+        const idx = groups.findIndex(g => g.id === d.id);
+        if (idx >= 0) groups[idx] = d; else groups.push(d);
         this.data.saveGroups(groups);
-        this.showToast('¡Grupo de clase creado con éxito!', '✓');
+    },
+
+    dashSaveGroup() {
+        const d = this._dgfCollectForm();
+        if (!d) return;
+        if (!d.name) { alert('Por favor, ingresá un nombre para el grupo.'); return; }
+        const isNew = !!d._new;
+        this._dgfPersistDraft();
+        this.closeGroupModal();
+        this.showToast(isNew ? '¡Grupo de clase creado con éxito!' : 'Grupo actualizado.', '✓');
         this.renderDashboardView();
     },
 
@@ -1107,12 +1271,23 @@ Object.assign(GuitarStudioApp.prototype, {
         const clase = this.data.getClase(this._currentClaseId);
         if (!clase) return;
 
+        // Puente pre-punto 5: los pasos de plantilla se vuelcan al modelo viejo de la clase
+        // (paso con material → content; paso solo consigna → objetivo). Se unifica con el modelo de Pasos.
         clase.content = clase.content || [];
+        clase.objetivos = clase.objetivos || [];
         let addedCount = 0;
-        for (const tplItem of (tpl.items || [])) {
-            if (!clase.content.some(c => c.id === tplItem.libraryItemId)) {
-                clase.content.push({ id: tplItem.libraryItemId, cat: tplItem.cat });
-                addedCount++;
+        for (const paso of (tpl.items || [])) {
+            if (paso.libraryItemId) {
+                if (!clase.content.some(c => c.id === paso.libraryItemId)) {
+                    clase.content.push({ id: paso.libraryItemId, cat: paso.cat });
+                    addedCount++;
+                }
+            } else {
+                const text = (paso.descripcion || paso.objetivo || '').trim();
+                if (text && !clase.objetivos.some(o => o.text === text)) {
+                    clase.objetivos.push({ id: this.data.generateId('obj'), text });
+                    addedCount++;
+                }
             }
         }
         if (addedCount > 0) {

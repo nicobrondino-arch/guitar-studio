@@ -620,51 +620,179 @@ Object.assign(GuitarStudioApp.prototype, {
         const tpl = this.data.getTemplates().find(t => t.id === tplId);
         if (!tpl) return;
         this._bibTplDraft = JSON.parse(JSON.stringify(tpl));
-        this._bibTplDraft.items = this._bibTplDraft.items || [];
+        // Migración al modelo de Pasos: {libraryItemId, cat} viejos → paso {id, libraryItemId, descripcion, objetivo}; cat se ignora
+        this._bibTplDraft.items = (this._bibTplDraft.items || []).map(ti => ({
+            id: ti.id || this.data.generateId('paso'),
+            libraryItemId: ti.libraryItemId || null,
+            descripcion: ti.descripcion || '',
+            objetivo: ti.objetivo || ''
+        }));
         this._bibOpenTplEditor();
     },
 
+    // Modal Plantilla (Pieza 4): 2 columnas — pasos reordenables + mini-biblioteca embebida
     async _bibOpenTplEditor() {
-        const nameEl = document.getElementById('bib-tpl-name');
-        if (nameEl) nameEl.value = this._bibTplDraft.name || '';
-        // poblar selector de ítems
-        const items = await this.data.getLibraryItems();
-        const sel = document.getElementById('bib-tpl-item-select');
-        if (sel) sel.innerHTML = '<option value="">— Elegir ítem —</option>' + items.map(it => `<option value="${it.id}">${this._escapeHtml(it.title || 'Sin título')}</option>`).join('');
-        const catSel = document.getElementById('bib-tpl-cat-select');
-        if (catSel) catSel.innerHTML = this.data.getDefaultCategories().map(c => `<option value="${this._escapeHtml(c)}">${this._escapeHtml(c)}</option>`).join('');
+        const overlay = document.getElementById('bib-tpl-editor-modal');
+        if (!overlay) return;
+        this._bibTplLibCache = await this.data.getLibraryItems();
+        this._bibTplExpandedId = null;
+        this._bibTplSearch = '';
+        const d = this._bibTplDraft;
+
+        overlay.innerHTML = `
+        <div class="big3-modal tpl3-modal">
+            <div class="big3-modal-header">
+                <div class="big3-modal-title">${d._new ? 'Nueva Plantilla' : 'Editar Plantilla'}</div>
+                <button class="big3-modal-close" onclick="app.bibCloseTplEditor()"><svg width="18" height="18"><use href="#icon-cerrar"/></svg></button>
+            </div>
+            <div class="big3-modal-body">
+                <div style="display:flex; flex-direction:column; gap:14px; min-width:0;">
+                    <div>
+                        <label class="dgf-label">Nombre de la plantilla</label>
+                        <input id="bib-tpl-name" class="dgf-input" type="text" placeholder="Ej. Rutina técnica inicial" value="${this._escapeHtml(d.name || '')}">
+                    </div>
+                    <div>
+                        <label class="dgf-label" style="margin-bottom:7px;">Pasos de la plantilla</label>
+                        <div class="tpl3-steps-list" id="bib-tpl-items-list"></div>
+                    </div>
+                </div>
+                <div class="tpl3-lib-col">
+                    <div class="tpl3-lib-search">
+                        <svg width="12" height="12" style="flex-shrink:0;"><use href="#icon-buscar"/></svg>
+                        <input type="text" placeholder="Buscar en biblioteca…" oninput="app.bibTplSearchLib(this.value)">
+                    </div>
+                    <div class="tpl3-lib-list" id="bib-tpl-lib-list"></div>
+                    <button class="tpl3-add-consigna" onclick="app.bibTplAddConsigna()">
+                        <svg width="13" height="13"><use href="#icon-mas"/></svg> Agregar Consigna / Objetivo
+                    </button>
+                </div>
+            </div>
+            <div class="big3-modal-footer">
+                ${d._new ? '' : '<button class="big3-btn danger" id="bib-tpl-delete-btn" onclick="app.bibDeleteTemplate()">Eliminar</button>'}
+                <button class="big3-btn" onclick="app.bibCloseTplEditor()">Cancelar</button>
+                <button class="big3-btn pri" onclick="app.bibSaveTemplate()">Guardar</button>
+            </div>
+        </div>`;
         this._bibRenderTplItems();
-        const delBtn = document.getElementById('bib-tpl-delete-btn');
-        if (delBtn) delBtn.style.display = this._bibTplDraft._new ? 'none' : 'inline-flex';
-        document.getElementById('bib-tpl-editor-modal').style.display = 'flex';
+        this._bibRenderTplLib();
+        overlay.style.display = 'flex';
     },
 
-    async _bibRenderTplItems() {
+    _bibRenderTplItems() {
         const cont = document.getElementById('bib-tpl-items-list');
         if (!cont) return;
-        const items = await this.data.getLibraryItems();
+        const items = this._bibTplLibCache || [];
         const list = this._bibTplDraft.items || [];
-        cont.innerHTML = list.length ? list.map((ti, idx) => {
-            const it = items.find(x => x.id === ti.libraryItemId);
-            const title = it ? (it.title || 'Sin título') : '(ítem borrado)';
-            const color = this._bibCatColor(ti.cat);
-            return `<div class="bib-tpl-item-row"><span class="bib-cat-dot" style="background:${color}"></span><span class="bib-tpl-item-title">${this._escapeHtml(title)}</span><span class="bib-tpl-item-cat">${this._escapeHtml(ti.cat || '')}</span><button class="bib-build-remove" onclick="app.bibTplRemoveItem(${idx})">×</button></div>`;
-        }).join('') : '<p class="bib-empty-list" style="padding:8px">Sin ítems. Agregá desde abajo.</p>';
+        cont.innerHTML = list.length ? list.map((paso, idx) => {
+            const it = paso.libraryItemId ? items.find(x => x.id === paso.libraryItemId) : null;
+            const isConsigna = !paso.libraryItemId;
+            const title = it ? (it.title || 'Sin título') : isConsigna ? 'Solo consigna' : '(ítem borrado)';
+            // El puntito de categoría siempre reserva su espacio (regla Pieza 6)
+            const dotColor = it ? this._bibCatColor(it.category || '') : 'transparent';
+            const expanded = this._bibTplExpandedId === paso.id;
+            const preview = !expanded && paso.descripcion ? `<span class="tpl3-step-preview">${this._escapeHtml(paso.descripcion)}</span>` : '';
+            return `
+            <div class="tpl3-step">
+                <div class="tpl3-step-head" onclick="app.bibTplToggleStep('${paso.id}')">
+                    <span class="tpl3-step-num">${idx + 1}</span>
+                    <span class="tpl3-step-dot" style="background:${dotColor}"></span>
+                    <span class="tpl3-step-txt">
+                        <span class="tpl3-step-title ${isConsigna ? 'consigna' : ''}">${this._escapeHtml(title)}</span>
+                        ${preview}
+                    </span>
+                    <button class="tpl3-step-btn" title="Subir" onclick="event.stopPropagation(); app.bibTplMoveStep('${paso.id}', -1)"><svg width="12" height="12"><use href="#icon-arriba"/></svg></button>
+                    <button class="tpl3-step-btn" title="Bajar" onclick="event.stopPropagation(); app.bibTplMoveStep('${paso.id}', 1)"><svg width="12" height="12"><use href="#icon-abajo"/></svg></button>
+                    <button class="tpl3-step-btn danger" title="Quitar paso" onclick="event.stopPropagation(); app.bibTplRemoveStep('${paso.id}')"><svg width="12" height="12"><use href="#icon-borrar"/></svg></button>
+                </div>
+                ${expanded ? `
+                <div class="tpl3-step-body">
+                    <div>
+                        <label class="tpl3-field-label">Consigna <span class="opt">(opcional)</span></label>
+                        <textarea class="tpl3-ta" rows="2" placeholder="¿Qué tiene que hacer el alumno?…" oninput="app.bibTplField('${paso.id}', 'descripcion', this.value)">${this._escapeHtml(paso.descripcion || '')}</textarea>
+                    </div>
+                    <div>
+                        <label class="tpl3-field-label" style="margin-top:0;">Objetivo <span class="opt">(opcional)</span></label>
+                        <textarea class="tpl3-ta" rows="2" style="min-height:36px;" placeholder="¿Para qué?…" oninput="app.bibTplField('${paso.id}', 'objetivo', this.value)">${this._escapeHtml(paso.objetivo || '')}</textarea>
+                    </div>
+                </div>` : ''}
+            </div>`;
+        }).join('') : '<p class="bib-empty-list" style="padding:8px">Sin pasos. Agregá material desde la biblioteca o una consigna suelta.</p>';
     },
 
-    bibTplAddItem() {
-        const libItemId = document.getElementById('bib-tpl-item-select')?.value;
-        const cat = document.getElementById('bib-tpl-cat-select')?.value;
-        if (!libItemId) { this.showToast('Elegí un ítem', '⚠️'); return; }
-        this._bibTplDraft.items = this._bibTplDraft.items || [];
-        if (this._bibTplDraft.items.some(ti => ti.libraryItemId === libItemId && ti.cat === cat)) return;
-        this._bibTplDraft.items.push({ libraryItemId: libItemId, cat });
+    _bibRenderTplLib() {
+        const cont = document.getElementById('bib-tpl-lib-list');
+        if (!cont) return;
+        const q = (this._bibTplSearch || '').toLowerCase().trim();
+        const items = (this._bibTplLibCache || []).filter(it => !q || (it.title || '').toLowerCase().includes(q));
+        cont.innerHTML = items.length ? items.map(it => {
+            const color = this._bibCatColor(it.category || '');
+            return `
+            <div class="tpl3-lib-item">
+                <span class="tpl3-lib-ico" style="background:${color}1f; color:${color}">${this._bibTypeIcon(it.type)}</span>
+                <span class="tpl3-lib-title">${this._escapeHtml(it.title || 'Sin título')}</span>
+                <button class="tpl3-lib-add" title="Agregar como paso" onclick="app.bibTplAddLibItem('${it.id}')"><svg width="13" height="13"><use href="#icon-mas"/></svg></button>
+            </div>`;
+        }).join('') : '<p class="bib-empty-list" style="padding:8px">Sin resultados.</p>';
+    },
+
+    bibTplSearchLib(q) {
+        this._bibTplSearch = q || '';
+        this._bibRenderTplLib();
+    },
+
+    bibTplToggleStep(pasoId) {
+        this._bibTplExpandedId = this._bibTplExpandedId === pasoId ? null : pasoId;
         this._bibRenderTplItems();
     },
 
-    bibTplRemoveItem(idx) {
-        this._bibTplDraft.items.splice(idx, 1);
+    bibTplMoveStep(pasoId, dir) {
+        const list = this._bibTplDraft.items;
+        const i = list.findIndex(p => p.id === pasoId);
+        const j = i + dir;
+        if (i < 0 || j < 0 || j >= list.length) return;
+        [list[i], list[j]] = [list[j], list[i]];
         this._bibRenderTplItems();
+    },
+
+    bibTplRemoveStep(pasoId) {
+        this._bibTplDraft.items = this._bibTplDraft.items.filter(p => p.id !== pasoId);
+        if (this._bibTplExpandedId === pasoId) this._bibTplExpandedId = null;
+        this._bibRenderTplItems();
+    },
+
+    bibTplField(pasoId, field, value) {
+        const paso = this._bibTplDraft.items.find(p => p.id === pasoId);
+        if (paso) paso[field] = value;
+    },
+
+    bibTplAddLibItem(libItemId) {
+        this._bibTplDraft.items.push({ id: this.data.generateId('paso'), libraryItemId: libItemId, descripcion: '', objetivo: '' });
+        this._bibRenderTplItems();
+    },
+
+    bibTplAddConsigna() {
+        const paso = { id: this.data.generateId('paso'), libraryItemId: null, descripcion: '', objetivo: '' };
+        this._bibTplDraft.items.push(paso);
+        this._bibTplExpandedId = paso.id;
+        this._bibRenderTplItems();
+    },
+
+    async bibDeleteTemplateById(tplId) {
+        if (!confirm('¿Eliminar esta plantilla?')) return;
+        this.data.deleteTemplate(tplId);
+        this.showToast('Plantilla eliminada.', '✓');
+        if (this._currentView === 'dashboard') {
+            await this.renderDashboardView();
+        } else {
+            this.renderBibliotecaView();
+        }
+    },
+
+    _bibHideTplEditor() {
+        const overlay = document.getElementById('bib-tpl-editor-modal');
+        if (overlay) { overlay.style.display = 'none'; overlay.innerHTML = ''; }
+        this._bibTplDraft = null;
+        this._bibTplExpandedId = null;
     },
 
     async bibSaveTemplate() {
@@ -673,11 +801,9 @@ Object.assign(GuitarStudioApp.prototype, {
         this._bibTplDraft.name = name;
         delete this._bibTplDraft._new;
         this.data.saveTemplate(this._bibTplDraft);
-        document.getElementById('bib-tpl-editor-modal').style.display = 'none';
-        this._bibTplDraft = null;
+        this._bibHideTplEditor();
         if (this._currentView === 'dashboard') {
-            this._renderBibliotecaPanel();
-            if (this._currentClaseId) await this._renderClaseDetail(this._currentClaseId);
+            await this.renderDashboardView();
         } else {
             this.renderBibliotecaView();
         }
@@ -687,19 +813,16 @@ Object.assign(GuitarStudioApp.prototype, {
         if (!this._bibTplDraft || this._bibTplDraft._new) return;
         if (!confirm('¿Eliminar esta plantilla?')) return;
         this.data.deleteTemplate(this._bibTplDraft.id);
-        document.getElementById('bib-tpl-editor-modal').style.display = 'none';
-        this._bibTplDraft = null;
+        this._bibHideTplEditor();
         if (this._currentView === 'dashboard') {
-            this._renderBibliotecaPanel();
-            if (this._currentClaseId) await this._renderClaseDetail(this._currentClaseId);
+            await this.renderDashboardView();
         } else {
             this.renderBibliotecaView();
         }
     },
 
     bibCloseTplEditor() {
-        document.getElementById('bib-tpl-editor-modal').style.display = 'none';
-        this._bibTplDraft = null;
+        this._bibHideTplEditor();
     },
 
     async bibOpenCatEditor(target) {
