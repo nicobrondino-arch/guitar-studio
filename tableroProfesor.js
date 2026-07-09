@@ -69,16 +69,8 @@ Object.assign(GuitarStudioApp.prototype, {
                 </div>`).join('')
             : `<div class="dash-tl-empty">No hay clases hoy.<br><span>Asigná un día a tus grupos en el Cuaderno.</span></div>`;
 
-        // Agenda semanal en el panel inferior
-        const tab = this._timelineTab; // 'hoy' | 'semana'
-        const isSemanaActive = tab === 'semana';
-        const weekDates = this._getWeekDates(this._weekOffset);
-        const weekLabel = (() => {
-            const d0 = weekDates[0], d4 = weekDates[4];
-            const fmt = d => new Date(d+'T12:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'});
-            return `${fmt(d0)} – ${fmt(d4)}`;
-        })();
-        const weeklyGridHtml = isSemanaActive ? this._renderSemanaCols(allClases, groups, todayStr) : '';
+        // Agenda semanal — franja inferior siempre visible (Pieza 1)
+        const weeklyGridHtml = this._renderSemanaCols(allClases, groups, todayStr);
 
         // Contenido del panel central (Detalles o Creación)
         let middleContentHtml = '';
@@ -92,6 +84,24 @@ Object.assign(GuitarStudioApp.prototype, {
             let tabBodyHtml = '';
             
             if (activeTab === 'clase') {
+                const prox = this._proximaClaseInfo(allClases, groups);
+                const proxName = prox ? (prox.group.name || (prox.clase && prox.clase.title) || 'Clase') : '';
+                const proxMeet = prox && prox.group.meetLink
+                    ? (/^https?:/.test(prox.group.meetLink) ? prox.group.meetLink : 'https://' + prox.group.meetLink) : '';
+                const proxCardHtml = prox ? `
+                    <div id="crear-clase-proxima-card" class="pc3-card">
+                        <div class="pc3-icon ${prox.isToday?'hoy':''}">
+                            <svg width="28" height="28"><use href="#${prox.isToday?'icon-reloj':'icon-fecha'}"/></svg>
+                        </div>
+                        <div class="pc3-info">
+                            <div class="pc3-label">Próxima clase · ${this._escapeHtml(proxName)}</div>
+                            <div class="pc3-when ${prox.isToday?'hoy':''}">${prox.label}</div>
+                        </div>
+                        ${proxMeet ? `<a class="pc3-btn" href="${this._escapeHtml(proxMeet)}" target="_blank" title="Entrar al Meet"><svg width="17" height="17"><use href="#icon-meet"/></svg> Meet</a>` : ''}
+                        ${prox.clase
+                            ? `<button id="crear-clase-proxima-editar-btn" class="pc3-btn" onclick="app._openEditClaseModal('${prox.clase.id}')"><svg width="17" height="17"><use href="#icon-editar"/></svg> Editar</button>`
+                            : `<button id="crear-clase-proxima-editar-btn" class="pc3-btn" onclick="app.createClase('${prox.group.id}','${prox.dateStr}')"><svg width="17" height="17"><use href="#icon-nuevo"/></svg> Crear</button>`}
+                    </div>` : '';
                 tabBodyHtml = `
                 <div class="dash-tab-content" style="padding: 16px; display: flex; flex-direction: column; gap: 16px;">
                     <h3 style="margin: 0; font-size: 15px; color: var(--tb-text-primary); font-family: var(--font-heading);">Crear Clase</h3>
@@ -104,9 +114,9 @@ Object.assign(GuitarStudioApp.prototype, {
                         <input type="date" id="dash-create-class-date" value="${todayStr}" class="form-select" style="background: var(--tb-bg-primary); border: 1px solid var(--tb-border); color: var(--tb-text-primary); border-radius: 6px; padding: 6px 12px; font-size: 13px;">
                         <button class="btn btn-primary" onclick="app.dashCreateClaseFromSelect()">Crear Clase</button>
                     </div>
-                    <div style="margin-top: 32px; border-top: 1px solid var(--tb-border); padding-top: 24px; text-align: center; color: var(--tb-text-muted);">
-                        <svg viewBox="0 0 48 48" fill="none" style="width:48px;height:48px;display:block;margin:0 auto 12px;opacity:0.2" stroke="currentColor" stroke-width="1.5"><circle cx="24" cy="24" r="20"/><path d="M24 14v10l6 4"/></svg>
-                        <p style="font-size: 12px; max-width: 250px; margin: 0 auto;">También podés seleccionar una clase en curso o pendiente desde el panel de la izquierda.</p>
+                    <div style="margin-top: 24px; border-top: 1px solid var(--tb-border); padding-top: 20px;">
+                        ${proxCardHtml}
+                        <p style="font-size: 12px; max-width: 250px; margin: ${proxCardHtml ? '16px auto 0' : '0 auto'}; text-align: center; color: var(--tb-text-muted);">También podés seleccionar una clase en curso o pendiente desde el panel de la izquierda.</p>
                     </div>
                 </div>`;
             } else if (activeTab === 'grupo') {
@@ -263,17 +273,9 @@ Object.assign(GuitarStudioApp.prototype, {
                     
                 </div>
                 
-                <!-- BOTTOM AREA: WEEKLY AGENDA (Full width) -->
-                <div class="dash-weekly-panel" style="height:${isSemanaActive ? '260px' : 'auto'};">
-                    <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 16px; border-bottom:1px solid ${isSemanaActive?'var(--tb-border)':'transparent'};">
-                        <button class="tl3-tab-bottom ${isSemanaActive?'active':''}" onclick="app.switchTimelineTab('${isSemanaActive?'hoy':'semana'}')">
-                            📅 ${isSemanaActive ? 'Ocultar Agenda Semanal' : 'Ver Agenda Semanal'}
-                        </button>
-                    </div>
-                    ${isSemanaActive ? `
-                    <div style="flex:1; display:flex; flex-direction:column; min-height:0; padding:4px 16px 12px 16px;">
-                        ${weeklyGridHtml}
-                    </div>` : ''}
+                <!-- BOTTOM AREA: AGENDA SEMANAL (siempre visible, Pieza 1) -->
+                <div class="dash-weekly-panel">
+                    ${weeklyGridHtml}
                 </div>
                 
             </div>`;
@@ -533,19 +535,19 @@ Object.assign(GuitarStudioApp.prototype, {
         panel.innerHTML = `
             <div class="clase3-scroll">
 
-                <!-- A: HEADER -->
+                <!-- A: HEADER (Pieza 5) -->
                 <div class="h3-header">
+                    <button id="clase-detalle-volver-btn" class="h3-back-btn" onclick="app.closeClasetDetail()" title="Volver">
+                        <svg width="26" height="26"><use href="#icon-volver"/></svg>
+                    </button>
                     <div class="h3-title-block">
                         <div class="h3-title">${this._escapeHtml(group.name||clase.title||'Clase')}</div>
                         <div class="h3-sub">${timeLabel} · ${type} · ${members.length} alumno${members.length!==1?'s':''}</div>
                     </div>
                     ${meetBarHtml}
-                    <div style="display:flex; gap:6px; align-items:center;">
-                        <button class="h3-btn h3-btn-edit" onclick="app._openEditClaseModal('${claseId}')">Editar</button>
-                        <button class="h3-btn" onclick="app.closeClasetDetail()" title="Cerrar Clase y Volver" style="background:color-mix(in srgb, var(--tb-text-primary) 5%, transparent); color:var(--tb-text-muted); border:1px solid var(--tb-border); padding:4px 8px; border-radius:4px; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:4px; transition:all 0.15s;">
-                            Cerrar ×
-                        </button>
-                    </div>
+                    <button id="clase-detalle-editar-btn" class="h3-btn h3-btn-edit" onclick="app._openEditClaseModal('${claseId}')">
+                        <svg width="14" height="14"><use href="#icon-editar"/></svg> Editar
+                    </button>
                 </div>
 
                 ${resumenAntHtml}
@@ -706,11 +708,6 @@ Object.assign(GuitarStudioApp.prototype, {
         this.renderDashboardView();
     },
 
-    switchTimelineTab(tab) {
-        this._timelineTab = tab;
-        this.renderDashboardView();
-    },
-
     switchDashCreationTab(tab) {
         this._dashActiveTab = tab;
         this.renderDashboardView();
@@ -763,80 +760,129 @@ Object.assign(GuitarStudioApp.prototype, {
         this.renderDashboardView();
     },
 
+    // Próxima clase (Pieza 5B): la más cercana entre clases creadas y horarios semanales de grupos
+    _proximaClaseInfo(allClases, groups) {
+        const now = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        const fmtDate = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+        const dayNames = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+        const candidates = [];
+
+        const pushCand = (dateStr, time, group, clase) => {
+            const dt = new Date(`${dateStr}T${time || '23:59'}`);
+            if (isNaN(dt) || dt < now) return;
+            candidates.push({ dt, dateStr, time, group, clase });
+        };
+
+        allClases.filter(c => c.status !== 'finalizada').forEach(c => {
+            const g = groups.find(x => x.id === c.groupId) || {};
+            pushCand(c.date, (g.time||c.time||'').slice(0,5), g, c);
+        });
+        groups.filter(g => g.day && g.time).forEach(g => {
+            for (let i = 0; i <= 7; i++) {
+                const d = new Date(now); d.setDate(now.getDate() + i);
+                if (dayNames[d.getDay()] !== g.day) continue;
+                const dateStr = fmtDate(d);
+                if (!allClases.some(c => c.groupId === g.id && c.date === dateStr)) pushCand(dateStr, g.time.slice(0,5), g, null);
+                break;
+            }
+        });
+        if (!candidates.length) return null;
+        candidates.sort((a,b) => a.dt - b.dt);
+        const c = candidates[0];
+
+        // Valor estático, se recalcula al re-renderizar (sin timer corriendo)
+        const diffMin = Math.round((c.dt - now) / 60000);
+        const isToday = c.dateStr === fmtDate(now);
+        let label;
+        if (isToday) {
+            label = diffMin < 60 ? `Hoy · en ${Math.max(diffMin,1)} min` : `Hoy · en ${Math.round(diffMin/60)} h`;
+        } else {
+            const days = Math.round((new Date(c.dateStr+'T12:00') - new Date(fmtDate(now)+'T12:00')) / 86400000);
+            const dayLabel = days === 1 ? 'Mañana' : dayNames[c.dt.getDay()];
+            label = `${dayLabel}${c.time ? ' ' + c.time : ''} · en ${days} día${days!==1?'s':''}`;
+        }
+        return { ...c, label, isToday };
+    },
+
     _getWeekDates(offset) {
-        const today = new Date();
-        // Lunes de la semana actual
-        const dayOfWeek = today.getDay() === 0 ? 7 : today.getDay(); // 1=Lun…7=Dom
-        const mon = new Date(today);
-        mon.setDate(today.getDate() - (dayOfWeek - 1) + offset * 7);
+        // La franja visible arranca siempre en HOY (offset 0) y pagina de a 5 días con ‹ ›
+        const pad = n => String(n).padStart(2, '0');
+        const start = new Date();
+        start.setDate(start.getDate() + offset * 5);
         return [0,1,2,3,4].map(i => {
-            const d = new Date(mon);
-            d.setDate(mon.getDate() + i);
-            return d.toISOString().slice(0,10);
+            const d = new Date(start);
+            d.setDate(start.getDate() + i);
+            return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
         });
     },
 
     _renderSemanaCols(allClases, groups, todayStr) {
         const weekDates = this._getWeekDates(this._weekOffset);
-        const dayAbbr = ['L','M','X','J','V'];
-        const weekLabel = (() => {
-            const d0 = weekDates[0], d4 = weekDates[4];
-            const fmt = d => new Date(d+'T12:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'});
-            return `${fmt(d0)} – ${fmt(d4)}`;
-        })();
+        const dayAbbrs = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+        const dayNames = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 
-        const cols = weekDates.map((dateStr, idx) => {
+        const cols = weekDates.map(dateStr => {
             const dayNum = parseInt(dateStr.slice(8), 10);
+            const dow = new Date(dateStr+'T12:00').getDay();
             const isToday = dateStr === todayStr;
-            const dayClases = allClases.filter(c => c.date === dateStr).sort((a,b) => {
-                const ga = groups.find(g=>g.id===a.groupId)||{};
-                const gb = groups.find(g=>g.id===b.groupId)||{};
-                return (ga.time||'').localeCompare(gb.time||'');
-            });
-            const cards = dayClases.map(c => {
-                const g = groups.find(x=>x.id===c.groupId)||{};
-                const st = c.status==='finalizada'?'finalizada':c.status==='en-curso'?'iniciada':'pendiente';
-                const dotCls = c.status==='finalizada'?'finalizada':c.status==='en-curso'?'iniciada':'pendiente';
-                return `<div class="sem3-card ${st} ${c.id===this._currentClaseId?'selected':''}" onclick="app.openClase('${c.id}')">
-                    <div class="sem3-card-time">${(g.time||c.time||'').slice(0,5)||'—'}</div>
-                    <div class="sem3-card-name">${this._escapeHtml(g.name||c.title||'Clase')}</div>
-                    <div class="sem3-dot ${dotCls}"></div>
-                </div>`;
-            }).join('');
 
-            // Grupos programados para ese día sin clase creada
-            const existingGroupIds = new Set(dayClases.map(c=>c.groupId));
-            const groupDayName = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][new Date(dateStr+'T12:00').getDay()];
-            const newCards = groups.filter(g=>g.day===groupDayName && !existingGroupIds.has(g.id)).map(g => `
-                <div class="sem3-card new" onclick="app.createClase('${g.id}')">
-                    <div class="sem3-card-time">${(g.time||'').slice(0,5)||'—'}</div>
-                    <div class="sem3-card-name">${this._escapeHtml(g.name)}</div>
-                    <div class="sem3-dot new"></div>
-                </div>`).join('');
+            // Clases existentes + grupos programados sin clase creada ese día
+            const dayClases = allClases.filter(c => c.date === dateStr);
+            const existingGroupIds = new Set(dayClases.map(c => c.groupId));
+            const items = dayClases.map(c => {
+                const g = groups.find(x => x.id === c.groupId) || {};
+                const st = c.status==='finalizada'?'finalizada':c.status==='en-curso'?'iniciada':'pendiente';
+                return { time:(g.time||c.time||'').slice(0,5), name:g.name||c.title||'Clase', st, sel:c.id===this._currentClaseId, click:`app.openClase('${c.id}')` };
+            });
+            groups.filter(g => g.day === dayNames[dow] && !existingGroupIds.has(g.id)).forEach(g => {
+                items.push({ time:(g.time||'').slice(0,5), name:g.name, st:'new', sel:false, click:`app.createClase('${g.id}','${dateStr}')` });
+            });
+            items.sort((a,b) => (a.time||'').localeCompare(b.time||''));
+
+            const card = it => `
+                <div class="sem3-card ${it.st} ${it.sel?'selected':''}" onclick="${it.click}">
+                    <div class="sem3-dot ${it.st}"></div>
+                    <span class="sem3-card-txt">
+                        <span class="sem3-card-time">${it.time||'—'}</span>
+                        <span class="sem3-card-name">${this._escapeHtml(it.name)}</span>
+                    </span>
+                </div>`;
+            const manana = items.filter(it => it.time && it.time < '13:00');
+            const tarde  = items.filter(it => !(it.time && it.time < '13:00'));
+
+            const bodyHtml = items.length ? `
+                <div class="sem3-day-slots">
+                    <div class="sem3-slot manana">
+                        <div class="sem3-slot-label">Mañana</div>
+                        ${manana.map(card).join('') || '<span class="sem3-slot-empty">—</span>'}
+                    </div>
+                    <div class="sem3-slot">
+                        <div class="sem3-slot-label">Tarde</div>
+                        ${tarde.map(card).join('') || '<span class="sem3-slot-empty">—</span>'}
+                    </div>
+                </div>` : `<div class="sem3-day-empty">Sin clases</div>`;
 
             return `<div class="sem3-col ${isToday?'today':''}">
                 <div class="sem3-col-header">
-                    <span class="sem3-day-name">${dayAbbr[idx]}</span>
+                    <span class="sem3-day-name">${isToday?'Hoy · ':''}${dayAbbrs[dow]}</span>
                     <span class="sem3-day-num ${isToday?'today':''}">${dayNum}</span>
                 </div>
-                ${cards}${newCards}
+                ${bodyHtml}
             </div>`;
         }).join('');
 
         // Placeholder para Google Calendar — integración futura vía OAuth
-        const gcalHint = `<div class="sem3-gcal-hint">
-            <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-            Conectar Google Calendar (próximamente)
-        </div>`;
-
         return `<div class="sem3-wrap">
-            <div class="sem3-nav">
-                <button class="sem3-nav-btn" onclick="app.shiftWeek(-1)">‹</button>
-                <span class="sem3-nav-label">${weekLabel}</span>
-                <button class="sem3-nav-btn" onclick="app.shiftWeek(1)">›</button>
+            <div class="sem3-strip">
+                <button class="sem3-nav-btn" onclick="app.shiftWeek(-1)" title="Días anteriores">‹</button>
+                <div class="sem3-grid">${cols}</div>
+                <button class="sem3-nav-btn" onclick="app.shiftWeek(1)" title="Días siguientes">›</button>
             </div>
-            <div class="sem3-grid">${cols}</div>
-            ${gcalHint}
+            <div class="sem3-gcal-hint">
+                <svg width="11" height="11"><use href="#icon-fecha"/></svg>
+                Conectar Google Calendar (próximamente)
+            </div>
         </div>`;
     },
 
