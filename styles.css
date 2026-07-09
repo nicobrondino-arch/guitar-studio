@@ -269,6 +269,20 @@ button {
     transition: padding var(--transition-normal), justify-content var(--transition-normal), margin-bottom var(--transition-normal);
 }
 
+/* Perfil activo + campana — arriba a la izquierda del sidebar */
+.sidebar-user-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0 12px;
+    margin-bottom: 16px;
+}
+.sidebar-user-row .profile-chip {
+    min-width: 0;
+    flex: 1;
+}
+
 .brand-icon {
     width: 28px;
     height: 28px;
@@ -408,7 +422,8 @@ button {
     align-items: center;
     justify-content: center;
     gap: 6px;
-    width: 100%;
+    width: calc(100% - 24px);
+    margin: 0 12px 16px;
     padding: 6px 10px;
     border-radius: 8px;
     font-size: 12px;
@@ -1835,7 +1850,17 @@ textarea.form-control {
     .sidebar-brand {
         display: none;
     }
-    
+
+    .sidebar-user-row {
+        display: none;
+    }
+
+    /* !important: btn-sidebar-professor recibe display inline vía JS
+       (updateSidebarForMode) que si no le gana a esta regla */
+    .sidebar-prof-link {
+        display: none !important;
+    }
+
     .nav-links {
         flex-direction: row;
         justify-content: space-around;
@@ -2416,7 +2441,22 @@ textarea.form-control {
         margin: 0;
         pointer-events: none;
     }
-    
+
+    /* Perfil + campana collapsed: solo íconos, apilados */
+    .sidebar.collapsed .sidebar-user-row {
+        flex-direction: column;
+        gap: 10px;
+        padding: 0;
+    }
+    .sidebar.collapsed .sidebar-user-row .profile-chip { flex: none; }
+    .sidebar.collapsed .sidebar-profile-chip {
+        width: auto;
+        padding: 4px;
+        border-radius: 50%;
+    }
+    .sidebar.collapsed .profile-chip-name { display: none; }
+    .sidebar.collapsed .sidebar-prof-link { display: none !important; }
+
     /* Navigation link collapsed adjustments */
     .sidebar.collapsed .nav-links {
         align-items: center;
@@ -3421,6 +3461,8 @@ textarea.form-control {
     height: 26px;
     border-radius: 50%;
     background: var(--pcolor, var(--tb-accent));
+    background-size: cover;
+    background-position: center;
     color: #fff;
     font-size: 12px;
     font-weight: 700;
@@ -3436,6 +3478,95 @@ textarea.form-control {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+/* ── Campana de notificaciones ── */
+.notif-bell-wrap { position: relative; flex-shrink: 0; }
+.notif-bell-btn {
+    position: relative;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--tb-text-secondary);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+}
+.notif-bell-btn:hover {
+    color: var(--tb-text-primary);
+    background: var(--tb-bg-elevated);
+    border-color: var(--tb-border);
+}
+.notif-bell-btn svg { width: 17px; height: 17px; }
+.notif-badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    min-width: 15px;
+    height: 15px;
+    padding: 0 3px;
+    border-radius: 8px;
+    background: var(--tb-danger);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 15px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--tb-bg-primary);
+}
+.notif-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 300px;
+    max-width: calc(100vw - 24px);
+    background: var(--tb-bg-elevated);
+    border: 1px solid var(--tb-border);
+    border-radius: 12px;
+    box-shadow: 0 12px 32px var(--tb-shadow);
+    z-index: 1200;
+    flex-direction: column;
+    overflow: hidden;
+}
+.notif-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--tb-border);
+    font: 600 12px var(--font-primary);
+    color: var(--tb-text-primary);
+}
+.notif-panel-header button {
+    background: none;
+    border: none;
+    color: var(--tb-accent);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 0;
+}
+.notif-panel-list { max-height: 320px; overflow-y: auto; }
+.notif-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--tb-border);
+    transition: background var(--transition-fast);
+}
+.notif-item:last-child { border-bottom: none; }
+.notif-item:hover { background: var(--tb-bg-secondary); }
+.notif-item.unread { background: var(--tb-accent-glow); }
+.notif-item-icon { font-size: 14px; flex-shrink: 0; }
+.notif-item-text { flex: 1; min-width: 0; font-size: 12px; color: var(--tb-text-primary); line-height: 1.4; }
+.notif-item-time { font-size: 10px; color: var(--tb-text-muted); white-space: nowrap; flex-shrink: 0; }
+.notif-panel-empty { padding: 24px 14px; text-align: center; font-size: 12px; color: var(--tb-text-muted); }
 
 /* ==========================================================================
    TABS DE CATEGORÍA — dentro de la vista de práctica
@@ -3968,10 +4099,13 @@ textarea.form-control {
 
 /* ── Avatar con preview en vivo (propuesta 7c) ── */
 .pconf-avatar-row { display: flex; gap: 16px; align-items: center; }
+.pconf-avatar-preview-col { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
 .pconf-avatar-preview {
     width: 64px; height: 64px;
     border-radius: 50%;
     background: #6c63ff;
+    background-size: cover;
+    background-position: center;
     color: #fff;
     display: flex; align-items: center; justify-content: center;
     font-size: 26px;
@@ -3979,6 +4113,23 @@ textarea.form-control {
     flex-shrink: 0;
     border: 2px solid var(--tb-border-hover);
 }
+.pconf-photo-upload-btn {
+    font: 500 10px var(--font-primary);
+    color: var(--tb-accent);
+    cursor: pointer;
+    text-align: center;
+    white-space: nowrap;
+}
+.pconf-photo-upload-btn:hover { text-decoration: underline; }
+.pconf-photo-remove-btn {
+    background: none;
+    border: none;
+    font: 500 10px var(--font-primary);
+    color: var(--tb-text-muted);
+    cursor: pointer;
+    padding: 0;
+}
+.pconf-photo-remove-btn:hover { color: var(--tb-danger); }
 .pconf-avatar-controls { flex: 1; min-width: 0; }
 .pconf-swatch-label {
     font: 600 9.5px var(--font-primary);

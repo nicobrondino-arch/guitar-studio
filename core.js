@@ -357,6 +357,7 @@ class GuitarStudioApp {
 
         await this.loadProfileData();
         this.updateSidebarForMode();
+        this.updateNotificationBell();
         this.navigateToView('studio');
     }
 
@@ -364,21 +365,166 @@ class GuitarStudioApp {
         const avatar = document.getElementById("profile-chip-avatar");
         const name = document.getElementById("profile-chip-name");
         if (this.isProfessorMode) {
-            if (avatar) avatar.textContent = "P";
+            if (avatar) { avatar.style.backgroundImage = 'none'; avatar.textContent = "P"; }
             if (name) name.textContent = "Profesor";
             document.getElementById("btn-profile-chip").style.setProperty("--pcolor", "#e84393");
         } else if (this.activeProfile) {
             if (avatar) {
-                avatar.textContent = this.activeProfile.avatarChar || this.activeProfile.name.charAt(0).toUpperCase();
+                if (this.activeProfile.avatarPhoto) {
+                    avatar.textContent = '';
+                    avatar.style.backgroundImage = `url(${this.activeProfile.avatarPhoto})`;
+                } else {
+                    avatar.style.backgroundImage = 'none';
+                    avatar.textContent = this.activeProfile.avatarChar || this.activeProfile.name.charAt(0).toUpperCase();
+                }
                 avatar.style.backgroundColor = this.activeProfile.color || "#6c63ff";
             }
             if (name) name.textContent = this.activeProfile.name;
             const chipBtn = document.getElementById("btn-profile-chip");
             if (chipBtn) chipBtn.style.setProperty("--pcolor", this.activeProfile.color || "#6c63ff");
         } else {
-            if (avatar) avatar.textContent = "?";
+            if (avatar) { avatar.style.backgroundImage = 'none'; avatar.textContent = "?"; }
             if (name) name.textContent = "Sin perfil";
         }
+    }
+
+    // ==========================================================================
+    // Notificaciones — compartido entre modo profesor y perfil de alumno.
+    // audience:'teacher' (default, compat con notificaciones viejas sin el campo)
+    // audience:'student' + studentId = destinatario puntual.
+    // ==========================================================================
+
+    _myNotifications() {
+        const all = this.data.getNotifications();
+        if (this.isProfessorMode) return all.filter(n => n.audience !== 'student');
+        if (this.activeProfile) return all.filter(n => n.audience === 'student' && n.studentId === this.activeProfile.id);
+        return [];
+    }
+
+    notifyTeacher({ type, claseId, itemId, itemTitle, studentId, studentName }) {
+        this.data.addNotification({
+            id: this.data.generateId('notif'),
+            audience: 'teacher',
+            type, claseId, itemId, itemTitle, studentId, studentName,
+            read: false,
+            timestamp: Date.now()
+        });
+        this.updateNotificationBell();
+    }
+
+    notifyStudents(studentIds, { type, claseId, itemId, itemTitle }) {
+        (studentIds || []).forEach(studentId => {
+            this.data.addNotification({
+                id: this.data.generateId('notif'),
+                audience: 'student',
+                studentId,
+                type, claseId, itemId, itemTitle,
+                read: false,
+                timestamp: Date.now()
+            });
+        });
+        this.updateNotificationBell();
+    }
+
+    updateNotificationBell() {
+        const badge = document.getElementById('notif-badge');
+        const bell = document.getElementById('btn-notif-bell');
+        if (!badge || !bell) return;
+        const canSee = this.isProfessorMode || !!this.activeProfile;
+        bell.style.display = canSee ? '' : 'none';
+        const unread = canSee ? this._myNotifications().filter(n => !n.read).length : 0;
+        badge.textContent = unread > 9 ? '9+' : String(unread);
+        badge.style.display = unread > 0 ? 'flex' : 'none';
+        const panel = document.getElementById('notif-panel');
+        if (panel && panel.style.display !== 'none') this.renderNotificationsPanel();
+    }
+
+    toggleNotificationsPanel() {
+        const panel = document.getElementById('notif-panel');
+        if (!panel) return;
+        const opening = panel.style.display === 'none' || !panel.style.display;
+        panel.style.display = opening ? 'flex' : 'none';
+        if (opening) this.renderNotificationsPanel();
+    }
+
+    closeNotificationsPanel() {
+        const panel = document.getElementById('notif-panel');
+        if (panel) panel.style.display = 'none';
+    }
+
+    renderNotificationsPanel() {
+        const panel = document.getElementById('notif-panel');
+        if (!panel) return;
+        const items = this._myNotifications().slice().sort((a, b) => b.timestamp - a.timestamp);
+        panel.innerHTML = items.length ? `
+            <div class="notif-panel-header">
+                <span>Notificaciones</span>
+                <button onclick="app.markAllNotificationsRead()">Marcar todas como leídas</button>
+            </div>
+            <div class="notif-panel-list">
+                ${items.map(n => this._renderNotifItem(n)).join('')}
+            </div>
+        ` : `
+            <div class="notif-panel-header"><span>Notificaciones</span></div>
+            <div class="notif-panel-empty">No tenés notificaciones.</div>
+        `;
+    }
+
+    _renderNotifItem(n) {
+        const icon = n.type === 'duda_alumno' ? '💬' : '📤';
+        const label = n.type === 'duda_alumno'
+            ? `<strong>${this._escapeHtml(n.studentName || 'Un alumno')}</strong> mandó una consulta`
+            : n.audience === 'student'
+                ? `Tu profesor cargó <strong>"${this._escapeHtml(n.itemTitle || '')}"</strong>`
+                : `<strong>${this._escapeHtml(n.studentName || 'Un alumno')}</strong> cargó "${this._escapeHtml(n.itemTitle || '')}"`;
+        return `
+            <div class="notif-item ${n.read ? '' : 'unread'}" onclick="app.handleNotificationClick('${n.id}')">
+                <span class="notif-item-icon">${icon}</span>
+                <span class="notif-item-text">${label}</span>
+                <span class="notif-item-time">${this._relativeTime(n.timestamp)}</span>
+            </div>`;
+    }
+
+    _relativeTime(ts) {
+        const diffMin = Math.round((Date.now() - ts) / 60000);
+        if (diffMin < 1) return 'ahora';
+        if (diffMin < 60) return `hace ${diffMin} min`;
+        const diffH = Math.round(diffMin / 60);
+        if (diffH < 24) return `hace ${diffH} h`;
+        const diffD = Math.round(diffH / 24);
+        return `hace ${diffD} d`;
+    }
+
+    handleNotificationClick(notifId) {
+        const notifications = this.data.getNotifications();
+        const notif = notifications.find(n => n.id === notifId);
+        if (!notif) return;
+        notif.read = true;
+        this.data.saveNotifications(notifications);
+        this.updateNotificationBell();
+        this.closeNotificationsPanel();
+
+        if (notif.audience === 'student') {
+            this.navigateToView('studio');
+            return;
+        }
+        if (notif.type === 'duda_alumno') {
+            this.navigateToView('dashboard');
+            this._teacherBoardMainTab = 'consultas';
+            if (this.renderTeacherBoardView) this.renderTeacherBoardView();
+            return;
+        }
+        this.navigateToView('dashboard');
+        if (notif.claseId) this._currentClaseId = notif.claseId;
+        this.renderDashboardView();
+    }
+
+    markAllNotificationsRead() {
+        const mine = new Set(this._myNotifications().map(n => n.id));
+        const all = this.data.getNotifications();
+        all.forEach(n => { if (mine.has(n.id)) n.read = true; });
+        this.data.saveNotifications(all);
+        this.updateNotificationBell();
     }
 
     handleProfessorModeClick() {
@@ -418,6 +564,7 @@ class GuitarStudioApp {
         this.loadProfileData();
         this.updateProfileChip();
         this.updateSidebarForMode();
+        this.updateNotificationBell();
         this.navigateToView('studio');
     }
 
@@ -593,6 +740,10 @@ class GuitarStudioApp {
         const avatarColorInput = document.getElementById("profile-config-avatar-color");
         if (avatarColorInput) avatarColorInput.value = p.color || '#6c63ff';
 
+        // Foto de perfil: arranca en lo que ya está guardado (staging separado hasta Guardar)
+        this._pendingAvatarPhoto = p.avatarPhoto || null;
+        this._pendingAvatarPhotoRemoved = false;
+
         // El swatch "inicial" muestra la letra real del alumno
         const initialSwatch = document.getElementById("profile-avatar-initial-swatch");
         if (initialSwatch) initialSwatch.textContent = p.name.charAt(0).toUpperCase();
@@ -665,6 +816,47 @@ class GuitarStudioApp {
         this._syncProfileConfigSwatches();
     }
 
+    async handleAvatarPhotoUpload(event) {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        try {
+            this._pendingAvatarPhoto = await this._resizeImageToDataUrl(file, 200, 200, 0.85);
+            this._pendingAvatarPhotoRemoved = false;
+            this._syncProfileConfigSwatches();
+        } catch (e) {
+            this.showToast('No se pudo procesar la imagen', '⚠️');
+        } finally {
+            event.target.value = '';
+        }
+    }
+
+    clearAvatarPhoto() {
+        this._pendingAvatarPhoto = null;
+        this._pendingAvatarPhotoRemoved = true;
+        this._syncProfileConfigSwatches();
+    }
+
+    _resizeImageToDataUrl(file, maxW, maxH, quality) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onerror = () => reject(reader.error);
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onerror = reject;
+                img.onload = () => {
+                    const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.round(img.width * scale);
+                    canvas.height = Math.round(img.height * scale);
+                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                    resolve(canvas.toDataURL('image/jpeg', quality));
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
     profileConfigSetTheme(theme) {
         const select = document.getElementById("profile-config-theme");
         if (select) select.value = theme;
@@ -681,9 +873,17 @@ class GuitarStudioApp {
 
         const preview = document.getElementById("profile-avatar-preview");
         if (preview) {
-            preview.textContent = char || initial || '?';
-            preview.style.background = color;
+            preview.style.backgroundColor = color;
+            if (this._pendingAvatarPhoto) {
+                preview.textContent = '';
+                preview.style.backgroundImage = `url(${this._pendingAvatarPhoto})`;
+            } else {
+                preview.style.backgroundImage = 'none';
+                preview.textContent = char || initial || '?';
+            }
         }
+        const removeBtn = document.getElementById('btn-avatar-photo-remove');
+        if (removeBtn) removeBtn.style.display = this._pendingAvatarPhoto ? '' : 'none';
 
         document.querySelectorAll('#profile-avatar-emoji-presets .pconf-emoji-swatch').forEach(btn => {
             const c = btn.getAttribute('data-char');
@@ -710,6 +910,8 @@ class GuitarStudioApp {
         if (themeEl) p.tema = themeEl.value;
         if (avatarCharEl) p.avatarChar = avatarCharEl.value.trim() || p.name.charAt(0).toUpperCase();
         if (avatarColorEl) p.color = avatarColorEl.value;
+        if (this._pendingAvatarPhotoRemoved) p.avatarPhoto = null;
+        else if (this._pendingAvatarPhoto) p.avatarPhoto = this._pendingAvatarPhoto;
 
         // Ficha fields
         p.fichaValues = p.fichaValues || {};
@@ -859,6 +1061,11 @@ class GuitarStudioApp {
         // Chip de perfil (abrir configuraciones)
         const profileChip = document.getElementById("btn-profile-chip");
         if (profileChip) profileChip.addEventListener("click", () => this.openProfilesModal());
+
+        // Cerrar el panel de notificaciones al clickear afuera
+        document.addEventListener("click", (e) => {
+            if (!e.target.closest("#notif-panel, #btn-notif-bell")) this.closeNotificationsPanel();
+        });
 
         // Overlay selector de perfiles
         document.getElementById("btn-professor-mode")?.addEventListener("click", () => this.handleProfessorModeClick());

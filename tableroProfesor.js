@@ -69,28 +69,6 @@ Object.assign(GuitarStudioApp.prototype, {
                 </div>`).join('')
             : `<div class="dash-tl-empty">No hay clases hoy.<br><span>Asigná un día a tus grupos en el Cuaderno.</span></div>`;
 
-        // Notificaciones pendientes
-        const notifications = this.data.getNotifications().filter(n => !n.read);
-        let notifHtml = '';
-        if (notifications.length > 0) {
-            notifHtml = `
-                <div class="studio-notification-banner" style="background:var(--tb-accent); color:#fff; border-radius:10px; padding:12px; margin-bottom:12px; font-size:12px; display:flex; flex-direction:column; gap:6px">
-                    <div style="font-weight:600; display:flex; justify-content:space-between; align-items:center">
-                        <span>🔔 Consultas Nuevas (${notifications.length})</span>
-                        <button onclick="app.clearAllTeacherNotifications()" style="background:none; border:none; color:#fff; font-weight:normal; cursor:pointer; text-decoration:underline; font-size:10px; padding:0">Limpiar todas</button>
-                    </div>
-                    <div style="max-height:120px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; margin-top:4px">
-                        ${notifications.map(n => `
-                            <div onclick="app.handleNotificationClick('${n.id}', '${n.claseId}')" style="cursor:pointer; background:color-mix(in srgb, var(--tb-text-primary) 10%, transparent); border-radius:6px; padding:6px 8px; display:flex; justify-content:space-between; align-items:center">
-                                <span><strong>${this._escapeHtml(n.studentName)}</strong> cargó "${this._escapeHtml(n.itemTitle)}"</span>
-                                <span style="font-size:10px; opacity:0.8">Ver →</span>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            `;
-        }
-
         // Agenda semanal en el panel inferior
         const tab = this._timelineTab; // 'hoy' | 'semana'
         const isSemanaActive = tab === 'semana';
@@ -253,7 +231,6 @@ Object.assign(GuitarStudioApp.prototype, {
                     
                     <!-- COL 1: TIMELINE (Hoy) -->
                     <div class="tl3-col">
-                        ${notifHtml}
                         <div class="tl3-tabs" style="border-bottom: 1px solid var(--tb-border);">
                             <div class="tl3-tab active" style="cursor: default; font-weight:600; text-align:left; padding-left:14px; color:var(--tb-accent); border-bottom:none;">Clases de Hoy</div>
                         </div>
@@ -297,26 +274,6 @@ Object.assign(GuitarStudioApp.prototype, {
         const libRender = this._renderBibliotecaPanel();
         if (this._currentClaseId) await this._renderClaseDetail(this._currentClaseId);
         await libRender;
-    },
-
-    handleNotificationClick(notifId, claseId) {
-        const notifications = this.data.getNotifications();
-        const notif = notifications.find(n => n.id === notifId);
-        if (notif) {
-            notif.read = true;
-            this.data.saveNotifications(notifications);
-        }
-        if (claseId) {
-            this._currentClaseId = claseId;
-        }
-        this.renderDashboardView();
-    },
-
-    clearAllTeacherNotifications() {
-        const notifications = this.data.getNotifications();
-        notifications.forEach(n => n.read = true);
-        this.data.saveNotifications(notifications);
-        this.renderDashboardView();
     },
 
     createClase(groupId) {
@@ -1066,7 +1023,12 @@ Object.assign(GuitarStudioApp.prototype, {
         clase.content = clase.content || [];
         clase.content.push({ id: item.id, cat });
         this.data.saveClase(clase);
-        
+
+        const group = clase.groupId ? this.data.getGroup(clase.groupId) : null;
+        if (group && group.memberIds && group.memberIds.length) {
+            this.notifyStudents(group.memberIds, { type: 'carga_docente', claseId, itemId: item.id, itemTitle: item.title });
+        }
+
         // Cargar biblioteca para resolver dinámicamente títulos/iconos
         const libraryItems = await this.data.getLibraryItems();
         const iconFor = ft => this._bibTypeIcon(ft);
@@ -1106,6 +1068,10 @@ Object.assign(GuitarStudioApp.prototype, {
         }
         if (addedCount > 0) {
             this.data.saveClase(clase);
+            const group = clase.groupId ? this.data.getGroup(clase.groupId) : null;
+            if (group && group.memberIds && group.memberIds.length) {
+                this.notifyStudents(group.memberIds, { type: 'carga_docente', claseId: clase.id, itemTitle: tpl.name });
+            }
             if (this._currentClaseId) await this._renderClaseDetail(this._currentClaseId);
             this._renderBibliotecaPanel();
             this.showToast(`Plantilla "${tpl.name}" aplicada. Se agregaron ${addedCount} ítems.`, '📋');

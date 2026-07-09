@@ -276,20 +276,16 @@ Object.assign(GuitarStudioApp.prototype, {
             };
             
             await this.data.saveLibraryItem(item);
-            
-            // Add a notification for the teacher
-            this.data.addNotification({
-                id: this.data.generateId('notif'),
+
+            this.notifyTeacher({
+                type: 'carga_alumno',
                 claseId: claseId,
                 studentId: this.activeProfile.id,
                 studentName: this.activeProfile.name,
                 itemId: itemId,
-                itemTitle: item.title,
-                type: 'carga_alumno',
-                read: false,
-                timestamp: new Date().toISOString()
+                itemTitle: item.title
             });
-            
+
             this.showToast('Archivo subido correctamente', '✓');
             input.value = '';
             await this.renderStudioSelectorAndDetails();
@@ -415,6 +411,12 @@ Object.assign(GuitarStudioApp.prototype, {
         };
         
         this.data.savePreguntaAlumno(this.activeProfile.id, clase.id, preg);
+        this.notifyTeacher({
+            type: 'duda_alumno',
+            claseId: clase.id,
+            studentId: this.activeProfile.id,
+            studentName: this.activeProfile.name
+        });
         txtEl.value = '';
         this.showToast('Pregunta enviada al canal de la clase', '✓');
         await this.renderPracticeView();
@@ -441,6 +443,14 @@ Object.assign(GuitarStudioApp.prototype, {
             replies: []
         };
         this.data.savePreguntaAlumno(this.activeProfile.id, claseId, preg);
+        this.notifyTeacher({
+            type: 'duda_alumno',
+            claseId: claseId,
+            studentId: this.activeProfile.id,
+            studentName: this.activeProfile.name,
+            itemId: itemId,
+            itemTitle: itemTitle
+        });
         this.showToast('Consulta enviada sobre este ejercicio', '✓');
     },
 

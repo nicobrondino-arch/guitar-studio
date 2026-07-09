@@ -573,17 +573,14 @@ Object.assign(GuitarStudioApp.prototype, {
 
             await this.data.saveLibraryItem(item);
 
-            const notif = {
-                id: this.data.generateId('notif'),
+            this.notifyTeacher({
+                type: 'carga_alumno',
                 studentId: this.activeProfile.id,
                 studentName: this.activeProfile.name,
                 itemId: item.id,
                 itemTitle: item.title,
-                claseId: nextClase ? nextClase.id : null,
-                timestamp: Date.now(),
-                read: false
-            };
-            this.data.addNotification(notif);
+                claseId: nextClase ? nextClase.id : null
+            });
 
             this.showToast('Contenido cargado para tu próxima clase y notificado al docente', '✓');
         } else {

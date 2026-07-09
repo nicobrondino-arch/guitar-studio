@@ -152,7 +152,30 @@
                 </svg>
                 <span class="brand-text">Guitar Studio</span>
             </div>
-            
+
+            <!-- Perfil activo + notificaciones, arriba a la izquierda -->
+            <div class="sidebar-user-row">
+                <button class="profile-chip sidebar-profile-chip" id="btn-profile-chip" title="Cambiar perfil">
+                    <span class="profile-chip-avatar" id="profile-chip-avatar">?</span>
+                    <span class="profile-chip-name" id="profile-chip-name">Sin perfil</span>
+                </button>
+                <div class="notif-bell-wrap">
+                    <button class="notif-bell-btn" id="btn-notif-bell" title="Notificaciones" onclick="app.toggleNotificationsPanel()" style="display:none">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                        </svg>
+                        <span class="notif-badge" id="notif-badge" style="display:none">0</span>
+                    </button>
+                    <div class="notif-panel" id="notif-panel" style="display:none"></div>
+                </div>
+            </div>
+            <!-- Acceso discreto al modo profesor (visible solo con alumno activo) -->
+            <button class="sidebar-prof-link" id="btn-sidebar-professor" style="display:none" onclick="app.handleProfessorModeClick()">
+                <span class="nav-text">Modo Profesor</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;flex-shrink:0"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            </button>
+
             <div class="nav-links">
                 <!-- Espacio del Docente -->
                 <div class="nav-section" id="nav-section-professor">
@@ -209,18 +232,8 @@
                 </div>
             </div>
 
-            <!-- Footer del sidebar: perfil activo + idioma -->
+            <!-- Footer del sidebar: idioma -->
             <div class="sidebar-footer">
-                <!-- Acceso discreto al modo profesor (visible solo con alumno activo) -->
-                <button class="sidebar-prof-link" id="btn-sidebar-professor" style="display:none" onclick="app.handleProfessorModeClick()">
-                    <span class="nav-text">Modo Profesor</span>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;flex-shrink:0"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                </button>
-                <!-- Perfil activo -->
-                <button class="profile-chip sidebar-profile-chip" id="btn-profile-chip" title="Cambiar perfil">
-                    <span class="profile-chip-avatar" id="profile-chip-avatar">?</span>
-                    <span class="profile-chip-name" id="profile-chip-name">Sin perfil</span>
-                </button>
                 <!-- Selector de idioma -->
                 <div class="lang-selector">
                     <button class="lang-btn active" id="btn-lang-es">ES</button>
@@ -538,7 +551,14 @@
                         <!-- Avatar con preview en vivo + swatches clicables (propuesta 7c) -->
                         <div class="profile-config-panel" id="pconf-panel-avatar" style="display:none">
                             <div class="pconf-avatar-row">
-                                <div class="pconf-avatar-preview" id="profile-avatar-preview">?</div>
+                                <div class="pconf-avatar-preview-col">
+                                    <div class="pconf-avatar-preview" id="profile-avatar-preview">?</div>
+                                    <label class="pconf-photo-upload-btn">
+                                        <input type="file" accept="image/*" style="display:none" onchange="app.handleAvatarPhotoUpload(event)">
+                                        📷 Subir foto
+                                    </label>
+                                    <button type="button" class="pconf-photo-remove-btn" id="btn-avatar-photo-remove" style="display:none" onclick="app.clearAvatarPhoto()">Quitar foto</button>
+                                </div>
                                 <div class="pconf-avatar-controls">
                                     <div class="pconf-swatch-label">Elegí ícono</div>
                                     <div class="pconf-emoji-swatches" id="profile-avatar-emoji-presets">
