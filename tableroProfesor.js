@@ -336,11 +336,8 @@ Object.assign(GuitarStudioApp.prototype, {
             if (!mlist.length) return '';
             const cards = mlist.map(m => {
                 const streak = this.data.getProfileStreak(m.id);
-                const lastReset = this.data.getProfileLastResetCheck(m.id);
-                const raw = this.data.getProfileCompletedSteps(m.id);
-                const steps = lastReset === todayStr ? (raw||[false,false,false]) : [false,false,false];
-                const done = steps.filter(Boolean).length;
-                const pracDot = done === 3 ? 'full' : done > 0 ? 'partial' : 'none';
+                // Semáforo por pasos de la rutina completados hoy (Fase B)
+                const pracDot = this._getPasosProgress(m.id).dot;
 
                 const claseAntAtt = claseAnt ? (claseAnt.attendance||{})[m.id] : null;
                 const claseAntAttLabel = claseAntAtt === 'presente' ? 'Asistió' : claseAntAtt === 'ausente' ? 'Faltó' : '—';
@@ -1481,11 +1478,10 @@ Object.assign(GuitarStudioApp.prototype, {
         const pid = profile.id;
         const { bucket, daysSince } = this._tbActivityBucket(pid);
         const streak = this.data.getProfileStreak(pid);
-        const completedSteps = this.data.getProfileCompletedSteps(pid) || [false, false, false];
         const lastPracticedTime = this.data.getProfileLastPracticedTime(pid);
 
-        // Mostrar los casilleros de su última práctica registrada
-        const stepsToday = completedSteps;
+        // Progreso del día con los pasos de la rutina (Fase B, reemplaza los 3 casilleros)
+        const pasosProgress = this._getPasosProgress(pid);
 
         // Calcular minutos de práctica reales leyendo de IndexedDB
         let minutesToday = 0;
@@ -1500,10 +1496,6 @@ Object.assign(GuitarStudioApp.prototype, {
                 console.warn('Error reading practice log for teacher board:', e);
             }
         }
-        if (minutesToday === 0) {
-            // Fallback
-            minutesToday = completedSteps.filter(Boolean).length * 15;
-        }
 
         const groups = this.data.getAllGroups().filter(g => (g.memberIds || []).includes(pid));
         const groupLabel = groups.length ? groups.map(g => g.name).join(' · ') : (this.lang === 'es' ? 'Individual' : 'Individual');
@@ -1516,18 +1508,22 @@ Object.assign(GuitarStudioApp.prototype, {
             pendingQuestions += preguntas.filter(p => !p.resolved).length;
         });
 
-        // Objetivos de la última clase finalizada
+        // Avance con la tarea: pasos de la última clase publicada marcados alguna vez (persistente, no diario)
         const finalizadas = allClases
             .filter(c => groups.some(g => g.id === c.groupId) && c.status === 'finalizada')
             .sort((a, b) => (b.finalizadaAt || 0) - (a.finalizadaAt || 0));
         const lastClase = finalizadas[0] || null;
-        const objetivos = lastClase ? (lastClase.objetivos || []) : [];
-        const hasObjetivos = objetivos.length > 0;
+        let hasObjetivos = false;
         let objetivosPct = 100;
-        if (hasObjetivos) {
-            const completados = this.data.getObjetivosCompletados(pid);
-            const done = objetivos.filter(o => completados[`${lastClase.id}__${o.id}`]).length;
-            objetivosPct = Math.round((done / objetivos.length) * 100);
+        if (lastClase) {
+            this._ensurePasosV2(lastClase);
+            const pasos = lastClase.content || [];
+            if (pasos.length) {
+                hasObjetivos = true;
+                const mine = (lastClase.pasosDone || {})[pid] || {};
+                const done = pasos.filter(p => mine[p.id]).length;
+                objetivosPct = Math.round((done / pasos.length) * 100);
+            }
         }
 
         const alertStatus = this._tbAlertStatus(pid, { daysSince, pendingQuestions, objetivosPct, hasObjetivos });
@@ -1549,7 +1545,7 @@ Object.assign(GuitarStudioApp.prototype, {
         });
 
         return {
-            profile, groupLabel, streak, stepsToday, lastPracticedTime,
+            profile, groupLabel, streak, pasosProgress, lastPracticedTime,
             bucket, daysSince, pendingQuestions, objetivosPct, hasObjetivos,
             alertStatus, nextClase, minutesToday
         };
@@ -1703,8 +1699,10 @@ Object.assign(GuitarStudioApp.prototype, {
         const expanded = this._teacherBoardExpandedId === p.id;
         const statusColor = s.alertStatus.level === 'green' ? 'var(--tb-success)' : s.alertStatus.level === 'yellow' ? '#f5a623' : 'var(--tb-accent)';
 
-        const stepLbls = ['Técnica', 'Lectura', 'Repertorio'];
-        const stepsHtml = s.stepsToday.map((done, i) => `<span class="tb-step-detail">${stepLbls[i] || ''} <span class="tb-step-check${done ? ' done' : ''}">${done ? '✓' : ''}</span></span>`).join('');
+        const prog = s.pasosProgress || { hechos: 0, total: 0, dot: 'none' };
+        const stepsHtml = prog.total
+            ? `<span class="tb-step-detail">Rutina de hoy <span class="tb-step-check${prog.dot === 'full' ? ' done' : ''}">${prog.hechos}/${prog.total}</span></span>`
+            : `<span class="tb-step-detail">Sin rutina publicada</span>`;
 
         let activityLabel = '—';
         let activityClass = 'inactive';
@@ -1736,8 +1734,7 @@ Object.assign(GuitarStudioApp.prototype, {
         const questionsPanel = expanded ? this._tbRenderQuestionsAccordion(p.id) : '';
 
         // Hover card con historial/métrica (reusa hc-card del detalle de clase; en touch el click expande la fila)
-        const stepsDone = s.stepsToday.filter(Boolean).length;
-        const pracDot = stepsDone === 3 ? 'full' : stepsDone > 0 ? 'partial' : 'none';
+        const pracDot = prog.dot;
         const hoverCard = `
             <div class="hc-card tb-hc" id="hc-tb-${p.id}">
                 <div class="hc-meta-row">
@@ -1851,14 +1848,14 @@ Object.assign(GuitarStudioApp.prototype, {
         if (cfg.dudas) studentsData.filter(s => s.pendingQuestions > 0).forEach(s =>
             rows.push(`<div class="notif-alert-item" onclick="app.notifAlertClick('${s.profile.id}')"><svg width="13" height="13" style="color:var(--tb-accent); flex-shrink:0"><use href="#icon-consulta"/></svg><span class="notif-alert-text"><strong>${nameOf(s)}</strong> — ${s.pendingQuestions} duda${s.pendingQuestions !== 1 ? 's' : ''} sin responder</span></div>`));
         if (cfg.objetivos) studentsData.filter(s => s.hasObjetivos && s.objetivosPct < 50).forEach(s =>
-            rows.push(`<div class="notif-alert-item" onclick="app.notifAlertClick('${s.profile.id}')"><span class="notif-alert-dot yellow"></span><span class="notif-alert-text"><strong>${nameOf(s)}</strong> — objetivos al ${s.objetivosPct}%</span></div>`));
+            rows.push(`<div class="notif-alert-item" onclick="app.notifAlertClick('${s.profile.id}')"><span class="notif-alert-dot yellow"></span><span class="notif-alert-text"><strong>${nameOf(s)}</strong> — tarea de la clase al ${s.objetivosPct}%</span></div>`));
 
         const chip = (tipo, label) => `<button class="notif-alert-cfg-chip ${cfg[tipo] ? 'on' : ''}" onclick="app.toggleAlertConfig('${tipo}')">${label}</button>`;
 
         return `<div class="notif-alerts-section">
             <div class="notif-alerts-header">
                 <span>Alertas · estado actual</span>
-                <span class="notif-alert-cfg">${chip('inactivos', 'Inactivos')}${chip('dudas', 'Dudas')}${chip('objetivos', 'Objetivos')}</span>
+                <span class="notif-alert-cfg">${chip('inactivos', 'Inactivos')}${chip('dudas', 'Dudas')}${chip('objetivos', 'Tarea')}</span>
             </div>
             ${rows.join('') || '<div class="notif-alerts-empty">Sin alertas por ahora ✓</div>'}
         </div>`;

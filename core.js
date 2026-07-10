@@ -60,7 +60,6 @@ class GuitarStudioApp {
         this.history = [];
         // 3 categorías: 0=technique, 1=reading, 2=repertoire
         this.completedSteps = [false, false, false];
-        this.categoryIds = ['technique', 'reading', 'repertoire'];
 
         // DataService y metrónomo
         this.data = new DataService();
@@ -111,8 +110,7 @@ class GuitarStudioApp {
         this._studioClassTab = 'next';
         this._studioHistoryOpenClaseId = null; // clase del historial actualmente expandida (repaso, no afecta la Rutina Diaria)
 
-        // Estado de práctica: categoría activa y player
-        this.currentCategory = 'technique';
+        // Estado de práctica: player activo
         this.playerActiveItemId = null; // ID del ítem de biblioteca activo en el player
 
         // AlphaTab Player
@@ -126,11 +124,10 @@ class GuitarStudioApp {
         this.bpmAutoIncrStep = 1;
         this.bpmAutoIncrTarget = 120;
 
-        // Timer ascendente por categoría (0=technique, 1=reading, 2=repertoire)
+        // Timer único de práctica (Fase B) — se usa el slot 0; el array queda por compat de forma
         this.timerSeconds = [0, 0, 0];
         this.timerIntervals = [null, null, null];
         this.activeTimerStep = null;
-        this.stepCategories = ['technique', 'reading', 'repertoire'];
 
         // Visor PDF
         this._pdfBlobUrl = null;
@@ -209,18 +206,14 @@ class GuitarStudioApp {
     }
 
     /**
-     * Restaura los tiempos de práctica del día actual desde IndexedDB.
+     * Restaura el tiempo de práctica del día actual desde IndexedDB.
+     * Timer único (Fase B): suma las entradas del log, incluidas las viejas por categoría.
      */
     async restoreTodayTimers() {
         try {
             const log = await this.data.getPracticeLog(this.getTodayString());
             if (log && log.entries) {
-                log.entries.forEach(entry => {
-                    const catIdx = this.categoryIds.indexOf(entry.category);
-                    if (catIdx >= 0) {
-                        this.timerSeconds[catIdx] = entry.seconds || 0;
-                    }
-                });
+                this.timerSeconds[0] = log.entries.reduce((sum, e) => sum + (e.seconds || 0), 0);
             }
         } catch (e) {
             console.warn('Could not restore today timers:', e);
@@ -254,10 +247,9 @@ class GuitarStudioApp {
     }
 
     /**
-     * Evalúa si la racha sigue vigente según la cadencia semanal que definió el profesor
-     * (en vez de exigir práctica todos los días). La racha solo se resetea si, al cerrarse
-     * una semana calendario (lunes-domingo), el alumno no llegó a la cantidad de días
-     * pactada — o si hubo una semana entera sin ninguna práctica.
+     * Regla de racha (Fase B, acordada 2026-07-10): un día sin practicar la CONGELA
+     * (no crece pero sigue viva); dos días seguidos sin practicar la vuelven a 0.
+     * El historial de días practicados queda asentado siempre, pase lo que pase.
      */
     checkStreakValidity() {
         if (!this.lastPracticedDate) {
@@ -266,25 +258,14 @@ class GuitarStudioApp {
             return;
         }
 
-        const pid = this.activeProfile ? this.activeProfile.id : null;
-        const cadence = pid ? this.data.getStreakCadence(pid) : 7;
-
         const todayStr = this.getTodayString();
-        const currentMonday = this.getMondayString(todayStr);
-        const lastPracticedMonday = this.getMondayString(this.lastPracticedDate);
-
-        if (lastPracticedMonday === currentMonday) return; // seguimos en la misma semana, nada que evaluar todavía
-
-        const weeksGap = Math.round(
-            (new Date(currentMonday) - new Date(lastPracticedMonday)) / (7 * 24 * 60 * 60 * 1000)
+        const daysSince = Math.round(
+            (new Date(todayStr + 'T12:00') - new Date(this.lastPracticedDate + 'T12:00')) / 86400000
         );
 
-        const weekEnd = this.addDaysToDateString(lastPracticedMonday, 6);
-        const practicedDaysInLastWeek = this.history.filter(d => d >= lastPracticedMonday && d <= weekEnd).length;
-        const metCadence = practicedDaysInLastWeek >= cadence;
-
-        // weeksGap > 1 implica al menos una semana calendario completa sin ninguna práctica registrada
-        if (weeksGap > 1 || !metCadence) {
+        // 0 = practicó hoy · 1 = practicó ayer · 2 = un día salteado (congelada, todavía puede salvarla hoy)
+        // 3+ = dos o más días seguidos sin práctica → la racha vuelve a 0
+        if (daysSince >= 3) {
             this.streak = 0;
             this.saveStreak();
         }
@@ -1058,14 +1039,6 @@ class GuitarStudioApp {
         // Selectores de Idioma
         document.getElementById("btn-lang-es").addEventListener("click", () => this.changeLanguage("es"));
         document.getElementById("btn-lang-en").addEventListener("click", () => this.changeLanguage("en"));
-
-        // Tabs de categoría dentro de la vista práctica (incluye supplementary)
-        [...this.categoryIds, 'supplementary'].forEach(cat => {
-            const tab = document.getElementById(`pcat-${cat}`);
-            if (tab) {
-                tab.addEventListener("click", () => this.selectCategory(cat));
-            }
-        });
 
         // Botón "← Ejercicios" (volver del player)
         const backBtn = document.getElementById("btn-back-to-exercises");
@@ -1892,7 +1865,6 @@ class GuitarStudioApp {
         document.getElementById("tf-ficha-whatsapp").value = p.whatsapp || '';
         document.getElementById("tf-ficha-nivel").value = p.nivel || 'Inicial';
         document.getElementById("tf-ficha-observaciones").value = p.observaciones || '';
-        document.getElementById("tf-ficha-streak-cadence").value = String(this.data.getStreakCadence(studentId));
 
         // Chip informativo de grupo(s) y horario
         const gruposEl = document.getElementById("tf-ficha-grupos");
@@ -1968,10 +1940,6 @@ class GuitarStudioApp {
         p.whatsapp = document.getElementById("tf-ficha-whatsapp").value.trim();
         p.nivel = document.getElementById("tf-ficha-nivel").value;
         p.observaciones = document.getElementById("tf-ficha-observaciones").value.trim();
-
-        const cadenceVal = parseInt(document.getElementById("tf-ficha-streak-cadence").value, 10) || 7;
-        this.data.setStreakCadence(pid, cadenceVal);
-        if (this.activeProfile && this.activeProfile.id === pid) this.updateStreakUI();
 
         // Guardar valores dinámicos de los campos de Ficha
         p.fichaValues = p.fichaValues || {};

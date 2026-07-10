@@ -621,6 +621,18 @@ class DataService {
         localStorage.setItem(this._profileKey(profileId, 'studio-last-reset-check'), dateStr);
     }
 
+    // Pasos de la rutina diaria completados HOY (Fase B del modelo de Pasos).
+    // Autodescriptivo por fecha: si el registro es de otro día, arranca vacío.
+    getProfileDailyPasos(profileId, todayStr) {
+        try {
+            const o = JSON.parse(localStorage.getItem(this._profileKey(profileId, 'daily-pasos')) || '{}');
+            return o.date === todayStr ? (o.done || {}) : {};
+        } catch (e) { return {}; }
+    }
+    setProfileDailyPasos(profileId, todayStr, done) {
+        localStorage.setItem(this._profileKey(profileId, 'daily-pasos'), JSON.stringify({ date: todayStr, done }));
+    }
+
     // Cadencia de racha: cuántos días por semana espera el profesor que practique este alumno (1-7, default 7 = diaria)
     getStreakCadence(profileId) {
         return parseInt(localStorage.getItem(this._profileKey(profileId, 'streak-cadence')) || '7', 10);

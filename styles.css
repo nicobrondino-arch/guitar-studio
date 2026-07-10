@@ -7959,4 +7959,59 @@ input.dgf-input[type="time"] { cursor: pointer; }
 .tf3-stat-num { font: 700 18px var(--font-primary); color: var(--tb-text-primary); }
 .tf3-stat-label { font: 400 10.5px var(--font-primary); color: var(--tb-text-secondary); }
 
+/* ==========================================================================
+   Punto 8 — Fase B: rutina de pasos en Mi Estudio y Modo Práctica
+   ========================================================================== */
+.sps3-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font: 500 12px var(--font-primary);
+    color: var(--tb-text-primary);
+}
+.sps3-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--tb-border-hover);
+    flex-shrink: 0;
+}
+.sps3-row.done .sps3-dot { background: var(--tb-success); }
+.sps3-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sps3-row.done .sps3-title { color: var(--tb-text-muted); }
+.sps3-estado { font: 400 10.5px var(--font-primary); color: var(--tb-text-muted); flex-shrink: 0; }
+.sps3-row.done .sps3-estado { color: var(--tb-success); }
+
+.practice-supp-card {
+    margin-top: 14px;
+    background: var(--tb-bg-secondary);
+    border: 1px dashed var(--tb-border-hover);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.practice-supp-title {
+    font: 700 11px var(--font-primary);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--tb-text-muted);
+    margin-bottom: 4px;
+}
+.practice-supp-title span { font-weight: 400; text-transform: none; letter-spacing: 0; font-style: italic; }
+.practice-supp-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    background: var(--tb-bg-primary);
+    border: 1px solid var(--tb-border);
+    border-radius: 7px;
+    font: 500 12.5px var(--font-primary);
+    color: var(--tb-text-primary);
+    cursor: pointer;
+}
+.practice-supp-item:hover { border-color: var(--tb-border-hover); }
+
 

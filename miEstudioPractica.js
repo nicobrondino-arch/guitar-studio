@@ -346,23 +346,6 @@ Object.assign(GuitarStudioApp.prototype, {
         await this.renderStudioSelectorAndDetails();
     },
 
-    toggleObjetivo(claseId, objId) {
-        if (!this.activeProfile) return;
-        const completados = this.data.getObjetivosCompletados(this.activeProfile.id);
-        const key = `${claseId}__${objId}`;
-        const done = !completados[key];
-        this.data.setObjetivoCompletado(this.activeProfile.id, claseId, objId, done);
-        const rows = document.querySelectorAll(`.obj-check-row[onclick*="${objId}"]`);
-        rows.forEach(row => {
-            row.classList.toggle('done', done);
-            const cb = row.querySelector('.obj-checkbox');
-            if (cb) {
-                cb.classList.toggle('checked', done);
-                cb.innerHTML = done ? `<svg viewBox="0 0 10 10" fill="none" style="width:9px;height:9px"><path d="M2 5l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
-            }
-        });
-    },
-
     navigateToPractice() {
         this.navigateToView('practice');
     },
@@ -497,33 +480,33 @@ Object.assign(GuitarStudioApp.prototype, {
         const countEls = document.querySelectorAll("#streak-count");
         countEls.forEach(el => el.textContent = this.streak);
 
-        const pid = this.activeProfile ? this.activeProfile.id : null;
-        const cadence = pid ? this.data.getStreakCadence(pid) : 7;
-        const isDaily = cadence >= 7;
-
         const unitEls = document.querySelectorAll(".studio-streak-unit-b");
-        unitEls.forEach(el => el.textContent = isDaily ? "días seguidos" : `días (plan: ${cadence}/sem)`);
+        unitEls.forEach(el => el.textContent = "días seguidos");
 
-        const practicedToday = this.lastPracticedDate === this.getTodayString();
+        const todayStr = this.getTodayString();
+        const practicedToday = this.lastPracticedDate === todayStr;
+        const daysSince = this.lastPracticedDate
+            ? Math.round((new Date(todayStr + 'T12:00') - new Date(this.lastPracticedDate + 'T12:00')) / 86400000)
+            : Infinity;
+
         const descEl = document.getElementById("studio-streak-desc");
         if (descEl) {
             if (practicedToday) {
                 descEl.textContent = "¡Excelente trabajo! Ya practicaste hoy. Nos vemos pronto. 🎸";
+            } else if (this.streak > 0 && daysSince >= 2) {
+                descEl.textContent = "🧊 Tu racha está congelada: completá tu rutina hoy para no perderla.";
             } else if (this.streak > 0) {
-                descEl.textContent = isDaily
-                    ? `Llevas ${this.streak} ${this.streak === 1 ? 'día' : 'días'} seguidos. ¡No pares!`
-                    : `Llevas ${this.streak} ${this.streak === 1 ? 'día' : 'días'} practicados cumpliendo tu plan (${cadence}/semana). ¡Seguí así!`;
+                descEl.textContent = `Llevas ${this.streak} ${this.streak === 1 ? 'día' : 'días'} seguidos. ¡No pares!`;
             } else {
-                descEl.textContent = isDaily
-                    ? "Toca 15 minutos para encender el fuego de la constancia."
-                    : `Tu plan es practicar ${cadence} ${cadence === 1 ? 'día' : 'días'} por semana. ¡Arrancá hoy!`;
+                descEl.textContent = "Completá todos los pasos de tu rutina para encender la racha.";
             }
         }
     },
 
-    updateProgressUI() {
-        const completedCount = this.completedSteps.filter(Boolean).length;
-        const percentage = Math.round((completedCount / 3) * 100);
+    async updateProgressUI() {
+        const pid = this.activeProfile ? this.activeProfile.id : null;
+        const prog = pid ? this._getPasosProgress(pid) : { hechos: 0, total: 0 };
+        const percentage = prog.total ? Math.round((prog.hechos / prog.total) * 100) : 0;
 
         const pctEl = document.getElementById("progress-percentage");
         if (pctEl) pctEl.textContent = `${percentage}%`;
@@ -531,35 +514,29 @@ Object.assign(GuitarStudioApp.prototype, {
         const barEl = document.getElementById("studio-progress-bar");
         if (barEl) barEl.style.width = `${percentage}%`;
 
-        this.categoryIds.forEach((cat, i) => {
-            const summaryEl = document.getElementById(`summary-cat-${cat}`);
-            if (this.completedSteps[i]) {
-                if (summaryEl) summaryEl.classList.add("completed");
-            } else {
-                if (summaryEl) summaryEl.classList.remove("completed");
-            }
-        });
-    },
-
-    selectCategory(cat) {
-        const allCats = [...this.categoryIds, 'supplementary'];
-        if (!allCats.includes(cat)) return;
-        this.currentCategory = cat;
-
-        // Actualizar tabs dentro de la vista práctica
-        allCats.forEach(c => {
-            const tab = document.getElementById(`pcat-${c}`);
-            if (tab) tab.classList.toggle("active", c === cat);
-        });
-
-        // Solo arrancar el timer para categorías que cuentan
-        if (cat !== 'supplementary') {
-            const catIdx = this.categoryIds.indexOf(cat) + 1;
-            this.startStepTimer(catIdx);
+        // Lista de pasos del día en la card "Progreso de Hoy" (Mi Estudio)
+        const cont = document.getElementById("studio-pasos-summary");
+        if (!cont) return;
+        if (!pid || !prog.total) {
+            cont.innerHTML = '<p class="text-muted" style="font-size:12px; font-style:italic; margin:0;">Tu rutina aparece acá cuando el profesor publica una clase.</p>';
+            return;
         }
-        this.renderPracticeView();
+        const pasos = this._getRutinaPasosFor(pid);
+        const done = this.data.getProfileDailyPasos(pid, this.getTodayString());
+        const libraryItems = await this.data.getLibraryItems();
+        cont.innerHTML = pasos.map((x, idx) => {
+            const isDone = !!done[x.paso.id];
+            const libItem = x.paso.libraryItemId ? libraryItems.find(it => it.id === x.paso.libraryItemId) : null;
+            const title = libItem ? (libItem.title || 'Sin título') : (x.paso.descripcion || `Paso ${idx + 1}`);
+            return `<div class="sps3-row ${isDone ? 'done' : ''}">
+                <span class="sps3-dot"></span>
+                <span class="sps3-title">${this._escapeHtml(title)}</span>
+                <span class="sps3-estado">${isDone ? 'Completado' : 'Pendiente'}</span>
+            </div>`;
+        }).join('');
     },
 
+    // Modo Práctica de una sola página (Fase B): checklist de pasos + timer + meta, todo junto
     async renderPracticeView() {
         const area = document.getElementById("practice-content-area");
         const playerView = document.getElementById("step-view-4");
@@ -574,214 +551,128 @@ Object.assign(GuitarStudioApp.prototype, {
 
         area.style.display = "block";
         if (playerView) playerView.style.display = "none";
-
-        // Sincronizar tabs de categoría (incluye supplementary)
-        [...this.categoryIds, 'supplementary'].forEach(c => {
-            const tab = document.getElementById(`pcat-${c}`);
-            if (tab) tab.classList.toggle("active", c === this.currentCategory);
-        });
         this._updatePracticeBreadcrumb();
 
-        const cat = this.currentCategory;
-        const isSupplementary = cat === 'supplementary';
-        const catIdx = this.categoryIds.indexOf(cat);
+        const pid = this.activeProfile ? this.activeProfile.id : null;
         const t = (key) => TRANSLATIONS[this.lang][key] || key;
 
-        let html = '';
+        // ── Timer único + meta diaria ──
+        const timerSecs = this.timerSeconds[0] || 0;
+        const goalMins = this._getPracticeGoal();
+        const goalSecs = goalMins * 60;
+        const remainingSecs = Math.max(0, goalSecs - timerSecs);
+        const mm = String(Math.floor(remainingSecs / 60)).padStart(2, '0');
+        const ss = String(remainingSecs % 60).padStart(2, '0');
+        const isTimerRunning = !!this.timerIntervals[0];
+        const goalReached = timerSecs >= goalSecs;
+        const r = 80; const circ = +(2 * Math.PI * r).toFixed(1);
+        const dashOffset = +(circ * (1 - Math.min(timerSecs / Math.max(goalSecs, 1), 1))).toFixed(1);
 
-        if (isSupplementary) {
-            // Cabecera sin timer ni botón de completar
-            html = `<div class="practice-category-header practice-supplementary-header">
-                <div class="supplementary-badge">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                    Material opcional — no cuenta en tus estadísticas
-                </div>
-            </div>`;
-        } else {
-            const timerSecs = this.timerSeconds[catIdx] || 0;
-            // Ring timer setup
-            const goalsKey = `gs-pgoals-${this.activeProfile?.id||'def'}`;
-            const goals = JSON.parse(localStorage.getItem(goalsKey)||'[15,10,20]');
-            const goalMins = goals[catIdx];
-            const goalSecs = goalMins * 60;
-            
-            const remainingSecs = Math.max(0, goalSecs - timerSecs);
-            const mm = String(Math.floor(remainingSecs / 60)).padStart(2, '0');
-            const ss = String(remainingSecs % 60).padStart(2, '0');
-            
-            const isCompleted = this.completedSteps[catIdx];
-            const isTimerRunning = !!this.timerIntervals[catIdx];
-            const goalReached = timerSecs >= goalSecs;
-            const r = 80; const circ = +(2*Math.PI*r).toFixed(1);
-            const dashOffset = +(circ*(1-Math.min(timerSecs/Math.max(goalSecs,1),1))).toFixed(1);
-            const catAccents = ['#a29bfe','#55efc4','#fdcb6e'];
-            const accent = catAccents[catIdx] || 'var(--tb-accent)';
-            const activeCatsKey = `gs-acats-${this.activeProfile?.id||'def'}`;
-            const activeCats = JSON.parse(localStorage.getItem(activeCatsKey)||'[true,true,true]');
-            const catLbls = ['Técnica','Lectura','Repertorio'];
-            const objHtml = await this._renderPracticeObjectives();
-            html = `<div class="practice-split-layout">
-              <div class="practice-timer-panel">
-                <div class="practice-ring-wrap${isTimerRunning?' ring-running':''}">
-                  <svg viewBox="0 0 180 180" style="width:180px;height:180px">
-                    <circle cx="90" cy="90" r="${r}" fill="none" stroke="var(--tb-border)" stroke-width="8"/>
-                    <circle cx="90" cy="90" r="${r}" fill="none" stroke="${accent}" stroke-width="8"
-                      stroke-linecap="round" stroke-dasharray="${circ}" stroke-dashoffset="${dashOffset}"
-                      style="transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset .8s cubic-bezier(.4,0,.2,1)"/>
-                  </svg>
-                  <div class="practice-ring-center">
-                    <div class="practice-ring-time" style="color:${accent}">${mm}:${ss}</div>
-                    <div class="practice-ring-label" style="color:${accent}">${goalReached?'¡Meta!':'meta '+goalMins+' min'}</div>
-                  </div>
-                </div>
-                <div style="display:flex;gap:8px;width:100%">
-                  <button class="btn btn-primary" id="btn-cat-timer-toggle" style="background:${accent};border-color:${accent};flex:1">
-                    ${isTimerRunning ? '⏸ Pausar' : (timerSecs > 0 ? '▶ Continuar' : '▶ Iniciar')}
-                  </button>
-                  <button class="btn btn-outline btn-sm" id="btn-timer-reset" title="Reiniciar">↺</button>
-                </div>
-                <div class="practice-goal-row">
-                  <span>Meta:</span><span>${goalMins} min</span>
-                  <button onclick="app.editPracticeGoal(${catIdx})" class="btn-goal-edit" title="Editar meta">✎</button>
-                </div>
-                <button class="btn ${isCompleted?'btn-outline':'btn-primary'} practice-complete-btn" id="btn-complete-cat"
-                  ${isCompleted?'disabled':''}
-                  style="${goalReached&&!isCompleted?'background:rgba(52,199,89,.1);border-color:rgba(52,199,89,.35);color:#34c759;':''}">
-                  ${isCompleted ? '✓ Completada' : goalReached ? '🎯 ¡Meta! Completar' : t('btn-complete-category')}
-                </button>
-                <div style="display:flex;gap:5px;width:100%">
-                  ${this.categoryIds.map((c,i)=>`<div style="flex:1;height:4px;border-radius:2px;background:${this.completedSteps[i]?'rgba(52,199,89,.6)':'var(--tb-border)'}"></div>`).join('')}
-                </div>
-                <div style="font:400 10px Inter,sans-serif;color:var(--tb-text-muted);text-align:center;margin-bottom:12px">${this.completedSteps.filter(Boolean).length}/3 categorías</div>
-                
-                <!-- Espacio para escribir dudas -->
-                <div class="card practice-doubt-card" style="width:100%; border:1px solid var(--tb-border); padding:12px; border-radius:8px; background:var(--tb-bg-secondary); box-sizing:border-box">
-                    <h4 style="font-size:11px; font-weight:600; text-transform:uppercase; color:var(--tb-text-muted); margin:0 0 6px 0; text-align:left">¿Tenés dudas?</h4>
-                    <textarea id="practice-doubt-textarea" placeholder="Escribí tu consulta aquí..." rows="2" style="width:100%; background:var(--tb-bg-primary); border:1px solid var(--tb-border); border-radius:6px; color:var(--tb-text-primary); padding:6px; font-size:12px; font-family:var(--font-primary); resize:vertical; box-sizing:border-box; outline:none"></textarea>
-                    <button class="btn btn-primary btn-sm" onclick="app.sendPracticeDoubt()" style="width:100%; margin-top:8px; font-size:11px; padding:6px; background:${accent}; border-color:${accent}">Enviar Consulta</button>
-                </div>
-              </div>
-              <div class="practice-content-right">
-                ${objHtml}
-                <div class="practice-cats-config-bar">
-                  <span>Activas:</span>
-                  ${catLbls.map((l,i)=>`<button class="practice-cat-toggle${activeCats[i]?' active':''}" onclick="app.togglePracticeCat(${i})">${l}</button>`).join('')}
-                </div>`;
-        }
+        // ── Checklist de pasos de la rutina ──
+        const rutina = pid ? this._getRutinaPasosFor(pid) : [];
+        const dailyDone = pid ? this.data.getProfileDailyPasos(pid, this.getTodayString()) : {};
+        const libraryItems = await this.data.getLibraryItems();
+        const multiGroup = new Set(rutina.map(x => x.group.id)).size > 1;
+        const prog = pid ? this._getPasosProgress(pid) : { hechos: 0, total: 0 };
 
-        // Cargar los ítems a practicar para esta categoría
-        let resolvedItems = [];
-        if (isSupplementary) {
-            try {
-                const allLib = await this.data.getLibraryItems();
-                resolvedItems = allLib.filter(item => item.category === 'supplementary');
-            } catch(e) { console.warn(e); }
-        } else {
-            // Rutina Diaria = feed combinado: última clase finalizada de CADA espacio del alumno (particular + cursos)
-            const entries = this._getLatestFinalizedClasesPerGroup();
-            const multiGroup = entries.length > 1;
-            const catMap = { 'Técnica': 0, 'Lectura': 1, 'Lectura Musical': 1, 'Repertorio': 2 };
-            const catItemsTagged = [];
-            entries.forEach(({ group, clase }) => {
-                (clase.content || []).forEach(item => {
-                    let catVal = item.cat;
-                    if (typeof catVal === 'string') catVal = catMap[catVal];
-                    if (catVal === undefined || catVal === null) catVal = 0;
-                    if (catVal === catIdx) catItemsTagged.push({ cItem: item, groupName: group.name, claseId: clase.id });
-                });
-            });
-            try {
-                const allLib = await this.data.getLibraryItems();
-                resolvedItems = catItemsTagged
-                    .map(({ cItem, groupName, claseId }) => {
-                        const li = allLib.find(l => l.id === this._pasoLibId(cItem));
-                        return li ? { ...li, _origin: multiGroup ? groupName : null, _claseId: claseId } : null;
-                    })
-                    .filter(Boolean);
-            } catch(e) { console.warn(e); }
-        }
-
-        if (resolvedItems.length === 0) {
-            const emptyMsg = isSupplementary
-                ? (this.lang === 'es'
-                    ? 'No hay material complementario asignado todavía.'
-                    : 'No supplementary material assigned yet.')
-                : t('practice-empty-state');
-            html += `<div class="practice-empty-state">
-                <p class="text-muted">${emptyMsg}</p>
-            </div>`;
-        } else {
-            const typeGroups = [
-                { key: 'score',   label: 'Partituras',  icon: 'fa-guitar',    color: 'var(--tb-accent)',  action: (id) => `app.openPlayerForItem('${id}')` },
-                { key: 'pdf',     label: 'PDFs',        icon: 'fa-file-pdf',  color: '#e53e3e',           action: (id) => `app.openPDF('${id}')` },
-                { key: 'youtube', label: 'Videos',      icon: 'fa-youtube',   color: '#FF0000',           action: (id) => `app.openYouTube('${id}')` },
-                { key: 'spotify', label: 'Spotify',     icon: 'fa-spotify',   color: '#1DB954',           action: (id) => `app.openSpotify('${id}')` },
-            ];
-
-            html += `<div class="practice-items-card" style="background:var(--tb-bg-secondary); border:1px solid var(--tb-border); border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:16px">`;
-            
-            typeGroups.forEach(({ key, label, icon, color, action }) => {
-                const group = resolvedItems.filter(i => i.type === key);
-                if (group.length === 0) return;
-
-                html += `<div class="week-type-section" style="margin:0">
-                    <div class="week-type-header" style="font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--tb-text-muted); display:flex; align-items:center; gap:8px; margin-bottom:8px">
-                        <i class="fas ${icon}" style="color:${color}"></i>
-                        <span>${label}</span>
+        const checklistHtml = rutina.map((x, idx) => {
+            const p = x.paso;
+            const done = !!dailyDone[p.id];
+            const libItem = p.libraryItemId ? libraryItems.find(it => it.id === p.libraryItemId) : null;
+            const catColor = libItem ? this._bibCatColor(libItem.category || '') : null;
+            const contentTitle = libItem ? (libItem.title || 'Sin título') : 'Sin material';
+            const originBadge = multiGroup ? `<span style="font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.03em; color:var(--tb-text-muted); margin-right:6px">${this._escapeHtml(x.group.name)}</span>` : '';
+            const abrirBtn = libItem ? `<button class="ck3-abrir" onclick="app.openLibraryItemById('${libItem.id}')"><svg width="13" height="13"><use href="#icon-abrir"/></svg> Abrir</button>` : '';
+            const doubtBtn = libItem ? `<button class="ck3-duda" onclick="app.sendItemDoubt('${x.clase.id}','${libItem.id}')" title="¿Duda con esto?">💬</button>` : '';
+            return `
+            <div class="ck3-row ${done ? 'done' : ''}">
+                <button class="ck3-box ${done ? 'done' : ''}" onclick="app.pasoDailyToggle('${x.clase.id}','${p.id}')" title="${done ? 'Marcar pendiente' : 'Marcar completado'}">${done ? '<svg width="18" height="18"><use href="#icon-check"/></svg>' : ''}</button>
+                <div class="ck3-info">
+                    <div class="ck3-meta">
+                        <span class="ck3-num">Paso ${idx + 1}</span>
+                        <span class="ck3-dot" style="background:${catColor || 'transparent'}"></span>
+                        <span class="ck3-content-title">${originBadge}${this._escapeHtml(contentTitle)}</span>
                     </div>
-                    <ul class="week-type-list" style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:6px">`;
+                    ${p.descripcion ? `<div class="ck3-consigna">${this._escapeHtml(p.descripcion)}</div>` : ''}
+                    ${p.objetivo ? `<div class="ck3-objetivo">🎯 ${this._escapeHtml(p.objetivo)}</div>` : ''}
+                </div>
+                <div class="ck3-actions">${abrirBtn}${doubtBtn}</div>
+            </div>`;
+        }).join('');
 
-                group.forEach(item => {
-                    const originBadge = item._origin ? `<span class="week-type-item-origin" style="font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.03em; color:var(--tb-text-muted); margin-right:8px">${this._escapeHtml(item._origin)}</span>` : '';
-                    const doubtBtn = item._claseId ? `<button onclick="event.stopPropagation(); app.sendItemDoubt('${item._claseId}','${item.id}')" title="¿Duda con esto?" style="background:none; border:none; cursor:pointer; opacity:.5; font-size:13px; padding:2px; flex-shrink:0" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=.5">💬</button>` : '';
-                    html += `<li class="week-type-item" onclick="${action(item.id)}" style="background:var(--tb-bg-primary); border:1px solid var(--tb-border); border-radius:8px; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:8px; cursor:pointer; transition:transform .2s">
-                        <span class="week-type-item-title" style="font-weight:500; font-size:13px">${originBadge}${this._escapeHtml(item.title)}</span>
-                        <div style="display:flex; align-items:center; gap:6px; flex-shrink:0">
-                            ${doubtBtn}
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0;opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
-                        </div>
-                    </li>`;
-                });
+        // ── Material complementario (opcional, no cuenta para la rutina) ──
+        const suppItems = libraryItems.filter(item => item.category === 'supplementary');
+        const suppHtml = suppItems.length ? `
+            <div class="practice-supp-card">
+                <div class="practice-supp-title">Material complementario <span>opcional · no cuenta en tus estadísticas</span></div>
+                ${suppItems.map(item => `
+                <div class="practice-supp-item" onclick="app.openLibraryItemById('${item.id}')">
+                    <span class="bib-type-icon" style="background:${this._bibCatColor(item.category)}1f; color:${this._bibCatColor(item.category)}; width:20px; height:20px;">${this._bibTypeIcon(item.type)}</span>
+                    <span>${this._escapeHtml(item.title || 'Sin título')}</span>
+                </div>`).join('')}
+            </div>` : '';
 
-                html += `</ul></div>`;
-            });
-            
-            html += `</div>`;
-        }
+        area.innerHTML = `<div class="practice-split-layout">
+          <div class="practice-timer-panel">
+            <div class="practice-ring-wrap${isTimerRunning ? ' ring-running' : ''}">
+              <svg viewBox="0 0 180 180" style="width:180px;height:180px">
+                <circle cx="90" cy="90" r="${r}" fill="none" stroke="var(--tb-border)" stroke-width="8"/>
+                <circle cx="90" cy="90" r="${r}" fill="none" stroke="var(--tb-accent)" stroke-width="8"
+                  stroke-linecap="round" stroke-dasharray="${circ}" stroke-dashoffset="${dashOffset}"
+                  style="transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset .8s cubic-bezier(.4,0,.2,1)"/>
+              </svg>
+              <div class="practice-ring-center">
+                <div class="practice-ring-time" style="color:var(--tb-accent)">${mm}:${ss}</div>
+                <div class="practice-ring-label" style="color:var(--tb-accent)">${goalReached ? '¡Meta!' : 'meta ' + goalMins + ' min'}</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;width:100%">
+              <button class="btn btn-primary" id="btn-cat-timer-toggle" style="flex:1">
+                ${isTimerRunning ? '⏸ Pausar' : (timerSecs > 0 ? '▶ Continuar' : '▶ Iniciar')}
+              </button>
+              <button class="btn btn-outline btn-sm" id="btn-timer-reset" title="Reiniciar">↺</button>
+            </div>
+            <div class="practice-goal-row">
+              <span>Meta diaria:</span><span>${goalMins} min</span>
+              <button onclick="app.editPracticeGoal()" class="btn-goal-edit" title="Editar meta">✎</button>
+            </div>
+            <div style="width:100%; height:4px; border-radius:2px; background:var(--tb-border); overflow:hidden">
+              <div style="width:${prog.total ? Math.round((prog.hechos / prog.total) * 100) : 0}%; height:100%; background:rgba(52,199,89,.7); transition:width .3s"></div>
+            </div>
+            <div style="font:400 10px var(--font-primary);color:var(--tb-text-muted);text-align:center;margin-bottom:12px">${prog.hechos}/${prog.total} pasos de tu rutina</div>
 
-        if (!isSupplementary) html += '</div></div>'; // close practice-content-right + practice-split-layout
-        area.innerHTML = html;
+            <!-- Espacio para escribir dudas -->
+            <div class="card practice-doubt-card" style="width:100%; border:1px solid var(--tb-border); padding:12px; border-radius:8px; background:var(--tb-bg-secondary); box-sizing:border-box">
+                <h4 style="font-size:11px; font-weight:600; text-transform:uppercase; color:var(--tb-text-muted); margin:0 0 6px 0; text-align:left">¿Tenés dudas?</h4>
+                <textarea id="practice-doubt-textarea" placeholder="Escribí tu consulta aquí..." rows="2" style="width:100%; background:var(--tb-bg-primary); border:1px solid var(--tb-border); border-radius:6px; color:var(--tb-text-primary); padding:6px; font-size:12px; font-family:var(--font-primary); resize:vertical; box-sizing:border-box; outline:none"></textarea>
+                <button class="btn btn-primary btn-sm" onclick="app.sendPracticeDoubt()" style="width:100%; margin-top:8px; font-size:11px; padding:6px">Enviar Consulta</button>
+            </div>
+          </div>
+          <div class="practice-content-right">
+            ${rutina.length
+                ? `<div class="ck3-list">${checklistHtml}</div>`
+                : `<div class="practice-empty-state"><p class="text-muted">${t('practice-empty-state')}</p></div>`}
+            ${suppHtml}
+          </div>
+        </div>`;
 
-        // Supplementary: sin timer ni complete button
-        if (isSupplementary) return;
-
-        // Bind timer toggle
+        // Bind timer toggle + reset (timer único: stepIndex 1)
         const timerBtn = document.getElementById("btn-cat-timer-toggle");
-        if (timerBtn) timerBtn.addEventListener("click", () => this.toggleTimer(catIdx + 1));
-        // Bind reset
+        if (timerBtn) timerBtn.addEventListener("click", () => this.toggleTimer(1));
         const resetBtn = document.getElementById("btn-timer-reset");
         if (resetBtn) resetBtn.addEventListener("click", () => {
-            this.timerSeconds[catIdx] = 0;
+            this.timerSeconds[0] = 0;
             this.renderPracticeView();
         });
-
-        // Bind complete button
-        const isCompleted = this.completedSteps[catIdx];
-        const completeBtn = document.getElementById("btn-complete-cat");
-        if (completeBtn && !isCompleted) {
-            completeBtn.addEventListener("click", () => this.completeCategory(catIdx));
-        }
     },
 
-    // Breadcrumb de la barra de práctica: "Categoría › Ejercicio" (propuesta 5a).
-    // Toma el nombre de la categoría del texto de la tab activa para respetar i18n.
+    // Breadcrumb de la barra de práctica: "Rutina Diaria › Ejercicio"
     _updatePracticeBreadcrumb(leafTitle) {
         const el = document.getElementById('practice-breadcrumb');
         if (!el) return;
-        const tabSpan = document.querySelector(`#pcat-${this.currentCategory} span`);
-        const parts = [tabSpan ? tabSpan.textContent : ''];
+        const parts = ['Rutina Diaria'];
         if (leafTitle) parts.push(leafTitle);
-        el.textContent = parts.filter(Boolean).join(' › ');
+        el.textContent = parts.join(' › ');
     },
 
     _getLatestFinalizedClasesPerGroup() {
@@ -796,56 +687,75 @@ Object.assign(GuitarStudioApp.prototype, {
         }).filter(Boolean);
     },
 
-    async _renderPracticeObjectives() {
-        if (!this.activeProfile || this.isProfessorMode) return '';
-        const entries = this._getLatestFinalizedClasesPerGroup();
-        if (!entries.length) return '';
-        const multiGroup = entries.length > 1;
-        const completados = this.data.getObjetivosCompletados(this.activeProfile.id);
-
-        let totalObjetivos = 0, totalDone = 0, itemsHtml = '';
-        entries.forEach(({ group, clase }) => {
-            const objetivos = clase.objetivos || [];
-            objetivos.forEach(o => {
-                totalObjetivos++;
-                const key = `${clase.id}__${o.id}`;
-                const isDone = !!completados[key];
-                if (isDone) totalDone++;
-                const originBadge = multiGroup ? `<span class="obj-origin" style="font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.03em; color:var(--tb-text-muted); margin-right:8px">${this._escapeHtml(group.name)}</span>` : '';
-                itemsHtml += `<div class="obj-check-row${isDone?' done':''}" onclick="app.toggleObjetivo('${clase.id}','${o.id}')">
-                    <div class="obj-checkbox${isDone?' checked':''}">
-                        ${isDone?'<svg viewBox="0 0 10 10" fill="none" style="width:9px;height:9px"><path d="M2 5l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}
-                    </div>
-                    <span class="obj-text">${originBadge}${this._escapeHtml(o.text)}</span>
-                </div>`;
-            });
+    // ── Fase B (punto 8): la rutina diaria son los pasos de la última clase publicada de cada grupo ──
+    _getRutinaPasosFor(profileId) {
+        const groups = this.data.getAllGroups().filter(g => (g.memberIds || []).includes(profileId));
+        const allClases = this.data.getAllClases();
+        const pasos = [];
+        groups.forEach(group => {
+            const clases = allClases
+                .filter(c => c.groupId === group.id && c.status === 'finalizada' && (c.memberOverride == null || c.memberOverride.includes(profileId)))
+                .sort((a, b) => (b.finalizadaAt || 0) - (a.finalizadaAt || 0));
+            if (!clases.length) return;
+            const clase = this._ensurePasosV2(clases[0]);
+            (clase.content || []).forEach(p => pasos.push({ paso: p, clase, group }));
         });
-        if (!totalObjetivos) return '';
-
-        return `<div class="practice-objectives-card">
-            <div class="practice-objectives-header">
-                <span>Objetivos del profesor</span>
-                <span>${totalDone}/${totalObjetivos} completados</span>
-            </div>
-            <div class="practice-objectives-list">${itemsHtml}</div>
-        </div>`;
+        return pasos;
     },
 
-    editPracticeGoal(catIdx) {
-        const key = `gs-pgoals-${this.activeProfile?.id||'def'}`;
-        const goals = JSON.parse(localStorage.getItem(key)||'[15,10,20]');
-        const val = prompt(`Meta para esta categoría (minutos):`, goals[catIdx]);
+    // Semáforo del día: Completo = TODOS los pasos de la rutina marcados hoy (decisión 2026-07-10)
+    _getPasosProgress(profileId) {
+        const pasos = this._getRutinaPasosFor(profileId);
+        const done = this.data.getProfileDailyPasos(profileId, this.getTodayString());
+        const total = pasos.length;
+        const hechos = pasos.filter(x => done[x.paso.id]).length;
+        return { hechos, total, dot: total > 0 && hechos === total ? 'full' : hechos > 0 ? 'partial' : 'none' };
+    },
+
+    pasoDailyToggle(claseId, pasoId) {
+        if (!this.activeProfile) return;
+        const pid = this.activeProfile.id;
+        const todayStr = this.getTodayString();
+        const done = this.data.getProfileDailyPasos(pid, todayStr);
+        done[pasoId] = !done[pasoId];
+        this.data.setProfileDailyPasos(pid, todayStr, done);
+
+        // Registro persistente por clase — el profesor lo ve como avance con la tarea
+        const clase = this.data.getClase(claseId);
+        if (clase) {
+            clase.pasosDone = clase.pasosDone || {};
+            const mine = clase.pasosDone[pid] = clase.pasosDone[pid] || {};
+            mine[pasoId] = !!done[pasoId];
+            this.data.saveClase(clase);
+        }
+
+        this.updateProgressUI();
+        const prog = this._getPasosProgress(pid);
+        if (prog.total > 0 && prog.hechos === prog.total) {
+            this.finalizeDailyPractice();
+        } else {
+            this.renderPracticeView();
+        }
+    },
+
+    // Meta diaria única de práctica (reemplaza las metas por categoría)
+    _getPracticeGoal() {
+        const key = `gs-pgoal-${this.activeProfile?.id || 'def'}`;
+        const stored = parseInt(localStorage.getItem(key), 10);
+        if (stored) return stored;
+        // Migración: la meta vieja era la suma de las 3 metas por categoría
+        try {
+            const old = JSON.parse(localStorage.getItem(`gs-pgoals-${this.activeProfile?.id || 'def'}`) || 'null');
+            if (Array.isArray(old)) return Math.max(5, old.reduce((a, b) => a + (b || 0), 0));
+        } catch (e) { /* default */ }
+        return 30;
+    },
+
+    editPracticeGoal() {
+        const val = prompt('Meta diaria de práctica (minutos):', this._getPracticeGoal());
         if (!val) return;
-        goals[catIdx] = Math.max(1, Math.min(120, parseInt(val, 10)||15));
-        localStorage.setItem(key, JSON.stringify(goals));
-        this.renderPracticeView();
-    },
-
-    togglePracticeCat(idx) {
-        const key = `gs-acats-${this.activeProfile?.id||'def'}`;
-        const cats = JSON.parse(localStorage.getItem(key)||'[true,true,true]');
-        cats[idx] = !cats[idx];
-        localStorage.setItem(key, JSON.stringify(cats));
+        const mins = Math.max(1, Math.min(240, parseInt(val, 10) || 30));
+        localStorage.setItem(`gs-pgoal-${this.activeProfile?.id || 'def'}`, String(mins));
         this.renderPracticeView();
     },
 
@@ -856,11 +766,9 @@ Object.assign(GuitarStudioApp.prototype, {
 
         this.playerActiveItemId = libraryItemId;
 
-        // Mostrar back button, ocultar la fila de tabs de categoría y anotar el ejercicio en el breadcrumb
+        // Mostrar back button y anotar el ejercicio en el breadcrumb
         const backBtn = document.getElementById("btn-back-to-exercises");
         if (backBtn) backBtn.style.display = "flex";
-        const tabsRow = document.getElementById("practice-cat-tabs-row");
-        if (tabsRow) tabsRow.style.display = "none";
         this._updatePracticeBreadcrumb(item.title || '');
 
         // Cambiar a step-view-4
@@ -891,8 +799,6 @@ Object.assign(GuitarStudioApp.prototype, {
 
         const backBtn = document.getElementById("btn-back-to-exercises");
         if (backBtn) backBtn.style.display = "none";
-        const tabsRow = document.getElementById("practice-cat-tabs-row");
-        if (tabsRow) tabsRow.style.display = "";
 
         const playerView = document.getElementById("step-view-4");
         if (playerView) {
@@ -1070,13 +976,6 @@ Object.assign(GuitarStudioApp.prototype, {
         window.open(item.url, '_blank');
     },
 
-    showWizardStep(stepNum) {
-        if (stepNum === 4) { /* player activado vía card */ return; }
-        const catMap = { 1: 'technique', 2: 'technique', 3: 'reading' };
-        const cat = catMap[stepNum] || 'technique';
-        this.selectCategory(cat);
-    },
-
     startStepTimer(stepIndex) {
         if (this.activeTimerStep !== null && this.activeTimerStep !== stepIndex) {
             this.pauseStepTimer(this.activeTimerStep);
@@ -1087,24 +986,11 @@ Object.assign(GuitarStudioApp.prototype, {
 
         this.activeTimerStep = stepIndex;
 
+        // Timer único de práctica (Fase B): la meta es motivacional, el tiempo sigue contando después
         this.timerIntervals[timerId] = setInterval(() => {
-            // Obtener meta de tiempo
-            const goalsKey = `gs-pgoals-${this.activeProfile?.id||'def'}`;
-            const goals = JSON.parse(localStorage.getItem(goalsKey)||'[15,10,20]');
-            const goalMins = goals[timerId] || 15;
-            const goalSecs = goalMins * 60;
-
-            if (this.timerSeconds[timerId] < goalSecs) {
-                this.timerSeconds[timerId]++;
-                this.updateTimerDisplay(stepIndex);
-                
-                if (this.timerSeconds[timerId] >= goalSecs) {
-                    this.autoCompleteStep(stepIndex);
-                    this.pauseStepTimer(stepIndex);
-                }
-            } else {
-                this.pauseStepTimer(stepIndex);
-            }
+            this.timerSeconds[timerId]++;
+            if (this.timerSeconds[timerId] === this._getPracticeGoal() * 60) this.playTimerAlert();
+            this.updateTimerDisplay(stepIndex);
 
             if (this.timerSeconds[timerId] % 30 === 0) {
                 this.savePracticeProgress();
@@ -1153,100 +1039,45 @@ Object.assign(GuitarStudioApp.prototype, {
     updateTimerDisplay(stepIndex) {
         const timerId = stepIndex - 1;
         const totalSecs = this.timerSeconds[timerId];
-        
-        const goalsKey = `gs-pgoals-${this.activeProfile?.id||'def'}`;
-        const goals = JSON.parse(localStorage.getItem(goalsKey)||'[15,10,20]');
-        const goalMins = goals[timerId] || 15;
+
+        const goalMins = this._getPracticeGoal();
         const goalSecs = goalMins * 60;
-        
+
         const remainingSecs = Math.max(0, goalSecs - totalSecs);
         const minutes = Math.floor(remainingSecs / 60);
         const seconds = remainingSecs % 60;
-        
         const displayStr = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-        
+
         const practiceDisplay = document.querySelector(".practice-ring-time");
-        const accent = ['#a29bfe','#55efc4','#fdcb6e'][timerId] || 'var(--tb-accent)';
-        if (practiceDisplay && this.categoryIds[timerId] === this.currentCategory) {
+        if (practiceDisplay) {
             practiceDisplay.textContent = displayStr;
-            
+
             const circle = document.querySelector(".practice-ring-wrap svg circle:nth-child(2)");
             if (circle) {
                 const r = 80;
-                const circ = +(2*Math.PI*r).toFixed(1);
+                const circ = +(2 * Math.PI * r).toFixed(1);
                 const dashOffset = +(circ * (1 - Math.min(totalSecs / goalSecs, 1))).toFixed(1);
                 circle.setAttribute("stroke-dashoffset", dashOffset);
             }
-            
+
             const label = document.querySelector(".practice-ring-label");
-            if (label) {
-                const goalReached = totalSecs >= goalSecs;
-                label.textContent = goalReached ? '¡Meta!' : 'meta ' + goalMins + ' min';
-            }
-            
+            if (label) label.textContent = totalSecs >= goalSecs ? '¡Meta!' : 'meta ' + goalMins + ' min';
+
             const timerBtn = document.getElementById("btn-cat-timer-toggle");
-            const isTimerRunning = !!this.timerIntervals[timerId];
             if (timerBtn) {
+                const isTimerRunning = !!this.timerIntervals[timerId];
                 timerBtn.textContent = isTimerRunning ? '⏸ Pausar' : (totalSecs > 0 ? '▶ Continuar' : '▶ Iniciar');
             }
-            
-            const completeBtn = document.getElementById("btn-complete-cat");
-            const isCompleted = this.completedSteps[timerId];
-            if (completeBtn) {
-                if (isCompleted) {
-                    completeBtn.textContent = '✓ Completada';
-                    completeBtn.disabled = true;
-                    completeBtn.style.background = '';
-                    completeBtn.style.color = '';
-                    completeBtn.style.borderColor = '';
-                } else if (goalReached) {
-                    completeBtn.textContent = '🎯 ¡Meta! Completar';
-                    completeBtn.disabled = false;
-                    completeBtn.style.background = 'rgba(52,199,89,.1)';
-                    completeBtn.style.borderColor = 'rgba(52,199,89,.35)';
-                    completeBtn.style.color = '#34c759';
-                } else {
-                    completeBtn.textContent = this.lang === 'es' ? 'Marcar Completado' : 'Mark Completed';
-                    completeBtn.disabled = false;
-                    completeBtn.style.background = '';
-                    completeBtn.style.color = '';
-                    completeBtn.style.borderColor = '';
-                }
-            }
         }
-        
-        const el = document.getElementById(`timer-display-${stepIndex}`);
-        if (el) el.textContent = displayStr;
-    },
-
-    autoCompleteStep(stepIndex) {
-        const catIdx = stepIndex - 1;
-        if (catIdx < 0 || catIdx >= 3) return;
-        this.completedSteps[catIdx] = true;
-        this.data.setCompletedSteps(this.completedSteps);
-        this.updateProgressUI();
-        this.playTimerAlert();
-        this.renderPracticeView();
     },
 
     async savePracticeProgress() {
         const todayStr = this.getTodayString();
-        const entries = [];
-        let totalSeconds = 0;
+        const totalSeconds = this.timerSeconds[0] || 0;
 
-        for (let i = 0; i < 3; i++) {
-            if (this.timerSeconds[i] > 0) {
-                entries.push({
-                    category: this.stepCategories[i],
-                    seconds: this.timerSeconds[i]
-                });
-                totalSeconds += this.timerSeconds[i];
-            }
-        }
-
-        if (entries.length > 0) {
+        if (totalSeconds > 0) {
             try {
-                const logData = { entries, totalSeconds };
+                const logData = { entries: [{ category: 'practica', seconds: totalSeconds }], totalSeconds };
                 if (this.activeProfile) {
                     logData.profileId = this.activeProfile.id;
                 }
@@ -1268,27 +1099,11 @@ Object.assign(GuitarStudioApp.prototype, {
         }
     },
 
-    completeCategory(catIndex) {
-        this.completedSteps[catIndex] = true;
-        this.data.setCompletedSteps(this.completedSteps);
-        this.updateProgressUI();
-        this.renderPracticeView();
-
-        if (this.completedSteps.every(Boolean)) {
-            this.finalizeDailyPractice();
-        }
-    },
-
-    completeStep(stepNum) {
-        this.completeCategory(stepNum - 1);
-    },
-
+    // Día practicado = TODOS los pasos de la rutina completados (Fase B)
     finalizeDailyPractice() {
         const todayStr = this.getTodayString();
 
-        for (let i = 1; i <= 3; i++) {
-            this.pauseStepTimer(i);
-        }
+        this.pauseStepTimer(1);
         this.savePracticeProgress();
         
         if (this.lastPracticedDate !== todayStr) {
