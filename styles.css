@@ -7744,4 +7744,110 @@ input.dgf-input[type="time"] { cursor: pointer; }
 }
 .tpl3-add-consigna:hover { color: var(--tb-text-primary); border-color: var(--tb-text-muted); }
 
+/* ==========================================================================
+   Punto 7 — Consultas y Cargas fusionadas (Pieza 7)
+   ========================================================================== */
+.cc3-list { display: flex; flex-direction: column; gap: 10px; max-width: 820px; margin: 0 auto; }
+.cc3-card {
+    background: var(--tb-bg-elevated);
+    border: 1px solid var(--tb-border);
+    border-radius: 10px;
+    padding: 14px 16px;
+}
+.cc3-card.consulta.pendiente {
+    border-color: color-mix(in srgb, var(--tb-accent) 30%, var(--tb-border));
+    border-left: 3px solid var(--tb-accent);
+}
+.cc3-card.consulta.respondida { border-left: 3px solid var(--tb-success); }
+.cc3-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.cc3-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font: 700 11px var(--font-primary);
+    color: #fff;
+    flex-shrink: 0;
+}
+.cc3-name { font: 600 13px var(--font-primary); color: var(--tb-text-primary); }
+.cc3-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 5px;
+    font: 600 10.5px var(--font-primary);
+}
+.cc3-chip.acc { background: var(--tb-accent-glow); color: var(--tb-accent); }
+.cc3-chip.ok { background: color-mix(in srgb, var(--tb-success) 18%, transparent); color: var(--tb-success); }
+.cc3-chip svg { display: block; flex-shrink: 0; width: 11px; height: 11px; }
+.cc3-time { margin-left: auto; font: 400 11px var(--font-primary); color: var(--tb-text-muted); flex-shrink: 0; white-space: nowrap; }
+.cc3-item-badge {
+    display: inline-block;
+    font: 600 10px var(--font-primary);
+    text-transform: uppercase;
+    color: var(--tb-accent);
+    background: var(--tb-accent-glow);
+    border-radius: 4px;
+    padding: 1px 6px;
+    margin-right: 4px;
+}
+.cc3-pregunta { font: 400 13.5px/1.5 var(--font-primary); color: var(--tb-text-primary); margin-bottom: 10px; }
+.cc3-respuesta {
+    padding: 9px 11px;
+    background: var(--tb-bg-primary);
+    border-radius: 7px;
+    font: 400 13px/1.5 var(--font-primary);
+    color: var(--tb-text-secondary);
+}
+.cc3-respuesta strong { color: var(--tb-text-primary); }
+.cc3-reply-ta {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--tb-bg-primary);
+    border: 1px solid var(--tb-border);
+    border-radius: 7px;
+    font: 400 13px var(--font-primary);
+    color: var(--tb-text-primary);
+    outline: none;
+    resize: vertical;
+    margin-bottom: 8px;
+}
+.cc3-responder-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 7px;
+    border: 1px solid var(--tb-accent);
+    background: var(--tb-accent);
+    color: #fff;
+    font: 600 12px var(--font-primary);
+    cursor: pointer;
+}
+.cc3-responder-btn:hover { background: var(--tb-accent-hover); }
+.cc3-responder-btn svg { display: block; }
+.cc3-carga-title { font: 600 14px var(--font-primary); color: var(--tb-text-primary); margin-bottom: 3px; }
+.cc3-carga-obs { font: italic 400 12.5px var(--font-primary); color: var(--tb-text-secondary); margin-bottom: 10px; }
+.cc3-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+/* Los 3 botones de carga con el mismo estilo neutro — sin acento ni rojo (pedido explícito) */
+.cc3-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border-radius: 7px;
+    border: 1px solid var(--tb-border);
+    background: var(--tb-bg-secondary);
+    color: var(--tb-text-primary);
+    font: 600 12px var(--font-primary);
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+}
+.cc3-btn:hover { background: var(--tb-bg-tertiary); border-color: var(--tb-border-hover); }
+.cc3-btn.muted { color: var(--tb-text-secondary); }
+.cc3-btn svg { display: block; flex-shrink: 0; }
+
 

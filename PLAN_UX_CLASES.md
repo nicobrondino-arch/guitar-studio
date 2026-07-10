@@ -36,7 +36,7 @@ Acordado el 2026-07-09. La clase deja de ser una "bolsa de contenido clasificado
 | 4 | Modal editor de Grupo (duración, horario compacto, Meet+WhatsApp arriba, próximas clases del grupo) + modal Plantilla agrandado con mini-biblioteca + filas compactas de "existentes" | Design → Code | **HECHO 2026-07-09**. Plantillas ya son planes de pasos; `applyTemplateToClase` puentea al modelo viejo hasta el punto 5 |
 | 5 | Modelo de Pasos (decisión central de arriba) — Fase A | Code (layout del paso lo diseña Design) | **HECHO 2026-07-09**. Migración lazy (`_ensurePasosV2`), puente de plantillas retirado; tracking viejo sigue por debajo (Fase B = punto 8) |
 | 6 | Alertas Rápidas → campana de notificaciones (sección "Alertas" de estado vivo + config de tipos; NO convertir alertas en eventos). Fila de alumno gana racha+minutos inline; historial/métrica en hover reusando `hc-card` (fallback click en touch). Alta de alumno con "+ Nuevo alumno" | Code | Pendiente |
-| 7 | Fusionar pestañas Consultas + Cargas en "Consultas y Cargas" (chip de tipo dentro de la card, botones decentes, lista única por fecha) | Design → Code | Pendiente (brief listo) |
+| 7 | Fusionar pestañas Consultas + Cargas en "Consultas y Cargas" (chip de tipo dentro de la card, botones decentes, lista única por fecha) | Design → Code | **HECHO 2026-07-09** |
 | 8 | Migración del tracking — Fase B del modelo de Pasos | Code | Pendiente |
 | 9 | Rediseño ficha del alumno (`openTeacherFichaModal`) | Aparte, más adelante | Pendiente |
 

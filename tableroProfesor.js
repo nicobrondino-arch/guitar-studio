@@ -1425,7 +1425,6 @@ Object.assign(GuitarStudioApp.prototype, {
 
     teacherBoardSetMainTab(tab) {
         this._teacherBoardMainTab = tab;
-        this._bibSelectedStudentCargaId = null;
         this.renderTeacherBoardView();
     },
 
@@ -1436,8 +1435,7 @@ Object.assign(GuitarStudioApp.prototype, {
         const tabs = [
             { key: 'agenda', label: 'Planificación', action: "app.navigateToView('dashboard')" },
             { key: 'control', label: 'Alumnos', action: "app.clasesGoToBoardTab('control')" },
-            { key: 'cargas', label: 'Cargas de Alumnos', action: "app.clasesGoToBoardTab('cargas')" },
-            { key: 'consultas', label: 'Consultas', action: "app.clasesGoToBoardTab('consultas')" }
+            { key: 'consultas', label: 'Consultas y Cargas', action: "app.clasesGoToBoardTab('consultas')" }
         ];
         const btns = tabs.map(t => {
             const isActive = t.key === active;
@@ -1448,7 +1446,6 @@ Object.assign(GuitarStudioApp.prototype, {
 
     clasesGoToBoardTab(tab) {
         this._teacherBoardMainTab = tab;
-        this._bibSelectedStudentCargaId = null;
         if (this._currentView === 'teacher-board') this.renderTeacherBoardView();
         else this.navigateToView('teacher-board');
     },
@@ -1568,13 +1565,13 @@ Object.assign(GuitarStudioApp.prototype, {
         ]);
         const allClases = this.data.getAllClases();
 
+        // Compat: la vieja pestaña "cargas" se fusionó en "consultas" (Consultas y Cargas, Pieza 7)
+        if (this._teacherBoardMainTab === 'cargas') this._teacherBoardMainTab = 'consultas';
         let tabHeaderHtml = this._renderClasesTabsStrip(this._teacherBoardMainTab);
 
         let contentHtml = '';
-        if (this._teacherBoardMainTab === 'cargas') {
-            contentHtml = this._bibRenderCargasAlumnosMain(profiles, items);
-        } else if (this._teacherBoardMainTab === 'consultas') {
-            contentHtml = this._tbRenderConsultasTab(profiles, allClases);
+        if (this._teacherBoardMainTab === 'consultas') {
+            contentHtml = this._tbRenderConsultasCargasTab(profiles, allClases, items);
         } else {
             if (!profiles.length) {
                 contentHtml = `<div style="padding:24px;color:var(--tb-text-secondary)">Todavía no hay alumnos.</div>`;
@@ -1854,86 +1851,122 @@ Object.assign(GuitarStudioApp.prototype, {
         if (so) so.addEventListener('change', e => { this._tbSort = e.target.value; this.renderTeacherBoardView(); });
     },
 
-    _tbRenderConsultasTab(profiles, allClases) {
-        const allPreguntas = [];
+    // Fecha relativa compacta para las cards de Consultas y Cargas: "Hoy · 14:20" / "Ayer · 19:40" / "Lun 7 jul · 20:15"
+    _tbFechaRelativa(ts) {
+        const d = new Date(ts);
+        if (isNaN(d)) return '';
+        const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+        const dia = new Date(d); dia.setHours(0, 0, 0, 0);
+        const diff = Math.round((hoy - dia) / 86400000);
+        const hora = d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+        if (diff === 0) return `Hoy · ${hora}`;
+        if (diff === 1) return `Ayer · ${hora}`;
+        const fecha = d.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '').replace(/\./g, '');
+        return `${fecha.charAt(0).toUpperCase()}${fecha.slice(1)} · ${hora}`;
+    },
+
+    // Pestaña fusionada "Consultas y Cargas" (Pieza 7): lista única ordenada por fecha
+    _tbRenderConsultasCargasTab(profiles, allClases, items) {
+        const entries = [];
+
+        // Consultas de todos los alumnos
         profiles.forEach(p => {
             const groups = this.data.getAllGroups().filter(g => (g.memberIds || []).includes(p.id));
             const classes = allClases.filter(c => groups.some(g => g.id === c.groupId));
             classes.forEach(c => {
-                const pregs = this.data.getPreguntasAlumno(p.id, c.id);
-                pregs.forEach(preg => {
-                    allPreguntas.push({
-                        ...preg,
-                        profile: p,
-                        claseId: c.id,
-                        claseTitle: c.title || (this.data.getGroup(c.groupId) || {}).name || 'Clase',
-                        claseDate: c.date
-                    });
+                this.data.getPreguntasAlumno(p.id, c.id).forEach(preg => {
+                    const ts = new Date(preg.timestamp || preg.date || (c.date ? c.date + 'T12:00' : 0)).getTime() || 0;
+                    entries.push({ kind: 'consulta', ts, preg, profile: p, claseId: c.id });
                 });
             });
         });
 
-        // Filtrar consultas
-        const filtered = allPreguntas.filter(preg => {
-            const q = (this._tbConsultasSearch || '').toLowerCase().trim();
-            if (q) {
-                const nameMatch = (preg.profile.displayName || preg.profile.name || '').toLowerCase().includes(q);
-                const textMatch = (preg.text || preg.pregunta || '').toLowerCase().includes(q);
-                if (!nameMatch && !textMatch) return false;
-            }
-            if (this._tbConsultasFilter === 'pendientes' && preg.resolved) return false;
-            if (this._tbConsultasFilter === 'respondidas' && !preg.resolved) return false;
+        // Cargas de alumnos
+        items.filter(it => it.isStudentUpload).forEach(it => {
+            const p = profiles.find(x => x.id === it.uploadedBy) || { name: 'Alumno', color: 'var(--tb-accent)' };
+            entries.push({ kind: 'carga', ts: new Date(it.createdAt || 0).getTime() || 0, item: it, profile: p });
+        });
+
+        // Búsqueda + filtro único
+        const q = (this._tbConsultasSearch || '').toLowerCase().trim();
+        const f = this._tbConsultasFilter || 'todos';
+        const filtered = entries.filter(e => {
+            const name = (e.profile.displayName || e.profile.name || '').toLowerCase();
+            const text = e.kind === 'consulta'
+                ? (e.preg.text || e.preg.pregunta || '').toLowerCase()
+                : `${e.item.title || ''} ${e.item.observation || ''}`.toLowerCase();
+            if (q && !name.includes(q) && !text.includes(q)) return false;
+            if (f === 'pendientes')  return e.kind === 'consulta' && !e.preg.resolved;
+            if (f === 'respondidas') return e.kind === 'consulta' && !!e.preg.resolved;
+            if (f === 'cargas')      return e.kind === 'carga';
             return true;
         });
 
-        // Ordenar consultas por fecha descendente
-        filtered.sort((a, b) => (b.claseDate || '').localeCompare(a.claseDate || ''));
+        filtered.sort((a, b) => b.ts - a.ts);
 
-        const cardsHtml = filtered.map(preg => {
-            const p = preg.profile;
+        const typeColors = { score: '#a29bfe', gp: '#a29bfe', gpx: '#a29bfe', pdf: '#55efc4', youtube: '#fdcb6e', spotify: '#74b9ff', audio: '#74b9ff' };
+        const avatar = p => {
             const displayName = p.displayName || p.name || '?';
-            return `
-                <div class="tb-question-row${preg.resolved ? ' resolved' : ''}" style="margin-bottom:12px; padding:16px; background:var(--tb-bg-secondary); border:1px solid var(--tb-border); border-radius:10px">
-                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px">
-                        <div class="tb-avatar" style="background:${p.color || 'var(--tb-accent)'}; width:30px; height:30px; font-size:12px">${displayName.charAt(0).toUpperCase()}</div>
-                        <div style="flex:1; min-width:0">
-                            <div style="font-weight:600; font-size:13px; color:var(--tb-text-primary)">${this._escapeHtml(displayName)}</div>
-                            <div style="font-size:11px; color:var(--tb-text-secondary)">${this._escapeHtml(preg.claseTitle)} · ${preg.claseDate || 'Sin fecha'}</div>
-                        </div>
+            return `<div class="cc3-avatar" style="background:${p.color || 'var(--tb-accent)'}">${displayName.charAt(0).toUpperCase()}</div>
+                <span class="cc3-name">${this._escapeHtml(displayName)}</span>`;
+        };
+
+        const cardsHtml = filtered.map(e => {
+            const timeLabel = e.ts ? this._tbFechaRelativa(e.ts) : '';
+            if (e.kind === 'consulta') {
+                const preg = e.preg, p = e.profile;
+                const itemBadge = preg.itemId ? `<span class="cc3-item-badge">${this._escapeHtml(preg.itemTitle || 'ítem')}</span>` : '';
+                return `
+                <div class="cc3-card consulta ${preg.resolved ? 'respondida' : 'pendiente'}">
+                    <div class="cc3-head">
+                        ${avatar(p)}
+                        <span class="cc3-chip ${preg.resolved ? 'ok' : 'acc'}"><svg width="11" height="11"><use href="#icon-consulta"/></svg>${preg.resolved ? 'Respondida' : 'Consulta'}</span>
+                        <span class="cc3-time">${timeLabel}</span>
                     </div>
-                    <div class="tb-question-text" style="font-size:13px; color:var(--tb-text-primary); line-height:1.4">${preg.itemId ? `<span class="duda-item-badge" style="display:inline-block; font-size:10px; font-weight:600; text-transform:uppercase; color:var(--tb-accent); background:rgba(108,99,255,.12); border-radius:4px; padding:1px 6px; margin-right:4px">${this._escapeHtml(preg.itemTitle || 'ítem')}</span>` : ''}${this._escapeHtml(preg.text || preg.pregunta || '')}</div>
-                    
+                    <div class="cc3-pregunta">${itemBadge}"${this._escapeHtml(preg.text || preg.pregunta || '')}"</div>
                     ${preg.resolved ? `
-                        <div class="tb-question-reply" style="margin-top:12px; font-size:12px; color:var(--tb-success); background:var(--tb-bg-elevated); padding:10px; border-radius:6px">
-                            <strong>Tu respuesta:</strong> ${this._escapeHtml(preg.reply)}
-                            <div style="margin-top:8px">
-                                <button class="btn btn-outline btn-sm" onclick="app.tbEditReplyConsultasTab('${p.id}','${preg.claseId}','${preg.id}')" style="padding:2px 8px; font-size:10px">Editar respuesta</button>
-                            </div>
-                        </div>
-                    ` : `
-                        <div class="tb-question-reply-form" style="margin-top:12px">
-                            <textarea class="form-input" id="tb-consultas-reply-input-${preg.id}" placeholder="Escribir respuesta..." rows="2" style="width:100%; margin-bottom:8px; background:var(--tb-bg-primary); border:1px solid var(--tb-border); color:var(--tb-text-primary); border-radius:6px; padding:8px; font-family:inherit; font-size:12px"></textarea>
-                            <button class="btn btn-primary btn-sm" onclick="app.tbReplyConsultasTab('${p.id}','${preg.claseId}','${preg.id}')">Responder</button>
-                        </div>
-                    `}
+                    <div class="cc3-respuesta"><strong>Tu respuesta:</strong> ${this._escapeHtml(preg.reply)}</div>
+                    <div class="cc3-actions" style="margin-top:8px">
+                        <button class="cc3-btn" onclick="app.tbEditReplyConsultasTab('${p.id}','${e.claseId}','${preg.id}')"><svg width="14" height="14"><use href="#icon-editar"/></svg>Editar respuesta</button>
+                    </div>` : `
+                    <textarea class="cc3-reply-ta" id="tb-consultas-reply-input-${preg.id}" placeholder="Escribir respuesta…" rows="2"></textarea>
+                    <button class="cc3-responder-btn" onclick="app.tbReplyConsultasTab('${p.id}','${e.claseId}','${preg.id}')"><svg width="14" height="14"><use href="#icon-responder"/></svg>Responder</button>`}
+                </div>`;
+            }
+            const it = e.item;
+            const color = typeColors[it.type] || 'var(--tb-accent)';
+            return `
+            <div class="cc3-card carga">
+                <div class="cc3-head">
+                    ${avatar(e.profile)}
+                    <span class="cc3-chip" style="background:color-mix(in srgb, ${color} 20%, transparent); color:${color}">${this._bibTypeIcon(it.type)}${this._bibTypeLabel(it.type)}</span>
+                    <span class="cc3-time">${timeLabel}</span>
                 </div>
-            `;
-        }).join('') || `<div style="padding:24px;color:var(--tb-text-secondary)">No hay consultas que coincidan con los filtros.</div>`;
+                <div class="cc3-carga-title">${this._escapeHtml(it.title || 'Sin título')}</div>
+                ${it.observation ? `<div class="cc3-carga-obs">"${this._escapeHtml(it.observation)}"</div>` : ''}
+                <div class="cc3-actions">
+                    <button class="cc3-btn" onclick="app.openLibraryItemById('${it.id}')"><svg width="14" height="14"><use href="#icon-abrir"/></svg>Abrir</button>
+                    <button class="cc3-btn" onclick="app.promoteStudentUploadToGeneral('${it.id}')"><svg width="14" height="14"><use href="#icon-subir-bib"/></svg>Subir a Biblioteca</button>
+                    <button class="cc3-btn muted" onclick="app.deleteStudentUploadByTeacher('${it.id}')"><svg width="14" height="14"><use href="#icon-borrar"/></svg>Eliminar</button>
+                </div>
+            </div>`;
+        }).join('') || `<div style="padding:24px;color:var(--tb-text-secondary)">No hay consultas ni cargas que coincidan con los filtros.</div>`;
 
         return `<div class="teacher-board-layout horizontal-layout">
             <div class="tb-main-area">
                 <div class="tb-toolbar">
                     <div class="bib-search-wrap">
                         <svg class="bib-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                        <input type="text" class="bib-search-input" id="tb-consultas-search" placeholder="Buscar por alumno o consulta..." value="${(this._tbConsultasSearch || '').replace(/"/g, '&quot;')}">
+                        <input type="text" class="bib-search-input" id="tb-consultas-search" placeholder="Buscar por alumno o contenido…" value="${(this._tbConsultasSearch || '').replace(/"/g, '&quot;')}">
                     </div>
-                    <select class="form-control" id="tb-consultas-filter" style="max-width:180px">
-                        <option value="todos" ${this._tbConsultasFilter === 'todos' ? 'selected' : ''}>Todas las consultas</option>
-                        <option value="pendientes" ${this._tbConsultasFilter === 'pendientes' ? 'selected' : ''}>Pendientes</option>
-                        <option value="respondidas" ${this._tbConsultasFilter === 'respondidas' ? 'selected' : ''}>Respondidas</option>
+                    <select class="form-control" id="tb-consultas-filter" style="max-width:200px">
+                        <option value="todos" ${f === 'todos' ? 'selected' : ''}>Todo</option>
+                        <option value="pendientes" ${f === 'pendientes' ? 'selected' : ''}>Consultas pendientes</option>
+                        <option value="respondidas" ${f === 'respondidas' ? 'selected' : ''}>Consultas respondidas</option>
+                        <option value="cargas" ${f === 'cargas' ? 'selected' : ''}>Solo cargas</option>
                     </select>
                 </div>
-                <div class="tb-list-scroll" style="padding:20px">${cardsHtml}</div>
+                <div class="tb-list-scroll" style="padding:20px"><div class="cc3-list">${cardsHtml}</div></div>
             </div>
         </div>`;
     },

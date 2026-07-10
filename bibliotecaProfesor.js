@@ -163,112 +163,6 @@ Object.assign(GuitarStudioApp.prototype, {
 </div>`;
     },
 
-    _bibRenderSidebarCargas(profiles, items) {
-        const studentIds = [...new Set(items.filter(it => it.isStudentUpload).map(it => it.uploadedBy).filter(Boolean))];
-        const studentProfiles = profiles.filter(p => studentIds.includes(p.id));
-        
-        const allActive = !this._bibSelectedStudentCargaId ? ' active' : '';
-        const allItemHtml = `<div class="bib-sidebar-item${allActive}" onclick="app.bibSelectStudentCarga(null)">
-            <div class="bib-avatar" style="background:var(--tb-border)"><svg width="16" height="16"><use href="#icon-grupo"/></svg></div>
-            <div class="bib-item-info"><div class="bib-item-name">Todos los Alumnos</div><div class="bib-item-sub">Ver todas las cargas</div></div>
-        </div>`;
-
-        const listHtml = allItemHtml + (!studentProfiles.length ? '<p class="bib-empty-list" style="padding:10px 14px">No hay cargas pendientes.</p>' :
-            studentProfiles.map(p => {
-                const count = items.filter(it => it.isStudentUpload && it.uploadedBy === p.id).length;
-                const active = this._bibSelectedStudentCargaId === p.id ? ' active' : '';
-                const displayName = p.displayName || p.name || '?';
-                return `<div class="bib-sidebar-item${active}" onclick="app.bibSelectStudentCarga('${p.id}')">
-  <div class="bib-avatar" style="background:${p.color || 'var(--tb-accent)'}">${displayName[0].toUpperCase()}</div>
-  <div class="bib-item-info"><div class="bib-item-name">${this._escapeHtml(displayName)}</div><div class="bib-item-sub">${count} carga${count !== 1 ? 's' : ''} pendiente${count !== 1 ? 's' : ''}</div></div>
-  <svg class="bib-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-</div>`;
-            }).join(''));
-
-        return `<div class="bib-sidebar">
-  <div class="bib-zone-header" style="padding: 14px 14px 6px 14px; margin-bottom: 0">Alumnos con Cargas</div>
-  <div class="bib-sidebar-list">${listHtml}</div>
-</div>`;
-    },
-
-    _bibRenderCargasAlumnosMain(profiles, items) {
-        let uploads = items.filter(it => it.isStudentUpload);
-        if (this._bibSelectedStudentCargaId) {
-            uploads = uploads.filter(it => it.uploadedBy === this._bibSelectedStudentCargaId);
-        }
-
-        if (!uploads.length) {
-            return `<div class="bib-layout">
-  ${this._bibRenderSidebarCargas(profiles, items)}
-  <div class="bib-main-area" style="padding:24px; display:flex; flex-direction:column; justify-content:center; align-items:center; color:var(--tb-text-secondary); text-align:center">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;opacity:.3;margin-bottom:12px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      <p style="font-size:14px">No hay contenido subido por los alumnos aún.</p>
-  </div>
-</div>`;
-        }
-
-        const studentIds = [...new Set(uploads.map(it => it.uploadedBy).filter(Boolean))];
-        const studentBlocks = studentIds.map(studentId => {
-            const studentProfile = profiles.find(p => p.id === studentId) || { name: 'Alumno Desconocido', color: 'var(--tb-accent)' };
-            const studentItems = uploads.filter(it => it.uploadedBy === studentId);
-            
-            const types = ['score', 'gp', 'gpx', 'pdf', 'youtube', 'spotify'];
-            const typeLabels = { score: 'Guitar Pro', gp: 'Guitar Pro', gpx: 'GPX', pdf: 'Documentos PDF', youtube: 'Videos de YouTube', spotify: 'Canciones de Spotify' };
-            const typeColors = { score: '#a29bfe', gp: '#a29bfe', gpx: '#a29bfe', pdf: '#55efc4', youtube: '#fdcb6e', spotify: '#74b9ff' };
-            
-            const typeBlocks = types.map(type => {
-                const typeItems = studentItems.filter(it => it.type === type);
-                if (!typeItems.length) return '';
-                
-                const rows = typeItems.map(it => {
-                    const timeStr = new Date(it.createdAt).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-                    return `
-                        <div style="background:var(--tb-bg-primary); border:1px solid var(--tb-border); border-radius:8px; padding:12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; gap:16px">
-                            <div style="flex:1; min-width:0">
-                                <div style="font-size:13px; font-weight:600; color:var(--tb-text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap">${this._escapeHtml(it.title)}</div>
-                                ${it.observation ? `<div style="font-size:12px; color:var(--tb-text-secondary); margin-top:4px; font-style:italic">"${this._escapeHtml(it.observation)}"</div>` : ''}
-                                <div style="font-size:10px; color:var(--tb-text-muted); margin-top:4px">Cargado: ${timeStr}</div>
-                            </div>
-                            <div style="display:flex; gap:8px; flex-shrink:0">
-                                <button class="btn btn-outline btn-sm" onclick="app.openLibraryItemById('${it.id}')" style="padding:4px 8px; font-size:11px">Abrir ↗</button>
-                                <button class="btn btn-primary btn-sm" onclick="app.promoteStudentUploadToGeneral('${it.id}')" style="padding:4px 8px; font-size:11px">Subir a Biblioteca General</button>
-                                <button class="btn btn-outline btn-sm" onclick="app.deleteStudentUploadByTeacher('${it.id}')" style="color:var(--tb-accent); border-color:var(--tb-accent); padding:4px 8px; font-size:11px">Eliminar</button>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-                
-                return `
-                    <div style="margin-top:12px">
-                        <div style="font-size:11px; font-weight:600; text-transform:uppercase; color:var(--tb-text-muted); margin-bottom:6px; display:flex; align-items:center; gap:6px">
-                            <span class="bib-type-icon" style="background:${typeColors[type]}1f; color:${typeColors[type]}; width:20px; height:20px; font-size:10px">${this._bibTypeIcon(type)}</span>
-                            <span>${typeLabels[type]}</span>
-                        </div>
-                        <div>${rows}</div>
-                    </div>
-                `;
-            }).join('');
-            
-            return `
-                <div style="background:var(--tb-bg-secondary); border:1px solid var(--tb-border); border-radius:12px; padding:16px; margin-bottom:16px">
-                    <div style="display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--tb-border); padding-bottom:10px">
-                        <div class="bib-avatar" style="background:${studentProfile.color || 'var(--tb-accent)'}">${((studentProfile.displayName || studentProfile.name || '?')[0]).toUpperCase()}</div>
-                        <div style="font-size:15px; font-weight:600; color:var(--tb-text-primary)">${this._escapeHtml(studentProfile.displayName || studentProfile.name)}</div>
-                    </div>
-                    <div>${typeBlocks}</div>
-                </div>
-            `;
-        }).join('');
-
-        return `<div class="bib-layout">
-    ${this._bibRenderSidebarCargas(profiles, items)}
-    <div class="bib-main-area" style="overflow-y:auto; padding:24px 32px">
-        <div class="bib-zone-header" style="font-size:18px; margin-bottom:16px">Contenido subido por los Alumnos</div>
-        <div>${studentBlocks}</div>
-    </div>
-  </div>`;
-    },
-
     _bibRenderTable(filtered, allItems, isReadOnly = false) {
         const cols = ['type', 'category', 'level', 'style'];
         const colLabels = { type: 'Tipo', category: 'Categoría', level: 'Nivel', style: 'Estilo' };
@@ -406,11 +300,6 @@ Object.assign(GuitarStudioApp.prototype, {
         }
         const fi = document.getElementById('bib-file-input');
         if (fi) fi.addEventListener('change', e => { Array.from(e.target.files).forEach(f => this.bibHandleFileDrop(f)); fi.value = ''; });
-    },
-
-    bibSelectStudentCarga(studentId) {
-        this._bibSelectedStudentCargaId = studentId;
-        this._refreshCargasHostView();
     },
 
     bibSelectItem(itemId) { this._bibDetailItemId = itemId; this.renderBibliotecaView(); },
