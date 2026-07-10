@@ -1860,44 +1860,23 @@ class GuitarStudioApp {
     // Ficha de Alumno - Profesor Modals & Lógica de Asistencia/Reprogramar
     // ==========================================================================
     switchTeacherFichaTab(tab) {
-        const tabFicha = document.getElementById("tf-tab-ficha");
-        const tabStats = document.getElementById("tf-tab-stats");
-        const tabFields = document.getElementById("tf-tab-fields");
-
-        const contentFicha = document.getElementById("tf-tab-content-ficha");
-        const contentStats = document.getElementById("tf-tab-content-stats");
-        const contentFields = document.getElementById("tf-tab-content-fields");
+        // 4 pestañas (Pieza 8): un solo panel visible a la vez
+        const keys = ['ficha', 'respuestas', 'stats', 'fields'];
+        if (!keys.includes(tab)) tab = 'ficha';
         const saveBtn = document.getElementById("btn-tf-ficha-save");
 
-        if (!tabFicha || !tabStats || !tabFields || !contentFicha || !contentStats || !contentFields) return;
-
-        // Reset active states
-        [tabFicha, tabStats, tabFields].forEach(t => {
-            t.classList.remove("active");
-            t.style.borderBottomColor = "transparent";
-            t.style.color = "var(--tb-text-muted)";
-            t.style.borderBottom = "2px solid transparent";
+        keys.forEach(k => {
+            const btn = document.getElementById(`tf-tab-${k}`);
+            const content = document.getElementById(`tf-tab-content-${k}`);
+            if (btn) btn.classList.toggle('active', k === tab);
+            if (content) content.style.display = k === tab ? 'flex' : 'none';
         });
+        // Guardar aplica a los tabs con campos editables
+        if (saveBtn) saveBtn.style.display = (tab === 'ficha' || tab === 'respuestas') ? '' : 'none';
 
-        [contentFicha, contentStats, contentFields].forEach(c => c.style.display = "none");
-        if (saveBtn) saveBtn.style.display = "none";
-
-        const activeTab = tab === 'ficha' ? tabFicha : tab === 'stats' ? tabStats : tabFields;
-        const activeContent = tab === 'ficha' ? contentFicha : tab === 'stats' ? contentStats : contentFields;
-
-        activeTab.classList.add("active");
-        activeTab.style.borderBottom = "2px solid var(--tb-accent)";
-        activeTab.style.color = "var(--tb-text-primary)";
-        activeContent.style.display = "block";
-
-        if (tab === 'ficha') {
-            if (saveBtn) saveBtn.style.display = "block";
-            this.renderTeacherFichaFields();
-        } else if (tab === 'stats') {
-            this.renderTeacherFichaStats();
-        } else if (tab === 'fields') {
-            this.renderTeacherFichaFieldsConfig();
-        }
+        if (tab === 'respuestas') this.renderTeacherFichaFields();
+        else if (tab === 'stats') this.renderTeacherFichaStats();
+        else if (tab === 'fields') this.renderTeacherFichaFieldsConfig();
     }
 
     async openTeacherFichaModal(studentId) {
@@ -1907,14 +1886,29 @@ class GuitarStudioApp {
 
         this._tfSelectedProfileId = studentId;
         document.getElementById("teacher-ficha-title").textContent = `Ficha de Alumno: ${p.name}`;
-        
-        // Gmail y Nombre
+
         document.getElementById("tf-ficha-gmail").value = p.gmail || '';
         document.getElementById("tf-ficha-name").value = p.name || '';
+        document.getElementById("tf-ficha-whatsapp").value = p.whatsapp || '';
         document.getElementById("tf-ficha-nivel").value = p.nivel || 'Inicial';
         document.getElementById("tf-ficha-observaciones").value = p.observaciones || '';
         document.getElementById("tf-ficha-streak-cadence").value = String(this.data.getStreakCadence(studentId));
 
+        // Chip informativo de grupo(s) y horario
+        const gruposEl = document.getElementById("tf-ficha-grupos");
+        if (gruposEl) {
+            const grupos = this.data.getAllGroups().filter(g => !g._personal && (g.memberIds || []).includes(studentId));
+            gruposEl.innerHTML = grupos.length
+                ? grupos.map(g => `
+                    <div class="tf3-grupo-chip">
+                        <span class="tf3-grupo-nombre">${this._escapeHtml(g.name)}</span>
+                        ${g.day ? `<span class="tf3-grupo-horario">· ${this._escapeHtml(g.day)}${g.time ? ' ' + this._escapeHtml(g.time.slice(0, 5)) : ''}</span>` : ''}
+                    </div>`).join('')
+                : '<div class="tf3-grupo-chip"><span class="tf3-grupo-horario">Sin grupo asignado</span></div>';
+        }
+
+        // Pre-render de respuestas para que el guardado global las incluya aunque no se visite el tab
+        this.renderTeacherFichaFields();
         this.switchTeacherFichaTab('ficha');
         document.getElementById("teacher-ficha-modal-overlay").style.display = "flex";
     }
@@ -1931,37 +1925,35 @@ class GuitarStudioApp {
         const p = profiles.find(x => x.id === pid);
         if (!p) return;
 
+        // Campos 100% data-driven desde "Configurar Campos" (Pieza 8): textareas de 3 filas
+        // para respuestas largas; los campos cortos (Edad, País…) se emparejan en filas de 2
         const fields = this.data.getFichaFields();
         const fichaValues = p.fichaValues || {};
         const container = document.getElementById("tf-ficha-dynamic-fields");
         if (!container) return;
-        container.innerHTML = "";
 
+        const isShort = f => f.length <= 20 || f.toLowerCase().includes('edad');
+        let html = '';
+        let shortBuf = [];
+        const flushShorts = () => {
+            if (!shortBuf.length) return;
+            html += `<div style="display:flex; gap:14px;">${shortBuf.join('')}</div>`;
+            shortBuf = [];
+        };
         fields.forEach(f => {
             const val = fichaValues[f] || "";
-            const formGroup = document.createElement("div");
-            formGroup.style.display = "flex";
-            formGroup.style.flexDirection = "column";
-            formGroup.style.gap = "4px";
-
-            const isAge = f.toLowerCase().includes("edad");
-            const isTextarea = f.length > 20 && !isAge;
-
-            let inputHtml = "";
-            if (isAge) {
-                inputHtml = `<input type="number" class="form-input tf-ficha-field-input" data-field="${this._escapeHtml(f)}" value="${this._escapeHtml(val)}" style="width: 100%;">`;
-            } else if (isTextarea) {
-                inputHtml = `<textarea class="form-input tf-ficha-field-input" data-field="${this._escapeHtml(f)}" rows="2" style="width: 100%; resize: vertical;">${this._escapeHtml(val)}</textarea>`;
+            const label = `<label class="dgf-label">${this._escapeHtml(f)}</label>`;
+            if (isShort(f)) {
+                const type = f.toLowerCase().includes('edad') ? 'number' : 'text';
+                shortBuf.push(`<div style="flex:1; min-width:0;">${label}<input type="${type}" class="dgf-input tf-ficha-field-input" data-field="${this._escapeHtml(f)}" value="${this._escapeHtml(val)}"></div>`);
+                if (shortBuf.length === 2) flushShorts();
             } else {
-                inputHtml = `<input type="text" class="form-input tf-ficha-field-input" data-field="${this._escapeHtml(f)}" value="${this._escapeHtml(val)}" style="width: 100%;">`;
+                flushShorts();
+                html += `<div>${label}<textarea class="dgf-input tf-ficha-field-input" data-field="${this._escapeHtml(f)}" rows="3" style="resize:vertical; line-height:1.5;">${this._escapeHtml(val)}</textarea></div>`;
             }
-
-            formGroup.innerHTML = `
-                <label class="form-label" style="font-weight: 500; font-size: 12px; color: var(--tb-text-secondary); margin-bottom: 2px;">${this._escapeHtml(f)}</label>
-                ${inputHtml}
-            `;
-            container.appendChild(formGroup);
         });
+        flushShorts();
+        container.innerHTML = html || '<p class="text-muted" style="font-size:12.5px; font-style:italic; margin:0;">Sin campos configurados. Agregalos en la pestaña "Configurar Campos".</p>';
     }
 
     async saveTeacherFichaModal() {
@@ -1973,6 +1965,7 @@ class GuitarStudioApp {
 
         p.gmail = document.getElementById("tf-ficha-gmail").value.trim();
         p.name = document.getElementById("tf-ficha-name").value.trim();
+        p.whatsapp = document.getElementById("tf-ficha-whatsapp").value.trim();
         p.nivel = document.getElementById("tf-ficha-nivel").value;
         p.observaciones = document.getElementById("tf-ficha-observaciones").value.trim();
 
@@ -1995,82 +1988,28 @@ class GuitarStudioApp {
     }
 
     async renderTeacherFichaStats() {
+        // Solo 3 stat-cards + heatmap (Pieza 8): consultas y archivos viven en "Consultas y Cargas"
         const pid = this._tfSelectedProfileId;
         if (!pid) return;
         const profiles = await this.data.getProfiles();
         const p = profiles.find(x => x.id === pid);
         if (!p) return;
 
-        // Racha y tiempo de práctica
         const streak = this.data.getProfileStreak(pid);
         document.getElementById("tf-stat-streak").textContent = `${streak} día${streak !== 1 ? 's' : ''}`;
 
-        // Calcular tiempo acumulado
         const history = this.data.getProfileHistory(pid);
         const totalMinutes = history.length * 15; // Estimación rápida: 15 mins por día completado
-        document.getElementById("tf-stat-time").textContent = `${totalMinutes} min`;
+        document.getElementById("tf-stat-time").textContent = totalMinutes >= 60
+            ? `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60 ? (totalMinutes % 60) + 'm' : ''}`.trim()
+            : `${totalMinutes} min`;
 
-        // Asistencia histórica
         const clases = this.data.getAllClases();
         const attended = clases.filter(c => (c.attendance || {})[pid] === 'presente').length;
         const absent = clases.filter(c => (c.attendance || {})[pid] === 'ausente').length;
-        document.getElementById("tf-stat-attendance").textContent = `${attended} Pres. / ${absent} Aus.`;
+        document.getElementById("tf-stat-attendance").textContent = (attended + absent) > 0 ? `${attended} de ${attended + absent}` : '—';
 
-        // Renderizar heatmap de práctica del alumno
         this.renderFichaHeatmapGrid(p);
-
-        // Consultas realizadas
-        const queriesContainer = document.getElementById("tf-ficha-consultas-list");
-        if (queriesContainer) {
-            queriesContainer.innerHTML = "";
-            const allClasesIds = clases.map(c => c.id);
-            const questions = [];
-            allClasesIds.forEach(cid => {
-                const pregs = this.data.getPreguntasAlumno(pid, cid);
-                pregs.forEach(pr => questions.push({ ...pr, claseId: cid }));
-            });
-            questions.sort((a,b)=>b.timestamp-a.timestamp);
-            
-            if (questions.length === 0) {
-                queriesContainer.innerHTML = '<p class="text-muted" style="font-size:12px;font-style:italic">Sin consultas registradas.</p>';
-            } else {
-                questions.forEach(q => {
-                    const c = clases.find(cl => cl.id === q.claseId) || {};
-                    const cDate = c.date ? new Date(c.date+'T12:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'}) : 'Clase';
-                    const el = document.createElement("div");
-                    el.style.fontSize = "12px";
-                    el.style.padding = "6px";
-                    el.style.border = "1px solid var(--tb-border)";
-                    el.style.borderRadius = "6px";
-                    el.style.background = "var(--tb-bg-primary)";
-                    const itemBadge = q.itemId ? `<span class="duda-item-badge" style="display:inline-block; font-size:9px; font-weight:600; text-transform:uppercase; color:var(--tb-accent); background:rgba(108,99,255,.12); border-radius:4px; padding:1px 5px; margin-right:4px">${this._escapeHtml(q.itemTitle || 'ítem')}</span>` : '';
-                    el.innerHTML = `<strong>${cDate}:</strong> ${itemBadge}"${this._escapeHtml(q.text)}"`;
-                    queriesContainer.appendChild(el);
-                });
-            }
-        }
-
-        // Archivos subidos por el alumno
-        const cargasContainer = document.getElementById("tf-ficha-cargas-list");
-        if (cargasContainer) {
-            cargasContainer.innerHTML = "";
-            const libraryItems = await this.data.getLibraryItems();
-            const studentUploads = libraryItems.filter(item => item.uploadedBy === pid);
-            if (studentUploads.length === 0) {
-                cargasContainer.innerHTML = '<p class="text-muted" style="font-size:12px;font-style:italic">Sin archivos cargados.</p>';
-            } else {
-                studentUploads.forEach(item => {
-                    const el = document.createElement("div");
-                    el.style.fontSize = "12px";
-                    el.style.padding = "6px";
-                    el.style.border = "1px solid var(--tb-border)";
-                    el.style.borderRadius = "6px";
-                    el.style.background = "var(--tb-bg-primary)";
-                    el.innerHTML = `🎵 ${this._escapeHtml(item.title)} (${this._escapeHtml(item.type.toUpperCase())})`;
-                    cargasContainer.appendChild(el);
-                });
-            }
-        }
     }
 
     renderFichaHeatmapGrid(profile) {
@@ -2107,25 +2046,12 @@ class GuitarStudioApp {
     renderTeacherFichaFieldsConfig() {
         const container = document.getElementById("tf-custom-fields-list");
         if (!container) return;
-        container.innerHTML = "";
-
         const fields = this.data.getFichaFields();
-        fields.forEach(f => {
-            const row = document.createElement("div");
-            row.style.display = "flex";
-            row.style.alignItems = "center";
-            row.style.justifyContent = "space-between";
-            row.style.padding = "8px 12px";
-            row.style.border = "1px solid var(--tb-border)";
-            row.style.borderRadius = "6px";
-            row.style.background = "var(--tb-bg-secondary)";
-
-            row.innerHTML = `
-                <span style="font-size: 13px; font-weight: 500; color: var(--tb-text-primary);">${this._escapeHtml(f)}</span>
-                <button class="btn btn-danger btn-sm" onclick="app.deleteCustomFichaField('${this._escapeHtml(f)}')" style="padding: 2px 6px; font-size:11px;">Eliminar</button>
-            `;
-            container.appendChild(row);
-        });
+        container.innerHTML = fields.map(f => `
+            <div class="row3">
+                <span class="row3-name" style="font-weight:500;">${this._escapeHtml(f)}</span>
+                <button class="row3-btn danger" onclick="app.deleteCustomFichaField('${this._escapeHtml(f)}')" title="Eliminar campo"><svg width="13" height="13"><use href="#icon-borrar"/></svg></button>
+            </div>`).join('') || '<p class="text-muted" style="font-size:12.5px; font-style:italic; margin:0;">No hay campos configurados.</p>';
     }
 
     addCustomFichaField() {

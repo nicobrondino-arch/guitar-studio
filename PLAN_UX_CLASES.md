@@ -38,7 +38,7 @@ Acordado el 2026-07-09. La clase deja de ser una "bolsa de contenido clasificado
 | 6 | Alertas Rápidas → campana de notificaciones (sección "Alertas" de estado vivo + config de tipos; NO convertir alertas en eventos). Fila de alumno gana racha+minutos inline; historial/métrica en hover reusando `hc-card` (fallback click en touch). Alta de alumno con "+ Nuevo alumno" | Code | **HECHO 2026-07-09** |
 | 7 | Fusionar pestañas Consultas + Cargas en "Consultas y Cargas" (chip de tipo dentro de la card, botones decentes, lista única por fecha) | Design → Code | **HECHO 2026-07-09** |
 | 8 | Migración del tracking — Fase B del modelo de Pasos | Code | Pendiente |
-| 9 | Rediseño ficha del alumno (`openTeacherFichaModal`) | Aparte, más adelante | Pendiente |
+| 9 | Rediseño ficha del alumno (`openTeacherFichaModal`) | Aparte, más adelante | **HECHO 2026-07-09** (4 pestañas, Pieza 8) |
 
 ### Detalle del punto 1 (hecho)
 - "Iniciar Sesión de Clase" / botón "Iniciar Clase" → **"Crear Clase"**, con campo de fecha (default hoy) — `createClase(groupId, date)` acepta fecha opcional.

@@ -7875,4 +7875,88 @@ input.dgf-input[type="time"] { cursor: pointer; }
 .cc3-btn.muted { color: var(--tb-text-secondary); }
 .cc3-btn svg { display: block; flex-shrink: 0; }
 
+/* ==========================================================================
+   Punto 9 — Ficha del Alumno, modal de 4 pestañas (Pieza 8)
+   ========================================================================== */
+.tf3-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--tb-border);
+    overflow-x: auto;
+}
+.tf3-tab {
+    padding: 9px 14px;
+    font: 600 12.5px var(--font-primary);
+    color: var(--tb-text-secondary);
+    white-space: nowrap;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    cursor: pointer;
+}
+.tf3-tab.active {
+    font-weight: 700;
+    color: var(--tb-accent);
+    border-bottom-color: var(--tb-accent);
+}
+.tf3-body {
+    padding: 18px 20px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+.tf3-grupo-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--tb-bg-secondary);
+    border: 1px solid var(--tb-border);
+    border-radius: 7px;
+}
+.tf3-grupo-nombre { font: 600 12.5px var(--font-primary); color: var(--tb-text-primary); }
+.tf3-grupo-horario { font: 400 11.5px var(--font-primary); color: var(--tb-text-secondary); }
+.tf3-docente {
+    background: color-mix(in srgb, var(--tb-accent) 5%, var(--tb-bg-secondary));
+    border: 1px solid color-mix(in srgb, var(--tb-accent) 20%, var(--tb-border));
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.tf3-docente-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font: 700 11.5px var(--font-primary);
+    color: var(--tb-accent);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+}
+.tf3-docente .tf3-input-dark { background: var(--tb-bg-primary); }
+.tf3-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+.tf3-stat {
+    background: var(--tb-bg-secondary);
+    border: 1px solid var(--tb-border);
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
+}
+.tf3-stat svg { display: block; }
+.tf3-stat-num { font: 700 18px var(--font-primary); color: var(--tb-text-primary); }
+.tf3-stat-label { font: 400 10.5px var(--font-primary); color: var(--tb-text-secondary); }
+
 
