@@ -846,8 +846,13 @@ Object.assign(GuitarStudioApp.prototype, {
         if (!name) { alert('Poné un nombre.'); return; }
         await this.data.saveProfile({ id: this.data.generateId('profile'), name, color, createdAt: new Date().toISOString() });
         document.getElementById('bib-alumno-modal').style.display = 'none';
-        this._bibSidebarTab = 'alumnos';
-        await this.renderBibliotecaView();
+        // El alta puede venir de Biblioteca o del tab Alumnos del tablero (punto 6)
+        if (document.getElementById('view-teacher-board')?.classList.contains('active')) {
+            await this.renderTeacherBoardView();
+        } else {
+            this._bibSidebarTab = 'alumnos';
+            await this.renderBibliotecaView();
+        }
     },
 
     async bibOpenCursoModal() {

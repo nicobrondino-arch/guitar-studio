@@ -1668,26 +1668,19 @@ Object.assign(GuitarStudioApp.prototype, {
                         <option value="clase" ${this._tbSort === 'clase' ? 'selected' : ''}>Ordenar: Próxima clase</option>
                     </select>
                     ${this._tbFocusProfileId ? `<button class="btn btn-outline btn-sm" onclick="app.tbClearFocus()">Quitar filtro de alerta</button>` : ''}
+                    <button class="btn btn-primary btn-sm" onclick="app.bibOpenAlumnoModal()" style="margin-left:auto; display:inline-flex; align-items:center; gap:5px; white-space:nowrap;"><svg width="13" height="13"><use href="#icon-nuevo"/></svg> Nuevo alumno</button>
                 </div>
                 <div class="tb-list-scroll">${listHtml}</div>
             </div>
         </div>`;
     },
 
+    // Las "Alertas Rápidas" viven ahora en la campana de notificaciones (punto 6) — acá queda solo el resumen
     _tbRenderHeaderStrip(studentsData, headerDate, practicedToday) {
         const total = studentsData.length;
         const red = studentsData.filter(s => s.alertStatus.level === 'red').length;
         const yellow = studentsData.filter(s => s.alertStatus.level === 'yellow').length;
         const green = total - red - yellow;
-
-        const inactiveAlerts = studentsData.filter(s => s.alertStatus.level === 'red')
-            .map(s => `<div class="tb-alert-item horizontal" onclick="app.tbFocusStudent('${s.profile.id}')">🔴 ${this._escapeHtml(s.profile.displayName || s.profile.name)} — ${s.alertStatus.reason}</div>`).join('');
-        const questionAlerts = studentsData.filter(s => s.pendingQuestions > 0)
-            .map(s => `<div class="tb-alert-item horizontal" onclick="app.tbFocusStudent('${s.profile.id}')">💬 ${this._escapeHtml(s.profile.displayName || s.profile.name)} — ${s.pendingQuestions} duda${s.pendingQuestions !== 1 ? 's' : ''}</div>`).join('');
-        const noObjAlerts = studentsData.filter(s => s.hasObjetivos && s.objetivosPct < 50)
-            .map(s => `<div class="tb-alert-item horizontal" onclick="app.tbFocusStudent('${s.profile.id}')">🎯 ${this._escapeHtml(s.profile.displayName || s.profile.name)} — objetivos ${s.objetivosPct}%</div>`).join('');
-
-        const alertsHtml = [inactiveAlerts, questionAlerts, noObjAlerts].filter(Boolean).join('');
 
         return `<div class="tb-header-strip">
             <div class="tb-header-main-row">
@@ -1701,11 +1694,6 @@ Object.assign(GuitarStudioApp.prototype, {
                     <span class="tb-header-badge status-red">● ${red} inactivos</span>
                 </div>
             </div>
-            ${alertsHtml ? `
-            <div class="tb-header-alerts-container">
-                <div class="tb-alerts-strip-title">Alertas Rápidas:</div>
-                <div class="tb-alerts-strip">${alertsHtml}</div>
-            </div>` : ''}
         </div>`;
     },
 
@@ -1747,19 +1735,38 @@ Object.assign(GuitarStudioApp.prototype, {
 
         const questionsPanel = expanded ? this._tbRenderQuestionsAccordion(p.id) : '';
 
-        // Fila colapsada = identidad + 1 semáforo (propuesta 3a); el detalle
-        // por categoría/racha/minutos se muestra solo al expandir.
+        // Hover card con historial/métrica (reusa hc-card del detalle de clase; en touch el click expande la fila)
+        const stepsDone = s.stepsToday.filter(Boolean).length;
+        const pracDot = stepsDone === 3 ? 'full' : stepsDone > 0 ? 'partial' : 'none';
+        const hoverCard = `
+            <div class="hc-card tb-hc" id="hc-tb-${p.id}">
+                <div class="hc-meta-row">
+                    <div class="hc-prac-dot ${pracDot}"></div>
+                    <span class="hc-prac-label ${pracDot}">${pracDot === 'full' ? 'Completo' : pracDot === 'partial' ? 'Parcial' : 'Sin práctica'}</span>
+                    <span class="hc-sep">·</span>
+                    <span class="hc-streak">${s.streak > 0 ? '🔥 ' + s.streak + 'd' : '—'}</span>
+                    <span class="hc-sep">·</span>
+                    <span class="hc-att-label">${minutesToday} min hoy</span>
+                    <span class="hc-sep">·</span>
+                    <span class="hc-att-label">${activityLabel}</span>
+                </div>
+            </div>`;
+
+        // Fila colapsada = identidad + racha/minutos inline + semáforo (punto 6); el resto al expandir
         return `<div class="tb-student-row${expanded ? ' expanded' : ''}" data-profile-id="${p.id}">
-            <div class="tb-row-header" onclick="app.tbToggleExpand('${p.id}')">
+            <div class="tb-row-header" onclick="app.tbToggleExpand('${p.id}')"
+                 onmouseenter="app._showHoverCard('tb-${p.id}')" onmouseleave="app._hideHoverCard('tb-${p.id}')">
                 <div class="tb-avatar" style="background:${p.color || 'var(--tb-accent)'}">${displayName.charAt(0).toUpperCase()}</div>
                 <div class="tb-identity">
                     <div class="tb-name">${this._escapeHtml(displayName)}</div>
                     <div class="tb-group">${this._escapeHtml(s.groupLabel)}</div>
                 </div>
+                <span class="tb-inline-stats">${s.streak > 0 ? `🔥 ${s.streak}d` : '— racha'} · ${minutesToday} min</span>
                 <div class="tb-status-dot-wrap" title="${this._escapeHtml(s.alertStatus.reason)}">
                     <span class="tb-status-dot tb-status-${s.alertStatus.level}" style="background:${statusColor}"></span>
                 </div>
                 <span class="tb-row-chevron">${expanded ? '▴' : '▾'}</span>
+                ${hoverCard}
             </div>
             ${expanded ? `<div class="tb-row-expanded">
                 <div class="tb-expanded-stats">
@@ -1814,6 +1821,54 @@ Object.assign(GuitarStudioApp.prototype, {
         this._tbFocusProfileId = profileId;
         this._teacherBoardExpandedId = profileId;
         this.renderTeacherBoardView();
+    },
+
+    // ── Alertas en la campana (punto 6): estado calculado en vivo al abrir el panel, NO eventos persistidos ──
+    _getAlertConfig() {
+        const defaults = { inactivos: true, dudas: true, objetivos: true };
+        try { return { ...defaults, ...JSON.parse(localStorage.getItem('gs-alert-config') || '{}') }; }
+        catch { return defaults; }
+    },
+
+    toggleAlertConfig(tipo) {
+        const cfg = this._getAlertConfig();
+        cfg[tipo] = !cfg[tipo];
+        localStorage.setItem('gs-alert-config', JSON.stringify(cfg));
+        this.renderNotificationsPanel();
+    },
+
+    async _renderNotifAlertsSection() {
+        const profiles = await this.data.getProfiles();
+        if (!profiles.length) return '';
+        const allClases = this.data.getAllClases();
+        const studentsData = await Promise.all(profiles.map(p => this._tbGetStudentData(p, allClases)));
+        const cfg = this._getAlertConfig();
+
+        const rows = [];
+        const nameOf = s => this._escapeHtml(s.profile.displayName || s.profile.name || '?');
+        if (cfg.inactivos) studentsData.filter(s => s.alertStatus.level === 'red').forEach(s =>
+            rows.push(`<div class="notif-alert-item" onclick="app.notifAlertClick('${s.profile.id}')"><span class="notif-alert-dot red"></span><span class="notif-alert-text"><strong>${nameOf(s)}</strong> — ${s.alertStatus.reason}</span></div>`));
+        if (cfg.dudas) studentsData.filter(s => s.pendingQuestions > 0).forEach(s =>
+            rows.push(`<div class="notif-alert-item" onclick="app.notifAlertClick('${s.profile.id}')"><svg width="13" height="13" style="color:var(--tb-accent); flex-shrink:0"><use href="#icon-consulta"/></svg><span class="notif-alert-text"><strong>${nameOf(s)}</strong> — ${s.pendingQuestions} duda${s.pendingQuestions !== 1 ? 's' : ''} sin responder</span></div>`));
+        if (cfg.objetivos) studentsData.filter(s => s.hasObjetivos && s.objetivosPct < 50).forEach(s =>
+            rows.push(`<div class="notif-alert-item" onclick="app.notifAlertClick('${s.profile.id}')"><span class="notif-alert-dot yellow"></span><span class="notif-alert-text"><strong>${nameOf(s)}</strong> — objetivos al ${s.objetivosPct}%</span></div>`));
+
+        const chip = (tipo, label) => `<button class="notif-alert-cfg-chip ${cfg[tipo] ? 'on' : ''}" onclick="app.toggleAlertConfig('${tipo}')">${label}</button>`;
+
+        return `<div class="notif-alerts-section">
+            <div class="notif-alerts-header">
+                <span>Alertas · estado actual</span>
+                <span class="notif-alert-cfg">${chip('inactivos', 'Inactivos')}${chip('dudas', 'Dudas')}${chip('objetivos', 'Objetivos')}</span>
+            </div>
+            ${rows.join('') || '<div class="notif-alerts-empty">Sin alertas por ahora ✓</div>'}
+        </div>`;
+    },
+
+    notifAlertClick(profileId) {
+        this.closeNotificationsPanel();
+        this._tbFocusProfileId = profileId;
+        this._teacherBoardExpandedId = profileId;
+        this.clasesGoToBoardTab('control');
     },
 
     tbClearFocus() {

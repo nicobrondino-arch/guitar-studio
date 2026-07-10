@@ -463,21 +463,22 @@ class GuitarStudioApp {
         if (panel) panel.style.display = 'none';
     }
 
-    renderNotificationsPanel() {
+    async renderNotificationsPanel() {
         const panel = document.getElementById('notif-panel');
         if (!panel) return;
         const items = this._myNotifications().slice().sort((a, b) => b.timestamp - a.timestamp);
-        panel.innerHTML = items.length ? `
+        // Sección de alertas del profesor: estado calculado en vivo, no son eventos (punto 6)
+        const alertsHtml = (this.isProfessorMode && this._renderNotifAlertsSection)
+            ? await this._renderNotifAlertsSection() : '';
+        panel.innerHTML = `
             <div class="notif-panel-header">
                 <span>Notificaciones</span>
-                <button onclick="app.markAllNotificationsRead()">Marcar todas como leídas</button>
+                ${items.length ? '<button onclick="app.markAllNotificationsRead()">Marcar todas como leídas</button>' : ''}
             </div>
-            <div class="notif-panel-list">
-                ${items.map(n => this._renderNotifItem(n)).join('')}
-            </div>
-        ` : `
-            <div class="notif-panel-header"><span>Notificaciones</span></div>
-            <div class="notif-panel-empty">No tenés notificaciones.</div>
+            ${alertsHtml}
+            ${items.length
+                ? `<div class="notif-panel-list">${items.map(n => this._renderNotifItem(n)).join('')}</div>`
+                : '<div class="notif-panel-empty">No tenés notificaciones.</div>'}
         `;
     }
 

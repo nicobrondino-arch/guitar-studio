@@ -1200,6 +1200,30 @@
     <!-- MODAL: EDITAR GRUPO (Pieza 3 — contenido renderizado por tableroProfesor.js) -->
     <div class="modal-overlay" id="modal-edit-group" style="display:none" onclick="if(event.target===this)app.closeGroupModal()"></div>
 
+    <!-- MODAL: NUEVO ALUMNO (punto 6 — alta desde el tab Alumnos o Biblioteca) -->
+    <div class="modal-overlay" id="bib-alumno-modal" style="display:none" onclick="if(event.target===this)app.bibCloseAlumnoModal()">
+        <div class="big3-modal" style="width:360px;">
+            <div class="big3-modal-header">
+                <div class="big3-modal-title">Nuevo Alumno</div>
+                <button class="big3-modal-close" onclick="app.bibCloseAlumnoModal()"><svg width="18" height="18"><use href="#icon-cerrar"/></svg></button>
+            </div>
+            <div class="big3-modal-body" style="display:flex; flex-direction:column; gap:14px;">
+                <div>
+                    <label class="dgf-label">Nombre</label>
+                    <input id="bib-alumno-name" class="dgf-input" type="text" placeholder="Nombre del alumno" onkeydown="if(event.key==='Enter')app.bibSaveAlumno()">
+                </div>
+                <div>
+                    <label class="dgf-label">Color de avatar</label>
+                    <input id="bib-alumno-color" type="color" value="#6366f1" style="width:44px; height:32px; border:1px solid var(--tb-border); border-radius:7px; background:var(--tb-bg-secondary); cursor:pointer; padding:2px;">
+                </div>
+            </div>
+            <div class="big3-modal-footer">
+                <button class="big3-btn" onclick="app.bibCloseAlumnoModal()">Cancelar</button>
+                <button class="big3-btn pri" onclick="app.bibSaveAlumno()">Crear alumno</button>
+            </div>
+        </div>
+    </div>
+
     <!-- JavaScript Application Scripts -->
     <script src="metronome.js"></script>
     <script src="dataService.js"></script>

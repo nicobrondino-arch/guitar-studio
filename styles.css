@@ -6585,49 +6585,74 @@ span.ck3-box { cursor: default; }
 }
 
 /* ── Alertas Rápidas Horizontales ── */
-.tb-header-alerts-container {
+/* ── Fila de alumno: racha/minutos inline + hover card (punto 6) ── */
+.tb-inline-stats {
+    font: 500 11px var(--font-primary);
+    color: var(--tb-text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-right: 4px;
+}
+.tb-row-header { position: relative; }
+.hc-card.tb-hc {
+    top: calc(100% - 4px);
+    left: 44px;
+    width: auto;
+    max-width: 340px;
+}
+
+/* ── Alertas en la campana: estado calculado en vivo (punto 6) ── */
+.notif-alerts-section {
+    border-bottom: 1px solid var(--tb-border);
+    padding: 8px 0;
+}
+.notif-alerts-header {
     display: flex;
     align-items: center;
-    gap: 12px;
-    background: var(--tb-bg-elevated);
-    border: 1px solid var(--tb-border);
-    border-radius: 8px;
-    padding: 6px 12px;
-}
-.tb-alerts-strip-title {
-    font: 700 11px var(--font-primary);
-    color: var(--tb-text-muted);
-    text-transform: uppercase;
-    letter-spacing: .04em;
-    white-space: nowrap;
-}
-.tb-alerts-strip {
-    display: flex;
+    justify-content: space-between;
     gap: 8px;
-    overflow-x: auto;
-    flex: 1;
+    padding: 4px 14px 8px;
+    font: 700 10px var(--font-primary);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--tb-text-muted);
 }
-.tb-alerts-strip::-webkit-scrollbar {
-    height: 4px;
-}
-.tb-alerts-strip::-webkit-scrollbar-thumb {
-    background: var(--tb-border);
-    border-radius: 2px;
-}
-.tb-alert-item.horizontal {
-    font: 500 11px var(--font-primary);
-    color: var(--tb-text-secondary);
-    background: var(--tb-bg-primary);
+.notif-alert-cfg { display: flex; gap: 4px; }
+.notif-alert-cfg-chip {
+    font: 600 9px var(--font-primary);
+    padding: 2px 7px;
+    border-radius: 10px;
     border: 1px solid var(--tb-border);
-    border-radius: 6px;
-    padding: 4px 10px;
+    background: transparent;
+    color: var(--tb-text-muted);
     cursor: pointer;
-    white-space: nowrap;
-    transition: all 0.15s ease;
+    text-transform: none;
+    letter-spacing: 0;
 }
-.tb-alert-item.horizontal:hover {
-    border-color: var(--tb-accent);
-    color: var(--tb-text-primary);
+.notif-alert-cfg-chip.on {
+    border-color: color-mix(in srgb, var(--tb-accent) 40%, transparent);
+    background: var(--tb-accent-glow);
+    color: var(--tb-accent);
+}
+.notif-alert-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    cursor: pointer;
+    font: 400 12px var(--font-primary);
+    color: var(--tb-text-secondary);
+}
+.notif-alert-item:hover { background: var(--tb-bg-secondary); }
+.notif-alert-item strong { color: var(--tb-text-primary); font-weight: 600; }
+.notif-alert-text { flex: 1; min-width: 0; }
+.notif-alert-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.notif-alert-dot.red { background: var(--tb-danger); }
+.notif-alert-dot.yellow { background: #f5a623; }
+.notif-alerts-empty {
+    padding: 6px 14px;
+    font: italic 400 12px var(--font-primary);
+    color: var(--tb-text-muted);
 }
 
 /* ── Colores en la Actividad (Extremo Derecho) ── */
