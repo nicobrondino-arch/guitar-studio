@@ -30,43 +30,36 @@ Object.assign(GuitarStudioApp.prototype, {
                 </a>
             </div>` : '';
 
-        const catConfig = [
-            { key: 0, label: 'Técnica',        color: '#a29bfe', borderColor: 'rgba(162,155,254,.2)' },
-            { key: 1, label: 'Lectura Musical', color: '#55efc4', borderColor: 'rgba(85,239,196,.2)'  },
-            { key: 2, label: 'Repertorio',      color: '#fdcb6e', borderColor: 'rgba(253,203,110,.2)' },
-        ];
+        // Checklist única de pasos, sin pestañas por categoría (Pieza 6B)
+        this._ensurePasosV2(clase);
         const libraryItems = await this.data.getLibraryItems();
-        const contentByCat = catConfig.map(cfg => {
-            const catMap = { 'Técnica': 0, 'Lectura': 1, 'Lectura Musical': 1, 'Repertorio': 2 };
-            const items = (clase.content || []).filter(c => {
-                let catVal = c.cat;
-                if (typeof catVal === 'string') catVal = catMap[catVal];
-                if (catVal === undefined || catVal === null) catVal = 0;
-                return catVal === cfg.key;
-            });
-            if (!items.length) return '';
-            const itemsHtml = items.map(c => {
-                const libItem = libraryItems.find(it => it.id === c.id) || {};
-                const title = libItem.title || c.title || c.name || 'Sin título';
-                const fileType = libItem.type || c.fileType || 'gp';
-
-                const iconSvg = fileType === 'youtube'
-                    ? `<svg viewBox="0 0 16 16" fill="none" style="width:13px;height:13px;flex-shrink:0;color:#FF0000" stroke="currentColor" stroke-width="1.2"><rect x="2" y="4" width="12" height="9" rx="1.5"/><path d="M6.5 7.5l4 2-4 2V7.5z" fill="currentColor" stroke="none"/></svg>`
-                    : `<svg viewBox="0 0 16 16" fill="none" style="width:13px;height:13px;flex-shrink:0" stroke="${cfg.color}" stroke-width="1.5"><path d="M8 2v12M4 6l4-4 4 4"/></svg>`;
-                const doubtBtn = opts.readonly ? '' : `<button onclick="event.stopPropagation(); app.sendItemDoubt('${clase.id}','${c.id}')" title="¿Duda con esto?" style="background:none; border:none; cursor:pointer; opacity:.5; font-size:12px; padding:2px; flex-shrink:0" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=.5">💬</button>`;
-                return `<div class="pc-item" style="display:flex; align-items:center; justify-content:space-between; gap:6px">
-                    <span onclick="app.openLibraryItemById('${c.id}')" style="display:flex; align-items:center; gap:6px; flex:1; min-width:0; cursor:pointer">${iconSvg}${this._escapeHtml(title)}</span>
-                    ${doubtBtn}
-                </div>`;
-            }).join('');
-            return `<div class="proxima-cat">
-                <div class="pc-label" style="color:${cfg.color}">
-                    <div style="width:8px;height:8px;border-radius:50%;background:${cfg.color};flex-shrink:0"></div>
-                    ${cfg.label}
+        const doneMap = ((clase.pasosDone || {})[this.activeProfile?.id] || {});
+        const pasosChecklist = (clase.content || []).map((p, idx) => {
+            const libItem = p.libraryItemId ? libraryItems.find(it => it.id === p.libraryItemId) : null;
+            const done = !!doneMap[p.id];
+            const catColor = libItem ? this._bibCatColor(libItem.category || '') : null;
+            const contentTitle = libItem ? (libItem.title || 'Sin título') : 'Sin material';
+            const checkBtn = opts.readonly
+                ? `<span class="ck3-box ${done ? 'done' : ''}">${done ? '<svg width="18" height="18"><use href="#icon-check"/></svg>' : ''}</span>`
+                : `<button class="ck3-box ${done ? 'done' : ''}" onclick="app.pasoToggleDone('${clase.id}','${p.id}')" title="${done ? 'Marcar pendiente' : 'Marcar completado'}">${done ? '<svg width="18" height="18"><use href="#icon-check"/></svg>' : ''}</button>`;
+            const doubtBtn = (!opts.readonly && libItem) ? `<button class="ck3-duda" onclick="app.sendItemDoubt('${clase.id}','${libItem.id}')" title="¿Duda con esto?">💬</button>` : '';
+            const abrirBtn = libItem ? `<button class="ck3-abrir" onclick="app.openLibraryItemById('${libItem.id}')"><svg width="13" height="13"><use href="#icon-abrir"/></svg> Abrir</button>` : '';
+            return `
+            <div class="ck3-row ${done ? 'done' : ''}">
+                ${checkBtn}
+                <div class="ck3-info">
+                    <div class="ck3-meta">
+                        <span class="ck3-num">Paso ${idx + 1}</span>
+                        <span class="ck3-dot" style="background:${catColor || 'transparent'}"></span>
+                        <span class="ck3-content-title">${this._escapeHtml(contentTitle)}</span>
+                    </div>
+                    ${p.descripcion ? `<div class="ck3-consigna">${this._escapeHtml(p.descripcion)}</div>` : ''}
+                    ${p.objetivo ? `<div class="ck3-objetivo">🎯 ${this._escapeHtml(p.objetivo)}</div>` : ''}
                 </div>
-                <div class="pc-items" style="border-color:${cfg.borderColor}">${itemsHtml}</div>
+                <div class="ck3-actions">${abrirBtn}${doubtBtn}</div>
             </div>`;
         }).join('');
+        const contentByCat = pasosChecklist ? `<div class="ck3-list">${pasosChecklist}</div>` : '';
 
         const notaAlumno = clase.notaAlumno ? `
             <div class="proxima-nota-prof">
@@ -422,6 +415,18 @@ Object.assign(GuitarStudioApp.prototype, {
         await this.renderPracticeView();
     },
 
+    // Checkbox de paso completado (Pieza 6B) — solo estado visual por alumno; el tracking migra en Fase B
+    pasoToggleDone(claseId, pasoId) {
+        if (!this.activeProfile) return;
+        const clase = this.data.getClase(claseId);
+        if (!clase) return;
+        clase.pasosDone = clase.pasosDone || {};
+        const mine = clase.pasosDone[this.activeProfile.id] = clase.pasosDone[this.activeProfile.id] || {};
+        mine[pasoId] = !mine[pasoId];
+        this.data.saveClase(clase);
+        this.renderStudioSelectorAndDetails();
+    },
+
     async sendItemDoubt(claseId, itemId) {
         if (!this.activeProfile) {
             alert("Iniciá sesión como alumno para enviar consultas.");
@@ -689,7 +694,7 @@ Object.assign(GuitarStudioApp.prototype, {
                 const allLib = await this.data.getLibraryItems();
                 resolvedItems = catItemsTagged
                     .map(({ cItem, groupName, claseId }) => {
-                        const li = allLib.find(l => l.id === cItem.id);
+                        const li = allLib.find(l => l.id === this._pasoLibId(cItem));
                         return li ? { ...li, _origin: multiGroup ? groupName : null, _claseId: claseId } : null;
                     })
                     .filter(Boolean);
@@ -1384,7 +1389,8 @@ Object.assign(GuitarStudioApp.prototype, {
         const classItemIds = new Set();
         assignedClasses.forEach(clase => {
             (clase.content || []).forEach(item => {
-                if (item.id) classItemIds.add(item.id);
+                const libId = this._pasoLibId(item);
+                if (libId) classItemIds.add(libId);
             });
         });
 
@@ -1420,15 +1426,15 @@ Object.assign(GuitarStudioApp.prototype, {
         const classesWithContent = assignedClasses
             .filter(c => (c.content && c.content.length > 0) || (uploadsByClass[c.id] && uploadsByClass[c.id].length > 0))
             .sort((a, b) => {
-                const da = b.finalizadaAt || b.date || '';
-                const db = a.finalizadaAt || a.date || '';
-                return da.localeCompare(db);
+                // finalizadaAt es epoch ms (número) y date es 'YYYY-MM-DD' — normalizar a timestamp
+                const ts = c => c.finalizadaAt ? new Date(c.finalizadaAt).getTime() : (c.date ? new Date(c.date + 'T12:00').getTime() : 0);
+                return ts(b) - ts(a);
             });
 
         // Generar HTML de las clases
         const classesHtml = classesWithContent.map(clase => {
             const resolvedTeacherItems = (clase.content || []).map(c => {
-                const libItem = allItems.find(it => it.id === c.id);
+                const libItem = allItems.find(it => it.id === this._pasoLibId(c));
                 if (!libItem) return null;
                 return { ...libItem, category: c.cat || libItem.category };
             }).filter(Boolean);

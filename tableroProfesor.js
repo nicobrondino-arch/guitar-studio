@@ -238,6 +238,27 @@ Object.assign(GuitarStudioApp.prototype, {
         await libRender;
     },
 
+    // ── Modelo de Pasos (Pieza 6, Fase A) ──
+    // clase.content = lista ordenada de pasos { id, libraryItemId (opcional), descripcion, objetivo }.
+    // Ítems viejos {id: <libId>, cat} y clase.objetivos migran acá; categories/objetivos no se borran (compat) pero dejan de leerse.
+    _pasoLibId(c) {
+        return ('libraryItemId' in c) ? c.libraryItemId : c.id;
+    },
+
+    _ensurePasosV2(clase) {
+        if (!clase || clase.pasosV2) return clase;
+        const pasos = (clase.content || []).map(c => ('libraryItemId' in c) ? c : ({
+            id: this.data.generateId('paso'), libraryItemId: c.id, descripcion: '', objetivo: ''
+        }));
+        (clase.objetivos || []).forEach(o => {
+            pasos.push({ id: this.data.generateId('paso'), libraryItemId: null, descripcion: o.text || '', objetivo: '' });
+        });
+        clase.content = pasos;
+        clase.pasosV2 = true;
+        this.data.saveClase(clase);
+        return clase;
+    },
+
     createClase(groupId, date) {
         const group = this.data.getGroup(groupId);
         if (!group) return;
@@ -251,7 +272,8 @@ Object.assign(GuitarStudioApp.prototype, {
             attendance: {},
             content: [],
             objetivos: [],
-            resumen: ''
+            resumen: '',
+            pasosV2: true
         };
         this.data.saveClase(clase);
         this.openClase(clase.id);
@@ -287,16 +309,8 @@ Object.assign(GuitarStudioApp.prototype, {
         const status = clase.status === 'finalizada' ? 'finalizada' : clase.status === 'en-curso' ? 'iniciada' : 'pendiente';
         const todayStr = this.getTodayString();
 
-        // Migración backward compat: cat numérico → string
-        const catNumToStr = { 0:'Técnica', 1:'Lectura', 2:'Repertorio' };
-        (clase.content||[]).forEach(c => {
-            if (typeof c.cat === 'number') c.cat = catNumToStr[c.cat] || 'Técnica';
-        });
-
-        // Categorías activas de la clase (con defaults)
-        if (!clase.categories || !clase.categories.length) {
-            clase.categories = ['Técnica','Lectura','Repertorio','Cont. Complementario'];
-        }
+        // Modelo de Pasos: migra content viejo + objetivos → lista ordenada de pasos
+        this._ensurePasosV2(clase);
 
         // ── A) HEADER ──
         const meetUrl = clase.meetUrl || group.meetLink || '';
@@ -394,33 +408,9 @@ Object.assign(GuitarStudioApp.prototype, {
             buildAttGroup('Sin marcar', 'gray', sinMarcar),
         ].join('') || '<p class="text3-muted">Sin alumnos en este grupo</p>';
 
-        // ── E) CONTENIDO ──
-        const catChips = clase.categories.map(cat => `
-            <div class="cat3-chip">
-                <span>${this._escapeHtml(cat)}</span>
-                <span class="cat3-rm" onclick="app.removeCategory('${claseId}','${this._escapeHtml(cat)}')">×</span>
-            </div>`).join('');
-
+        // ── E) PLAN DE LA CLASE: lista ordenada de pasos (Pieza 6A) ──
+        const pasosHtml = this._renderPasosListHtml(clase, libraryItems);
         const iconFor = ft => this._bibTypeIcon(ft);
-        const contentItems = (clase.content||[]).map(c => {
-            const libItem = libraryItems.find(it => it.id === c.id) || {};
-            const title = libItem.title || c.title || c.name || 'Sin título';
-            const fileType = libItem.type || c.fileType || 'gp';
-            return `<div class="ci3-item">
-                <div class="ci3-ico">${iconFor(fileType)}</div>
-                <span class="ci3-title">${this._escapeHtml(title)}</span>
-                <span class="ci3-cat">${this._escapeHtml(c.cat||'')}</span>
-                <span class="ci3-rm" onclick="app.removeContentFromClase('${claseId}','${c.id}')">×</span>
-            </div>`;
-        }).join('') || '<p class="text3-muted">Sin contenido. Agregá desde la Biblioteca →</p>';
-
-        // ── G) OBJETIVOS ──
-        const objItems = (clase.objetivos||[]).map(o => `
-            <div class="obj3-item">
-                <div class="obj3-box"></div>
-                <span class="obj3-text">${this._escapeHtml(o.text)}</span>
-                <span class="obj3-rm" onclick="app.removeObjetivoFromClase('${claseId}','${o.id}')">×</span>
-            </div>`).join('');
 
         // ── DUDAS Y CONSULTAS DEL ALUMNO ──
         const currentPreguntas = this.data.getAllPreguntasForClase(claseId, memberIds);
@@ -513,34 +503,23 @@ Object.assign(GuitarStudioApp.prototype, {
                     </div>
                 </div>
 
-                <!-- CONTENIDO -->
+                <!-- PLAN DE LA CLASE: PASOS (Pieza 6A) -->
                 <div class="sec3-block">
-                    <div class="sec3-label">Contenido de la clase <span class="sec3-hint">agregá desde Biblioteca →</span></div>
-                    <div class="cat3-chips" id="cat3-chips-${claseId}" style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
-                        ${catChips}
-                        <div class="cat3-add" onclick="app.bibOpenCatEditor('clase:${claseId}')" title="Configurar categorías para esta clase"><span>⚙️</span> Categorías</div>
+                    <div class="sec3-label" style="display:flex; align-items:center; gap:8px;">
+                        <span>Plan de la clase <span class="sec3-hint">pasos en orden · agregá material desde Biblioteca →</span></span>
                         <select class="form-select" onchange="if(this.value){app.applyTemplateToClase(this.value); this.value='';}" style="font-size:11px; padding:4px 8px; border-radius:4px; height:auto; width:auto; max-width:135px; margin:0 0 0 auto; outline:none; background:var(--tb-bg-primary); border:1px solid var(--tb-border); color:var(--tb-text-primary); cursor:pointer;">
                             <option value="">— Aplicar Plantilla —</option>
                             ${templates.map(t => `<option value="${t.id}">${this._escapeHtml(t.name)}</option>`).join('')}
                         </select>
                     </div>
-                    <div class="ci3-list" id="ci3-list-${claseId}">${contentItems}</div>
+                    <div class="paso3-list" id="paso3-list-${claseId}">${pasosHtml}</div>
+                    <button class="paso3-add-btn" onclick="app.pasoAdd('${claseId}')">+ Agregar paso</button>
                 </div>
 
-                <!-- RESUMEN + OBJETIVOS -->
-                <div class="sec3-fg-grid">
-                    <div class="sec3-block">
-                        <div class="sec3-label">Resumen privado</div>
-                        <textarea class="sec3-ta" id="resumen-prof-${claseId}" placeholder="¿Qué se trabajó hoy?…" rows="4" onblur="app.saveResumenProfesor('${claseId}',this.value)">${this._escapeHtml(clase.resumenProfesor||clase.resumen||'')}</textarea>
-                    </div>
-                    <div class="sec3-block">
-                        <div class="sec3-label">Objetivos <span class="sec3-hint">el alumno los ve</span></div>
-                        <div class="obj3-list" id="obj3-list-${claseId}">${objItems||'<p class="text3-muted">Sin objetivos</p>'}</div>
-                        <div class="obj3-add-row">
-                            <input type="text" class="obj3-input" id="new-obj-${claseId}" placeholder="Nuevo objetivo…" onkeydown="if(event.key==='Enter')app.addObjetivoToClase('${claseId}')">
-                            <button class="h3-btn h3-btn-pri" onclick="app.addObjetivoToClase('${claseId}')">+ Agregar</button>
-                        </div>
-                    </div>
+                <!-- RESUMEN PRIVADO -->
+                <div class="sec3-block">
+                    <div class="sec3-label">Resumen privado</div>
+                    <textarea class="sec3-ta" id="resumen-prof-${claseId}" placeholder="¿Qué se trabajó hoy?…" rows="4" onblur="app.saveResumenProfesor('${claseId}',this.value)">${this._escapeHtml(clase.resumenProfesor||clase.resumen||'')}</textarea>
                 </div>
 
                 ${dudasSectionHtml}
@@ -558,67 +537,98 @@ Object.assign(GuitarStudioApp.prototype, {
         this.cycleAttendance(claseId, profileId);
     },
 
-    async removeContentFromClase(claseId, itemId) {
+    // ── Pasos (Pieza 6A): render + CRUD en el detalle de clase ──
+    _renderPasosListHtml(clase, libraryItems) {
+        const pasos = clase.content || [];
+        if (!pasos.length) return '<p class="text3-muted">Sin pasos. Agregá material desde la Biblioteca → o un paso de consigna.</p>';
+        return pasos.map((p, idx) => {
+            const libItem = p.libraryItemId ? libraryItems.find(it => it.id === p.libraryItemId) : null;
+            const title = libItem ? (libItem.title || 'Sin título') : (p.descripcion || 'Paso sin contenido');
+            // El puntito de categoría siempre reserva su espacio, aunque no haya material (Pieza 6)
+            const dotColor = libItem ? this._bibCatColor(libItem.category || '') : 'transparent';
+            const expanded = this._pasoExpandedId === p.id;
+            const showPreview = !expanded && libItem && p.descripcion;
+            return `
+            <div class="paso3-card ${libItem ? '' : 'consigna'}">
+                <div class="paso3-head" onclick="app.pasoToggleExpand('${clase.id}','${p.id}')">
+                    <span class="paso3-num">${idx + 1}</span>
+                    <span class="paso3-dot" style="background:${dotColor}"></span>
+                    <span class="paso3-txt">
+                        <span class="paso3-title ${libItem ? '' : 'consigna'}">${this._escapeHtml(title)}</span>
+                        ${showPreview ? `<span class="paso3-preview">${this._escapeHtml(p.descripcion)}</span>` : ''}
+                    </span>
+                    <button class="paso3-btn" title="Subir" onclick="event.stopPropagation(); app.pasoMove('${clase.id}','${p.id}',-1)"><svg width="18" height="18"><use href="#icon-arriba"/></svg></button>
+                    <button class="paso3-btn" title="Bajar" onclick="event.stopPropagation(); app.pasoMove('${clase.id}','${p.id}',1)"><svg width="18" height="18"><use href="#icon-abajo"/></svg></button>
+                    <button class="paso3-btn danger" title="Quitar paso" onclick="event.stopPropagation(); app.pasoRemove('${clase.id}','${p.id}')"><svg width="18" height="18"><use href="#icon-borrar"/></svg></button>
+                </div>
+                ${expanded ? `
+                <div class="paso3-body">
+                    <div>
+                        <label class="paso3-field-label">Consigna <span class="opt">(opcional)</span></label>
+                        <textarea class="tpl3-ta" rows="2" placeholder="¿Qué tiene que hacer el alumno?…" onblur="app.pasoField('${clase.id}','${p.id}','descripcion',this.value)">${this._escapeHtml(p.descripcion || '')}</textarea>
+                    </div>
+                    <div>
+                        <label class="paso3-field-label">Objetivo <span class="opt">(opcional)</span></label>
+                        <textarea class="tpl3-ta" rows="2" style="min-height:36px;" placeholder="¿Para qué?…" onblur="app.pasoField('${clase.id}','${p.id}','objetivo',this.value)">${this._escapeHtml(p.objetivo || '')}</textarea>
+                    </div>
+                </div>` : ''}
+            </div>`;
+        }).join('');
+    },
+
+    async _refreshPasosList(claseId) {
+        const listEl = document.getElementById(`paso3-list-${claseId}`);
+        const clase = this.data.getClase(claseId);
+        if (!listEl || !clase) return;
+        const libraryItems = await this.data.getLibraryItems();
+        listEl.innerHTML = this._renderPasosListHtml(clase, libraryItems);
+    },
+
+    pasoToggleExpand(claseId, pasoId) {
+        this._pasoExpandedId = this._pasoExpandedId === pasoId ? null : pasoId;
+        this._refreshPasosList(claseId);
+    },
+
+    pasoMove(claseId, pasoId, dir) {
         const clase = this.data.getClase(claseId);
         if (!clase) return;
-        clase.content = (clase.content||[]).filter(c => c.id !== itemId);
+        const list = clase.content || [];
+        const i = list.findIndex(p => p.id === pasoId);
+        const j = i + dir;
+        if (i < 0 || j < 0 || j >= list.length) return;
+        [list[i], list[j]] = [list[j], list[i]];
         this.data.saveClase(clase);
-        
-        const libraryItems = await this.data.getLibraryItems();
-        const iconFor = ft => this._bibTypeIcon(ft);
-        const listEl = document.getElementById(`ci3-list-${claseId}`);
-        if (listEl) {
-            listEl.innerHTML = clase.content.length
-                ? clase.content.map(c => {
-                    const libItem = libraryItems.find(it => it.id === c.id) || {};
-                    const title = libItem.title || c.title || c.name || 'Sin título';
-                    const fileType = libItem.type || c.fileType || 'gp';
-                    return `
-                    <div class="ci3-item">
-                        <div class="ci3-ico">${iconFor(fileType)}</div>
-                        <span class="ci3-title">${this._escapeHtml(title)}</span>
-                        <span class="ci3-cat">${this._escapeHtml(c.cat||'')}</span>
-                        <span class="ci3-rm" onclick="app.removeContentFromClase('${claseId}','${c.id}')">×</span>
-                    </div>`;
-                }).join('')
-                : '<p class="text3-muted">Sin contenido. Agregá desde la Biblioteca →</p>';
-        }
+        this._refreshPasosList(claseId);
+    },
+
+    pasoRemove(claseId, pasoId) {
+        const clase = this.data.getClase(claseId);
+        if (!clase) return;
+        clase.content = (clase.content || []).filter(p => p.id !== pasoId);
+        this.data.saveClase(clase);
+        if (this._pasoExpandedId === pasoId) this._pasoExpandedId = null;
+        this._refreshPasosList(claseId);
         this._renderBibliotecaPanel();
     },
 
-    addObjetivoToClase(claseId) {
-        const input = document.getElementById(`new-obj-${claseId}`);
-        if (!input) return;
-        const text = input.value.trim();
-        if (!text) return;
+    pasoField(claseId, pasoId, field, value) {
         const clase = this.data.getClase(claseId);
         if (!clase) return;
-        clase.objetivos = clase.objetivos || [];
-        const obj = { id: this.data.generateId('obj'), text };
-        clase.objetivos.push(obj);
+        const paso = (clase.content || []).find(p => p.id === pasoId);
+        if (!paso) return;
+        paso[field] = value;
         this.data.saveClase(clase);
-        input.value = '';
-        const listEl = document.getElementById(`obj3-list-${claseId}`);
-        if (listEl) {
-            if (listEl.querySelector('.text3-muted')) listEl.innerHTML = '';
-            const div = document.createElement('div');
-            div.className = 'obj3-item';
-            div.innerHTML = `<div class="obj3-box"></div><span class="obj3-text">${this._escapeHtml(text)}</span><span class="obj3-rm" onclick="app.removeObjetivoFromClase('${claseId}','${obj.id}')">×</span>`;
-            listEl.appendChild(div);
-        }
     },
 
-    removeObjetivoFromClase(claseId, objId) {
+    pasoAdd(claseId) {
         const clase = this.data.getClase(claseId);
         if (!clase) return;
-        clase.objetivos = (clase.objetivos||[]).filter(o => o.id !== objId);
+        this._ensurePasosV2(clase);
+        const paso = { id: this.data.generateId('paso'), libraryItemId: null, descripcion: '', objetivo: '' };
+        clase.content.push(paso);
         this.data.saveClase(clase);
-        const listEl = document.getElementById(`obj3-list-${claseId}`);
-        if (listEl) {
-            const item = listEl.querySelector(`[onclick*="${objId}"]`)?.closest('.obj3-item');
-            if (item) item.remove();
-            if (!listEl.children.length) listEl.innerHTML = '<p class="text3-muted">Sin objetivos</p>';
-        }
+        this._pasoExpandedId = paso.id;
+        this._refreshPasosList(claseId);
     },
 
     saveResumenClase(claseId, text) {
@@ -881,7 +891,8 @@ Object.assign(GuitarStudioApp.prototype, {
             clase = {
                 id: this.data.generateId('clase'), groupId: d.id,
                 title: `Clase ${new Date(dateStr+'T12:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}`,
-                date: dateStr, status: 'programada', attendance: {}, content: [], objetivos: [], resumen: ''
+                date: dateStr, status: 'programada', attendance: {}, content: [], objetivos: [], resumen: '',
+                pasosV2: true
             };
             this.data.saveClase(clase);
         }
@@ -1105,37 +1116,6 @@ Object.assign(GuitarStudioApp.prototype, {
         refreshHeader(targetGroup);
     },
 
-    removeCategory(claseId, cat) {
-        const clase = this.data.getClase(claseId);
-        if (!clase) return;
-        clase.categories = (clase.categories||[]).filter(c => c !== cat);
-        this.data.saveClase(clase);
-        const chipsEl = document.getElementById(`cat3-chips-${claseId}`);
-        if (chipsEl) {
-            const chip = [...chipsEl.querySelectorAll('.cat3-chip')].find(el => el.querySelector('span')?.textContent === cat);
-            if (chip) chip.remove();
-        }
-    },
-
-    _promptAddCategory(claseId) {
-        const cat = prompt('Nombre de la categoría:');
-        if (!cat || !cat.trim()) return;
-        const clase = this.data.getClase(claseId);
-        if (!clase) return;
-        clase.categories = clase.categories || [];
-        if (clase.categories.includes(cat.trim())) return;
-        clase.categories.push(cat.trim());
-        this.data.saveClase(clase);
-        const chipsEl = document.getElementById(`cat3-chips-${claseId}`);
-        if (chipsEl) {
-            const addBtn = chipsEl.querySelector('.cat3-add');
-            const chip = document.createElement('div');
-            chip.className = 'cat3-chip';
-            chip.innerHTML = `<span>${this._escapeHtml(cat.trim())}</span><span class="cat3-rm" onclick="app.removeCategory('${claseId}','${this._escapeHtml(cat.trim())}')">×</span>`;
-            chipsEl.insertBefore(chip, addBtn);
-        }
-    },
-
     saveResumenProfesor(claseId, text) {
         const clase = this.data.getClase(claseId);
         if (!clase) return;
@@ -1161,7 +1141,7 @@ Object.assign(GuitarStudioApp.prototype, {
         const allItems = await this.data.getLibraryItems();
         const claseId = this._currentClaseId;
         const clase = claseId ? this.data.getClase(claseId) : null;
-        const addedIds = new Set((clase?.content||[]).map(c => c.id));
+        const addedIds = new Set((clase?.content||[]).map(c => this._pasoLibId(c)).filter(Boolean));
 
         const q = (this._libSearch||'').toLowerCase().trim();
         const catF = this._libCatFilter || 'todos';
@@ -1174,7 +1154,8 @@ Object.assign(GuitarStudioApp.prototype, {
 
         const iconFor = ft => this._bibTypeIcon(ft);
 
-        const panelCats = (clase && clase.categories && clase.categories.length) ? clase.categories : this.data.getDefaultCategories();
+        // La categoría es metadata de biblioteca; clase.categories dejó de leerse (modelo de Pasos)
+        const panelCats = this.data.getDefaultCategories();
         const catChips = ['todos', ...panelCats].map(c =>
             `<div class="bib3-chip ${catF===c?'active':''}" onclick="app.filterBiblioteca('${this._escapeHtml(c)}')">${c==='todos'?'Todos':this._escapeHtml(c)}</div>`
         ).join('');
@@ -1228,13 +1209,11 @@ Object.assign(GuitarStudioApp.prototype, {
         const claseId = this._currentClaseId;
         const clase = this.data.getClase(claseId);
         if (!clase) return;
-        if ((clase.content||[]).some(c => c.id === libItemId)) return;
+        this._ensurePasosV2(clase);
+        if (clase.content.some(p => this._pasoLibId(p) === libItemId)) return;
         const item = await this.data.getLibraryItem(libItemId);
         if (!item) return;
-        const cats = clase.categories || this.data.getDefaultCategories();
-        const cat = (item.category && cats.includes(item.category)) ? item.category : (cats[0] || 'Técnica');
-        clase.content = clase.content || [];
-        clase.content.push({ id: item.id, cat });
+        clase.content.push({ id: this.data.generateId('paso'), libraryItemId: item.id, descripcion: '', objetivo: '' });
         this.data.saveClase(clase);
 
         const group = clase.groupId ? this.data.getGroup(clase.groupId) : null;
@@ -1242,26 +1221,9 @@ Object.assign(GuitarStudioApp.prototype, {
             this.notifyStudents(group.memberIds, { type: 'carga_docente', claseId, itemId: item.id, itemTitle: item.title });
         }
 
-        // Cargar biblioteca para resolver dinámicamente títulos/iconos
-        const libraryItems = await this.data.getLibraryItems();
-        const iconFor = ft => this._bibTypeIcon(ft);
-        const listEl = document.getElementById(`ci3-list-${claseId}`);
-        if (listEl) {
-            listEl.innerHTML = clase.content.map(c => {
-                const libItem = libraryItems.find(it => it.id === c.id) || {};
-                const title = libItem.title || c.title || c.name || 'Sin título';
-                const fileType = libItem.type || c.fileType || 'gp';
-                return `
-                <div class="ci3-item">
-                    <div class="ci3-ico">${iconFor(fileType)}</div>
-                    <span class="ci3-title">${this._escapeHtml(title)}</span>
-                    <span class="ci3-cat">${this._escapeHtml(c.cat||'')}</span>
-                    <span class="ci3-rm" onclick="app.removeContentFromClase('${claseId}','${c.id}')">×</span>
-                </div>`;
-            }).join('');
-        }
+        await this._refreshPasosList(claseId);
         this._renderBibliotecaPanel();
-        this.showToast('Contenido agregado', '📎');
+        this.showToast('Paso agregado al plan', '📎');
     },
 
     async applyTemplateToClase(tplId) {
@@ -1271,24 +1233,21 @@ Object.assign(GuitarStudioApp.prototype, {
         const clase = this.data.getClase(this._currentClaseId);
         if (!clase) return;
 
-        // Puente pre-punto 5: los pasos de plantilla se vuelcan al modelo viejo de la clase
-        // (paso con material → content; paso solo consigna → objetivo). Se unifica con el modelo de Pasos.
-        clase.content = clase.content || [];
-        clase.objetivos = clase.objetivos || [];
+        // La plantilla es un plan de pasos: se agregan como pasos de la clase (ids nuevos)
+        this._ensurePasosV2(clase);
         let addedCount = 0;
         for (const paso of (tpl.items || [])) {
-            if (paso.libraryItemId) {
-                if (!clase.content.some(c => c.id === paso.libraryItemId)) {
-                    clase.content.push({ id: paso.libraryItemId, cat: paso.cat });
-                    addedCount++;
-                }
-            } else {
-                const text = (paso.descripcion || paso.objetivo || '').trim();
-                if (text && !clase.objetivos.some(o => o.text === text)) {
-                    clase.objetivos.push({ id: this.data.generateId('obj'), text });
-                    addedCount++;
-                }
-            }
+            const yaEsta = paso.libraryItemId
+                ? clase.content.some(p => this._pasoLibId(p) === paso.libraryItemId)
+                : clase.content.some(p => !this._pasoLibId(p) && (p.descripcion || '').trim() === (paso.descripcion || '').trim());
+            if (yaEsta) continue;
+            clase.content.push({
+                id: this.data.generateId('paso'),
+                libraryItemId: paso.libraryItemId || null,
+                descripcion: paso.descripcion || '',
+                objetivo: paso.objetivo || ''
+            });
+            addedCount++;
         }
         if (addedCount > 0) {
             this.data.saveClase(clase);
@@ -1298,7 +1257,7 @@ Object.assign(GuitarStudioApp.prototype, {
             }
             if (this._currentClaseId) await this._renderClaseDetail(this._currentClaseId);
             this._renderBibliotecaPanel();
-            this.showToast(`Plantilla "${tpl.name}" aplicada. Se agregaron ${addedCount} ítems.`, '📋');
+            this.showToast(`Plantilla "${tpl.name}" aplicada. Se agregaron ${addedCount} paso${addedCount!==1?'s':''}.`, '📋');
         } else {
             this.showToast('Todos los ítems de la plantilla ya estaban agregados.', 'ℹ️');
         }
