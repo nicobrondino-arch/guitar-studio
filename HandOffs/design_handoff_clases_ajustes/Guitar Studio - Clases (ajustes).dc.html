@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700;800&family=Yeseva+One&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --tb-bg-primary:     #170b0e;
+      --tb-bg-secondary:   #251016;
+      --tb-bg-elevated:    #34161e;
+      --tb-bg-tertiary:    #1f0d12;
+      --tb-accent:         #c22e3d;
+      --tb-accent-hover:   #d84052;
+      --tb-accent-glow:    rgba(194, 46, 61, 0.14);
+      --tb-danger:         #c0392b;
+      --tb-border:         #3b1a24;
+      --tb-border-hover:   #54293a;
+      --tb-text-primary:   #f6ead9;
+      --tb-text-secondary: #b39387;
+      --tb-text-muted:     #77504a;
+      --tb-success:        #34c759;
+      --font-primary:      'Nunito Sans', sans-serif;
+      --font-heading:      'Yeseva One', serif;
+    }
+    body { margin:0; background:#e9e3d8; font-family: var(--font-primary); }
+    a { color: var(--tb-accent); }
+    a:hover { color: var(--tb-accent-hover); }
+    ::placeholder { color: var(--tb-text-muted); }
+  </style>
+</helmet>
+
+<svg style="display:none">
+  <defs>
+    <symbol id="icon-volver" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-editar" viewBox="0 0 24 24"><path d="M4 20l.9-4 10-10 3.1 3.1-10 10-4 .9z" fill="currentColor" fill-opacity=".16" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M14 6.5l3.5 3.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+    <symbol id="icon-meet" viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2.5" fill="currentColor" fill-opacity=".16" stroke="currentColor" stroke-width="1.7"/><path d="M16 10l5-3v10l-5-3z" fill="currentColor" fill-opacity=".16" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-consulta" viewBox="0 0 24 24"><path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4.5 4V17H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" fill="currentColor" fill-opacity=".14" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><circle cx="8.5" cy="11" r="1.1" fill="currentColor" stroke="none"/><circle cx="12" cy="11" r="1.1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="11" r="1.1" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="icon-abrir" viewBox="0 0 24 24"><path d="M9 6H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 4h6v6M20 4l-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-subir-bib" viewBox="0 0 24 24"><path d="M12 16V5M12 5l-4 4M12 5l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-borrar" viewBox="0 0 24 24"><path d="M5 7h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.5 7l1 12.5A1.5 1.5 0 0 0 9 21h6a1.5 1.5 0 0 0 1.5-1.5L17.5 7" fill="currentColor" fill-opacity=".14" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 11v6M14 11v6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".55"/></symbol>
+    <symbol id="icon-responder" viewBox="0 0 24 24"><path d="M3 12l17-8-6 17-3-7-8-2z" fill="currentColor" fill-opacity=".16" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-nuevo" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="icon-arriba" viewBox="0 0 24 24"><path d="M6 14l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-abajo" viewBox="0 0 24 24"><path d="M6 10l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-cerrar" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></symbol>
+    <symbol id="icon-drag" viewBox="0 0 24 24">
+      <circle cx="9" cy="6" r="1.6" fill="currentColor"/><circle cx="15" cy="6" r="1.6" fill="currentColor"/>
+      <circle cx="9" cy="12" r="1.6" fill="currentColor"/><circle cx="15" cy="12" r="1.6" fill="currentColor"/>
+      <circle cx="9" cy="18" r="1.6" fill="currentColor"/><circle cx="15" cy="18" r="1.6" fill="currentColor"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div style="min-height:100%; padding:40px 24px 80px; display:flex; flex-direction:column; align-items:center; gap:36px; box-sizing:border-box;">
+
+  <div style="max-width:1000px; width:100%; text-align:center; display:flex; flex-direction:column; gap:4px;">
+    <div style="font:700 11px var(--font-primary); text-transform:uppercase; letter-spacing:.08em; color:#8a7a63;">Guitar Studio · Maqueta de referencia</div>
+    <h1 style="margin:0; font:400 26px var(--font-heading); color:#2c2418;">Clases — ajustes puntuales (Planificación · Alumnos · Consultas y Cargas)</h1>
+    <div style="font:400 13px var(--font-primary); color:#6b5d47;">Plano visual únicamente. Cada bloque referencia el número de tu comentario original.</div>
+  </div>
+
+  <!-- ================= BLOQUE 1: DETALLE DE CLASE (items 1, 2, 3) ================= -->
+  <div style="max-width:460px; width:100%; display:flex; flex-direction:column; gap:10px;">
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:#2c2418; color:#fff; font:700 11px var(--font-primary); flex-shrink:0;">1·2·3</span>
+      <span style="font:600 13px var(--font-primary); color:#2c2418;">Detalle de clase — Planificación</span>
+    </div>
+
+    <div class="clase3-col" style="background:var(--tb-bg-elevated); border:1px solid var(--tb-border); border-radius:10px; overflow:hidden;">
+      <div style="padding:16px 16px 0;">
+        <!-- A: HEADER — título es ahora el trigger de edición (item 1) -->
+        <div class="h3-header" style="display:flex; align-items:center; gap:10px; flex-wrap:nowrap; padding-bottom:14px; border-bottom:1px solid var(--tb-border);">
+          <button id="clase-detalle-volver-btn" class="h3-back-btn" style="display:flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:8px; background:var(--tb-bg-secondary); border:1px solid var(--tb-border); color:var(--tb-text-secondary); cursor:pointer; flex-shrink:0;">
+            <svg width="20" height="20"><use href="#icon-volver"/></svg>
+          </button>
+          <button id="clase-detalle-titulo-btn" onClick="{{ onTitleClick }}" class="h3-title-block" style="flex:1; min-width:0; text-align:left; background:none; border:none; cursor:pointer; padding:{{ titlePad }}; border-radius:8px; outline:{{ titleOutline }}; transition:outline-color .2s;">
+            <div class="h3-title" style="display:flex; align-items:center; gap:6px; font:700 18px var(--font-primary); color:var(--tb-text-primary);">
+              Rock Viernes
+              <svg width="13" height="13" style="color:var(--tb-text-muted); flex-shrink:0;"><use href="#icon-editar"/></svg>
+            </div>
+            <div class="h3-sub" style="font:400 12px var(--font-primary); color:var(--tb-text-muted); margin-top:2px;">19:00 · Individual · 1 alumno · <span style="font-style:italic">tocá el título para editar</span></div>
+          </button>
+        </div>
+      </div>
+
+      <div style="padding:16px;">
+        <!-- ASISTENCIA simplificada — sin ficha inline (item 2) -->
+        <div class="sec3-block">
+          <div class="sec3-label" style="font:700 9px var(--font-primary); text-transform:uppercase; letter-spacing:.05em; color:var(--tb-text-muted); margin-bottom:8px;">Asistencia</div>
+          <div style="display:flex; align-items:center; gap:10px; background:var(--tb-bg-secondary); border:1px solid var(--tb-border); border-radius:9px; padding:8px 12px;">
+            <div style="display:flex; align-items:center; gap:8px; cursor:pointer;" onClick="{{ onOpenFicha }}" title="Ver ficha del alumno">
+              <div style="width:30px; height:30px; border-radius:50%; background:#d63b6b; display:flex; align-items:center; justify-content:center; font:700 12px var(--font-primary); color:#fff; flex-shrink:0;">N</div>
+              <span style="font:600 13px var(--font-primary); color:var(--tb-text-primary);">Nico</span>
+            </div>
+            <span style="margin-left:auto; font:600 10px var(--font-primary); text-transform:uppercase; letter-spacing:.04em; color:var(--tb-text-muted); background:var(--tb-bg-tertiary); border:1px solid var(--tb-border); border-radius:20px; padding:3px 10px;">Sin marcar</span>
+          </div>
+          <div style="font:italic 11px var(--font-primary); color:var(--tb-text-muted); margin-top:6px;">Click en el alumno abre su Ficha completa (modal ya existente) · click en el estado cicla la asistencia.</div>
+        </div>
+
+        <!-- PLAN DE LA CLASE con drag reorder (item 3) -->
+        <div class="sec3-block" style="margin-top:20px;">
+          <div class="sec3-label" style="display:flex; align-items:center; gap:8px; font:700 9px var(--font-primary); text-transform:uppercase; letter-spacing:.05em; color:var(--tb-text-muted); margin-bottom:8px;">
+            <span>Plan de la clase <span style="text-transform:none; font-weight:400; font-style:italic; color:var(--tb-text-muted);">— arrastrá desde ⠿ o usá las flechas</span></span>
+          </div>
+          <div class="paso3-list" style="display:flex; flex-direction:column; gap:6px;">
+            <sc-for list="{{ pasosView }}" as="p" hint-placeholder-count="5">
+              <div
+                draggable="true"
+                onDragStart="{{ p.onDragStart }}"
+                onDragOver="{{ p.onDragOver }}"
+                onDrop="{{ p.onDrop }}"
+                onDragEnd="{{ p.onDragEnd }}"
+                class="paso3-card"
+                style="display:flex; align-items:center; gap:8px; background:var(--tb-bg-secondary); border-radius:8px; padding:10px 12px; border:1px solid {{ p.borderColor }}; box-shadow:{{ p.shadow }}; transform:{{ p.transform }}; opacity:{{ p.opacity }}; transition:transform .15s ease, box-shadow .15s ease, border-color .3s ease, opacity .15s;"
+              >
+                <span style="display:flex; align-items:center; justify-content:center; width:18px; height:18px; color:var(--tb-text-muted); cursor:grab; flex-shrink:0;"><svg width="16" height="16"><use href="#icon-drag"/></svg></span>
+                <span style="display:flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; background:var(--tb-bg-tertiary); font:700 11px var(--font-primary); color:var(--tb-text-secondary); flex-shrink:0;">{{ p.num }}</span>
+                <span style="width:8px; height:8px; border-radius:50%; background:{{ p.color }}; flex-shrink:0;"></span>
+                <span style="flex:1; min-width:0; font:{{ p.titleWeight }} 13.5px var(--font-primary); color:var(--tb-text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-style:{{ p.titleStyle }};">{{ p.title }}</span>
+                <button onClick="{{ p.onMoveUp }}" style="display:flex; align-items:center; justify-content:center; width:24px; height:24px; background:none; border:none; color:var(--tb-text-muted); cursor:pointer; border-radius:6px; flex-shrink:0;"><svg width="16" height="16"><use href="#icon-arriba"/></svg></button>
+                <button onClick="{{ p.onMoveDown }}" style="display:flex; align-items:center; justify-content:center; width:24px; height:24px; background:none; border:none; color:var(--tb-text-muted); cursor:pointer; border-radius:6px; flex-shrink:0;"><svg width="16" height="16"><use href="#icon-abajo"/></svg></button>
+                <button style="display:flex; align-items:center; justify-content:center; width:24px; height:24px; background:none; border:none; color:var(--tb-danger); cursor:pointer; border-radius:6px; flex-shrink:0;"><svg width="16" height="16"><use href="#icon-borrar"/></svg></button>
+              </div>
+            </sc-for>
+          </div>
+          <button style="display:flex; align-items:center; justify-content:center; gap:6px; width:100%; margin-top:8px; padding:9px; background:none; border:1px dashed var(--tb-border); border-radius:8px; color:var(--tb-text-muted); font:600 12px var(--font-primary); cursor:pointer;">+ Agregar paso</button>
+        </div>
+      </div>
+    </div>
+    <div style="font:400 11px var(--font-primary); color:#6b5d47; padding:0 4px;">Arrastrá "Ejercicios diarios de guitarra" para probar el efecto de reordenar (elevación + resalte al soltar).</div>
+  </div>
+
+  <!-- ================= BLOQUE 2: FILA DE ALUMNO (items 4, 5, 6) ================= -->
+  <div style="max-width:640px; width:100%; display:flex; flex-direction:column; gap:10px;">
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:#2c2418; color:#fff; font:700 11px var(--font-primary); flex-shrink:0;">4·5·6</span>
+      <span style="font:600 13px var(--font-primary); color:#2c2418;">Fila de alumno — Alumnos</span>
+    </div>
+
+    <div class="tb-student-row" style="background:var(--tb-bg-elevated); border:1px solid var(--tb-accent); border-radius:10px; overflow:hidden;">
+      <div class="tb-row-header" style="display:flex; align-items:center; gap:12px; padding:14px 16px;">
+        <div class="tb-avatar" style="width:38px; height:38px; border-radius:50%; background:#e0952e; display:flex; align-items:center; justify-content:center; font:700 15px var(--font-primary); color:#fff; flex-shrink:0;">L</div>
+        <div class="tb-identity" style="flex:1; min-width:0;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="tb-name" style="font:700 14px var(--font-primary); color:var(--tb-text-primary);">{{ apodo }}</span>
+            <button onClick="{{ onEditApodo }}" title="Editar apodo interno" style="display:flex; align-items:center; justify-content:center; width:20px; height:20px; background:none; border:none; color:var(--tb-text-muted); cursor:pointer; flex-shrink:0;"><svg width="12" height="12"><use href="#icon-editar"/></svg></button>
+          </div>
+          <div style="font:400 11.5px var(--font-primary); color:var(--tb-text-muted);">{{ realName }} · Individual</div>
+        </div>
+        <span style="font:500 12px var(--font-primary); color:var(--tb-text-secondary); flex-shrink:0;">— racha · 0 min</span>
+        <span style="width:10px; height:10px; border-radius:50%; background:var(--tb-accent); flex-shrink:0;"></span>
+      </div>
+
+      <div style="border-top:1px solid var(--tb-border); padding:10px 16px 14px; display:flex; flex-direction:column; gap:6px;">
+        <sc-for list="{{ clasesView }}" as="c" hint-placeholder-count="2">
+          <div style="position:relative;">
+            <div
+              onMouseEnter="{{ c.onEnter }}" onMouseLeave="{{ c.onLeave }}"
+              style="display:flex; align-items:center; justify-content:space-between; gap:8px; background:var(--tb-bg-secondary); border:1px solid var(--tb-border); border-radius:8px; padding:8px 12px; cursor:default;"
+            >
+              <span style="font:400 12.5px var(--font-primary); color:var(--tb-text-secondary);">{{ c.label }}</span>
+              <button style="font:600 11.5px var(--font-primary); color:var(--tb-accent); background:none; border:none; cursor:pointer; flex-shrink:0;">Ver clase</button>
+            </div>
+            <sc-if value="{{ c.showTip }}">
+              <div style="position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:5; background:var(--tb-bg-tertiary); border:1px solid var(--tb-border-hover); border-radius:8px; padding:10px 12px; box-shadow:0 8px 20px rgba(0,0,0,.4);">
+                <div style="font:700 9px var(--font-primary); text-transform:uppercase; letter-spacing:.05em; color:var(--tb-text-muted); margin-bottom:4px;">Resumen del profesor</div>
+                <div style="font:italic 400 12.5px var(--font-primary); color:var(--tb-text-primary);">{{ c.resumen }}</div>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+        <div style="font:400 11px var(--font-primary); color:var(--tb-text-muted); font-style:italic;">Sin consultas registradas.</div>
+      </div>
+    </div>
+    <div style="font:400 11px var(--font-primary); color:#6b5d47; padding:0 4px;">Pasá el mouse por "Próxima clase" o "Última clase" para ver el resumen del profe como recordatorio rápido. Se sacó la fila Técnica/Lectura/Repertorio.</div>
+  </div>
+
+  <!-- ================= BLOQUE 3: CONSULTAS Y CARGAS (items 7, 8) ================= -->
+  <div style="max-width:640px; width:100%; display:flex; flex-direction:column; gap:10px;">
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:#2c2418; color:#fff; font:700 11px var(--font-primary); flex-shrink:0;">7·8</span>
+      <span style="font:600 13px var(--font-primary); color:#2c2418;">Consultas y Cargas</span>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:12px; background:var(--tb-bg-primary); border:1px solid var(--tb-border); border-radius:10px; padding:16px;">
+
+      <div class="cc3-card carga" style="background:var(--tb-bg-elevated); border:1px solid var(--tb-border); border-radius:10px; padding:14px 16px;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+          <div style="width:28px; height:28px; border-radius:50%; background:#d63b6b; display:flex; align-items:center; justify-content:center; font:700 12px var(--font-primary); color:#fff; flex-shrink:0;">N</div>
+          <span style="font:600 13.5px var(--font-primary); color:var(--tb-text-primary);">Nico</span>
+          <span style="display:inline-flex; align-items:center; gap:6px; background:color-mix(in srgb, #a29bfe 20%, transparent); color:#a29bfe; border-radius:7px; padding:6px 12px; font:700 12px var(--font-primary);"><svg width="16" height="16"><use href="#icon-subir-bib"/></svg>Guitar Pro</span>
+          <span style="margin-left:auto; font:400 11px var(--font-primary); color:var(--tb-text-muted);">Dom 28 jun · 07:34 p.m.</span>
+        </div>
+        <div style="font:700 15px var(--font-primary); color:var(--tb-text-primary); margin-bottom:2px;">All the Things you Are</div>
+        <div style="font:italic 400 13px var(--font-primary); color:var(--tb-text-secondary); margin-bottom:12px;">"Arreglo para estudiar el Standar"</div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button style="display:flex; align-items:center; gap:6px; padding:8px 14px; background:var(--tb-bg-secondary); border:1px solid var(--tb-border); border-radius:8px; color:var(--tb-text-primary); font:600 12.5px var(--font-primary); cursor:pointer;"><svg width="15" height="15"><use href="#icon-abrir"/></svg>Abrir</button>
+          <button style="display:flex; align-items:center; gap:6px; padding:8px 14px; background:var(--tb-bg-secondary); border:1px solid var(--tb-border); border-radius:8px; color:var(--tb-text-primary); font:600 12.5px var(--font-primary); cursor:pointer;"><svg width="15" height="15"><use href="#icon-subir-bib"/></svg>Subir a Biblioteca</button>
+          <button style="display:flex; align-items:center; gap:6px; padding:8px 14px; background:var(--tb-bg-secondary); border:1px solid var(--tb-border); border-radius:8px; color:var(--tb-text-secondary); font:600 12.5px var(--font-primary); cursor:pointer;"><svg width="15" height="15"><use href="#icon-borrar"/></svg>Eliminar</button>
+        </div>
+      </div>
+
+      <div class="cc3-card consulta pendiente" style="background:var(--tb-bg-elevated); border:1px solid color-mix(in srgb, var(--tb-danger) 35%, var(--tb-border)); border-left:4px solid var(--tb-danger); border-radius:10px; padding:14px 16px;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+          <div style="width:28px; height:28px; border-radius:50%; background:#d63b6b; display:flex; align-items:center; justify-content:center; font:700 12px var(--font-primary); color:#fff; flex-shrink:0;">N</div>
+          <span style="font:600 13.5px var(--font-primary); color:var(--tb-text-primary);">Nico</span>
+          <span style="display:inline-flex; align-items:center; gap:6px; background:color-mix(in srgb, var(--tb-danger) 20%, transparent); color:var(--tb-danger); border-radius:7px; padding:6px 12px; font:700 12px var(--font-primary);"><svg width="16" height="16"><use href="#icon-consulta"/></svg>Sin responder</span>
+          <span style="margin-left:auto; font:400 11px var(--font-primary); color:var(--tb-text-muted);">Vie 26 jun · 01:14 p.m.</span>
+        </div>
+        <div style="font:400 13.5px var(--font-primary); color:var(--tb-text-primary); margin-bottom:12px;">"¿Podemos ver 'Recuerdos de la Alhambra' la próxima clase?"</div>
+        <textarea placeholder="Escribir respuesta…" rows="2" style="width:100%; box-sizing:border-box; background:var(--tb-bg-secondary); border:1px solid var(--tb-border); border-radius:8px; color:var(--tb-text-primary); padding:8px 10px; font:400 12.5px var(--font-primary); resize:vertical; margin-bottom:8px;"></textarea>
+        <button style="display:flex; align-items:center; gap:6px; padding:8px 14px; background:var(--tb-accent); border:none; border-radius:8px; color:#fff; font:700 12.5px var(--font-primary); cursor:pointer;"><svg width="15" height="15"><use href="#icon-responder"/></svg>Responder</button>
+      </div>
+
+      <div class="cc3-card consulta respondida" style="background:var(--tb-bg-elevated); border:1px solid var(--tb-border); border-left:4px solid var(--tb-success); border-radius:10px; padding:14px 16px;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+          <div style="width:28px; height:28px; border-radius:50%; background:#d63b6b; display:flex; align-items:center; justify-content:center; font:700 12px var(--font-primary); color:#fff; flex-shrink:0;">N</div>
+          <span style="font:600 13.5px var(--font-primary); color:var(--tb-text-primary);">Nico</span>
+          <span style="display:inline-flex; align-items:center; gap:6px; background:color-mix(in srgb, var(--tb-success) 20%, transparent); color:var(--tb-success); border-radius:7px; padding:6px 12px; font:700 12px var(--font-primary);"><svg width="16" height="16"><use href="#icon-consulta"/></svg>Respondida</span>
+          <span style="margin-left:auto; font:400 11px var(--font-primary); color:var(--tb-text-muted);">Vie 26 jun · 01:10 p.m.</span>
+        </div>
+        <div style="font:400 13.5px var(--font-primary); color:var(--tb-text-primary); margin-bottom:10px;">"Profe no entiendo nada, quiero dejar la guitarra"</div>
+        <div style="background:var(--tb-bg-secondary); border-radius:8px; padding:10px 12px; font:400 12.5px var(--font-primary); color:var(--tb-text-secondary); margin-bottom:10px;"><strong style="color:var(--tb-text-primary)">Tu respuesta:</strong> Dale que esta buenisimo, ya la vamos a remar juntos</div>
+        <button style="display:flex; align-items:center; gap:6px; padding:8px 14px; background:var(--tb-bg-secondary); border:1px solid var(--tb-border); border-radius:8px; color:var(--tb-text-primary); font:600 12.5px var(--font-primary); cursor:pointer;"><svg width="15" height="15"><use href="#icon-editar"/></svg>Editar respuesta</button>
+      </div>
+
+    </div>
+    <div style="font:400 11px var(--font-primary); color:#6b5d47; padding:0 4px;">Chip e íconos agrandados. Borde y chip usan rojo (sin responder) / verde (respondida) — nunca el color de acento del tema.</div>
+  </div>
+
+  <!-- ================= BLOQUE 4: CREAR CLASE (items 9, 10) ================= -->
+  <div style="max-width:460px; width:100%; display:flex; flex-direction:column; gap:10px;">
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:#2c2418; color:#fff; font:700 11px var(--font-primary); flex-shrink:0;">9·10</span>
+      <span style="font:600 13px var(--font-primary); color:#2c2418;">Clase Nueva — Planificación</span>
+    </div>
+
+    <div class="clase3-col" style="background:var(--tb-bg-elevated); border:1px solid var(--tb-border); border-radius:10px; padding:20px; display:flex; flex-direction:column; gap:16px;">
+      <h3 style="margin:0; font:700 15px var(--font-primary); color:var(--tb-text-primary);">Crear Clase</h3>
+      <button onClick="{{ onOpenCreateModal }}" style="align-self:flex-start; display:flex; align-items:center; gap:8px; padding:11px 20px; background:var(--tb-accent); border:none; border-radius:9px; color:#fff; font:700 13px var(--font-primary); cursor:pointer;">
+        <svg width="16" height="16"><use href="#icon-nuevo"/></svg> Crear Clase
+      </button>
+
+      <div style="border-top:1px solid var(--tb-border); padding-top:16px;">
+        <div class="pc3-card" style="background:var(--tb-bg-secondary); border:1px solid var(--tb-border); border-radius:10px; padding:14px; display:flex; align-items:center; gap:12px;">
+          <div class="pc3-icon" style="width:46px; height:46px; border-radius:10px; background:var(--tb-accent-glow); color:var(--tb-accent); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+            <svg width="24" height="24"><use href="#icon-meet"/></svg>
+          </div>
+          <div class="pc3-info" style="flex:1; min-width:0;">
+            <div class="pc3-label" style="font:400 11px var(--font-primary); text-transform:uppercase; letter-spacing:.04em; color:var(--tb-text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Próxima clase · Individual — Lucía</div>
+            <div class="pc3-when" style="font:700 17px var(--font-primary); color:var(--tb-text-primary); white-space:nowrap;">Domingo 17:00</div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px; flex-shrink:0;">
+            <button class="pc3-btn" style="display:flex; align-items:center; gap:6px; padding:7px 12px; background:var(--tb-bg-tertiary); border:1px solid var(--tb-border); border-radius:7px; color:var(--tb-text-secondary); font:600 11.5px var(--font-primary); cursor:pointer; white-space:nowrap;"><svg width="14" height="14"><use href="#icon-editar"/></svg>Editar</button>
+            <button class="pc3-btn" style="display:flex; align-items:center; gap:6px; padding:7px 12px; background:rgba(26,115,232,.1); border:1px solid rgba(26,115,232,.25); border-radius:7px; color:#3b82f6; font:600 11.5px var(--font-primary); cursor:pointer; white-space:nowrap;"><svg width="14" height="14"><use href="#icon-meet"/></svg>Meet</button>
+          </div>
+        </div>
+        <p style="font:400 12px var(--font-primary); max-width:260px; margin:14px auto 0; text-align:center; color:var(--tb-text-muted);">También podés seleccionar una clase en curso o pendiente desde el panel de la izquierda.</p>
+      </div>
+    </div>
+
+    <sc-if value="{{ showCreateModal }}">
+      <div onClick="{{ onCloseCreateModal }}" style="position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; z-index:50;">
+        <div onClick="{{ stopProp }}" style="width:360px; max-width:90vw; background:var(--tb-bg-elevated); border:1px solid var(--tb-border); border-radius:12px; padding:20px; display:flex; flex-direction:column; gap:14px;">
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <span style="font:700 15px var(--font-primary); color:var(--tb-text-primary);">Crear Clase</span>
+            <button onClick="{{ onCloseCreateModal }}" style="background:none; border:none; color:var(--tb-text-muted); cursor:pointer; display:flex;"><svg width="18" height="18"><use href="#icon-cerrar"/></svg></button>
+          </div>
+          <div>
+            <label style="display:block; font:600 10px var(--font-primary); text-transform:uppercase; letter-spacing:.05em; color:var(--tb-text-secondary); margin-bottom:5px;">Alumno o grupo</label>
+            <select id="dash-create-class-select" style="width:100%; box-sizing:border-box; padding:9px 12px; background:var(--tb-bg-primary); border:1px solid var(--tb-border); color:var(--tb-text-primary); border-radius:7px; font:400 13px var(--font-primary);">
+              <option>Individual — Lucía</option>
+              <option>Técnica Grupal</option>
+              <option>Folklore 1</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block; font:600 10px var(--font-primary); text-transform:uppercase; letter-spacing:.05em; color:var(--tb-text-secondary); margin-bottom:5px;">Fecha</label>
+            <input id="dash-create-class-date" type="date" style="width:100%; box-sizing:border-box; padding:9px 12px; background:var(--tb-bg-primary); border:1px solid var(--tb-border); color:var(--tb-text-primary); border-radius:7px; font:400 13px var(--font-primary);"/>
+          </div>
+          <button style="align-self:flex-end; padding:9px 18px; background:var(--tb-accent); border:none; border-radius:8px; color:#fff; font:700 13px var(--font-primary); cursor:pointer;">Crear Clase</button>
+        </div>
+      </div>
+    </sc-if>
+    <div style="font:400 11px var(--font-primary); color:#6b5d47; padding:0 4px;">El selector y la fecha inline se sacan; "Crear Clase" abre este modal. En la card "Próxima clase", Editar y Meet quedan apilados a la derecha.</div>
+  </div>
+
+  <!-- ================= NOTA PARA CODE ================= -->
+  <div style="max-width:760px; width:100%; background:#2c2418; color:#e9e3d8; border-radius:10px; padding:20px 24px; font:400 12.5px/1.6 'IBM Plex Mono', monospace;">
+    <div style="font:700 12px var(--font-primary); text-transform:uppercase; letter-spacing:.05em; color:#d9a441; margin-bottom:10px;">Para Code:</div>
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <div><strong>1·</strong> El botón "Editar" separado del header se saca; el título (h3-title) pasa a ser el trigger — click en <code>#clase-detalle-titulo-btn</code> llama a <code>app._openEditClaseModal(claseId)</code>.</div>
+      <div><strong>2·</strong> La card de Asistencia deja de tener botón de Ficha inline; click en avatar/nombre abre <code>app.openTeacherFichaModal(id)</code>. Falta decidir con Code qué gesto separado cicla la asistencia (hoy comparten el mismo click).</div>
+      <div><strong>3·</strong> Pasos: agregar handle de arrastre (⠿, nuevo símbolo <code>icon-drag</code>) con dragstart/dragover/drop → reordenar <code>clase.content</code> y persistir con <code>this.data.saveClase</code>; mantener <code>pasoMove(dir)</code> (flechas) como alternativa. Efecto de perceptibilidad: elevación + sombra al arrastrar, resalte de borde al soltar.</div>
+      <div><strong>4·</strong> Alumnos necesita campo nuevo de perfil (ej. <code>teacherAlias</code>), editable solo por el profesor, que reemplaza <code>displayName</code> en las listas del profesor (<code>tb-name</code>) mostrando el nombre real como subtítulo. No debe afectar lo que ve/edita el alumno.</div>
+      <div><strong>5·</strong> Se elimina la fila de chips Técnica/Lectura/Repertorio de <code>_tbRenderStudentRow</code> (modelo viejo, ya reemplazado por Pasos).</div>
+      <div><strong>6·</strong> Fila de alumno compacta: mostrar próxima clase (ya existe, <code>s.nextClase</code>) y última clase (<code>data.getClaseAnterior</code>), una línea cada una. Hover en cada línea muestra <code>resumenProfesor</code> de esa clase puntual en un tooltip.</div>
+      <div><strong>7·8·</strong> En <code>_tbRenderConsultasCargasTab</code>: agrandar ícono/chip de tipo (de 11px a ~16px, más padding). El borde+chip de <code>cc3-card.pendiente</code> pasa de <code>var(--tb-accent)</code> a <code>var(--tb-danger)</code> explícito (nunca acento para semántica de estado, por la regla de la brief); <code>respondida</code> sigue en <code>var(--tb-success)</code>.</div>
+      <div><strong>9·</strong> El tab "Clase Nueva" pierde el <code>&lt;select id="dash-create-class-select"&gt;</code> + <code>&lt;input id="dash-create-class-date"&gt;</code> inline; el botón "Crear Clase" abre un modal (mismo patrón <code>big3-modal</code>) con esos dos campos adentro + botón de confirmar.</div>
+      <div><strong>10·</strong> En <code>.pc3-card</code>, Editar y Meet pasan de fila horizontal a columna vertical a la derecha (Editar arriba, Meet abajo) para no solaparse con <code>.pc3-when</code>.</div>
+    </div>
+  </div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+
+class Component extends DCLogic {
+  state = {
+    titleClicked: false,
+    pasos: [
+      { id: 'p1', title: 'Sobre el pucho', color: '#a29bfe', consigna: false },
+      { id: 'p2', title: 'All the Things You Are', color: '#74b9ff', consigna: false },
+      { id: 'p3', title: 'Ejercicios diarios de guitarra', color: '#55efc4', consigna: false },
+      { id: 'p4', title: 'Esta Noche de Luna - Pugliese', color: '#a29bfe', consigna: false },
+      { id: 'p5', title: 'Repasar postura de mano derecha', color: 'transparent', consigna: true }
+    ],
+    dragIndex: null,
+    overIndex: null,
+    justMovedId: null,
+    apodo: 'Lu',
+    realName: 'Lucía Fernández',
+    editingApodo: false,
+    hoverTip: null,
+    showCreateModal: false
+  };
+
+  onTitleClick = () => {
+    this.setState({ titleClicked: true });
+    setTimeout(() => this.setState({ titleClicked: false }), 500);
+  };
+
+  onOpenFicha = () => {};
+
+  startDrag = (idx) => this.setState({ dragIndex: idx });
+
+  dragOver = (idx) => {
+    if (this.state.overIndex !== idx) this.setState({ overIndex: idx });
+  };
+
+  drop = (idx) => {
+    const { dragIndex, pasos } = this.state;
+    if (dragIndex === null || dragIndex === idx) {
+      this.setState({ dragIndex: null, overIndex: null });
+      return;
+    }
+    const list = pasos.slice();
+    const [moved] = list.splice(dragIndex, 1);
+    list.splice(idx, 0, moved);
+    this.setState({ pasos: list, dragIndex: null, overIndex: null, justMovedId: moved.id });
+    setTimeout(() => this.setState(s => (s.justMovedId === moved.id ? { justMovedId: null } : null)), 900);
+  };
+
+  dragEnd = () => this.setState({ dragIndex: null, overIndex: null });
+
+  move = (idx, dir) => {
+    const list = this.state.pasos.slice();
+    const j = idx + dir;
+    if (j < 0 || j >= list.length) return;
+    [list[idx], list[j]] = [list[j], list[idx]];
+    const movedId = list[j].id;
+    this.setState({ pasos: list, justMovedId: movedId });
+    setTimeout(() => this.setState(s => (s.justMovedId === movedId ? { justMovedId: null } : null)), 900);
+  };
+
+  onEditApodo = () => {
+    const next = prompt('Apodo interno (solo lo ve el profesor):', this.state.apodo);
+    if (next) this.setState({ apodo: next });
+  };
+
+  setHover = (key) => this.setState({ hoverTip: key });
+  clearHover = () => this.setState({ hoverTip: null });
+
+  onOpenCreateModal = () => this.setState({ showCreateModal: true });
+  onCloseCreateModal = () => this.setState({ showCreateModal: false });
+  stopProp = (e) => { if (e && e.stopPropagation) e.stopPropagation(); };
+
+  renderVals() {
+    const { pasos, dragIndex, overIndex, justMovedId } = this.state;
+
+    const pasosView = pasos.map((p, idx) => {
+      const isDragging = dragIndex === idx;
+      const isOver = overIndex === idx && dragIndex !== null && dragIndex !== idx;
+      const justMoved = justMovedId === p.id;
+      let borderColor = 'var(--tb-border)';
+      let shadow = 'none';
+      let transform = 'none';
+      let opacity = '1';
+      if (isDragging) {
+        shadow = '0 14px 28px rgba(0,0,0,.5)';
+        transform = 'scale(1.02) rotate(-0.5deg)';
+        opacity = '0.85';
+      } else if (isOver) {
+        borderColor = 'var(--tb-accent)';
+      } else if (justMoved) {
+        borderColor = 'var(--tb-success)';
+        shadow = '0 0 0 3px color-mix(in srgb, var(--tb-success) 35%, transparent)';
+      }
+      return {
+        ...p,
+        num: idx + 1,
+        titleWeight: p.consigna ? 600 : 600,
+        titleStyle: p.consigna ? 'italic' : 'normal',
+        borderColor, shadow, transform, opacity,
+        onDragStart: () => this.startDrag(idx),
+        onDragOver: (e) => { e.preventDefault(); this.dragOver(idx); },
+        onDrop: (e) => { e.preventDefault(); this.drop(idx); },
+        onDragEnd: this.dragEnd,
+        onMoveUp: () => this.move(idx, -1),
+        onMoveDown: () => this.move(idx, 1)
+      };
+    });
+
+    const clasesRaw = [
+      { key: 'proxima', label: 'En 3 días · Individual — Lucía · 16:00', resumen: '"Trabajamos bien el cambio de acordes en Sobre el Pucho — para la próxima repasar el rasgueo de milonga."' },
+      { key: 'pasada', label: 'Miér 8 jul · Individual — Lucía · 16:00', resumen: '"Buena clase, avanzó con la lectura. Le cuesta el compás de 6/8."' }
+    ];
+    const clasesView = clasesRaw.map(c => ({
+      ...c,
+      showTip: this.state.hoverTip === c.key,
+      onEnter: () => this.setHover(c.key),
+      onLeave: this.clearHover
+    }));
+
+    return {
+      onTitleClick: this.onTitleClick,
+      titlePad: this.state.titleClicked ? '8px' : '8px',
+      titleOutline: this.state.titleClicked ? '2px solid var(--tb-accent)' : '2px solid transparent',
+      onOpenFicha: this.onOpenFicha,
+      pasosView,
+      apodo: this.state.apodo,
+      realName: this.state.realName,
+      onEditApodo: this.onEditApodo,
+      clasesView,
+      showCreateModal: this.state.showCreateModal,
+      onOpenCreateModal: this.onOpenCreateModal,
+      onCloseCreateModal: this.onCloseCreateModal,
+      stopProp: this.stopProp
+    };
+  }
+}
+
+</script>
+</body>
+</html>
