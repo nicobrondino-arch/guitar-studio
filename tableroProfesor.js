@@ -248,6 +248,15 @@ Object.assign(GuitarStudioApp.prototype, {
         return clase;
     },
 
+    // Número de orden de la clase dentro de su grupo (1 = la más antigua por fecha).
+    // Es dinámico: si se crea una clase con fecha anterior, las siguientes se renumeran.
+    _claseNumero(clase) {
+        const list = this.data.getAllClases()
+            .filter(c => c.groupId === clase.groupId)
+            .sort((a, b) => (a.date || '').localeCompare(b.date || '') || String(a.id).localeCompare(String(b.id)));
+        return list.findIndex(c => c.id === clase.id) + 1;
+    },
+
     createClase(groupId, date) {
         const group = this.data.getGroup(groupId);
         if (!group) return;
@@ -271,12 +280,17 @@ Object.assign(GuitarStudioApp.prototype, {
     openClase(claseId) {
         this._currentClaseId = claseId;
         this._dashCreatingClase = false;
+        this._claseReturnTo = null; // quien quiera volver a otro lado lo setea DESPUÉS de llamar openClase
         this.renderDashboardView();
     },
 
     closeClasetDetail() {
         this._currentClaseId = null;
+        const ret = this._claseReturnTo;
+        this._claseReturnTo = null;
         this.renderDashboardView();
+        // Si se entró desde "Próximas clases del grupo", la flecha devuelve a ese modal
+        if (ret && ret.groupId) this.openGroupModal(ret.groupId);
     },
 
     async _renderClaseDetail(claseId) {
@@ -372,7 +386,7 @@ Object.assign(GuitarStudioApp.prototype, {
 
                 return `<div class="stu3-card-wrapper" style="display: flex; flex-direction: column; gap: 4px; align-items: stretch; flex-shrink: 0; min-width: 70px;">
                     <div class="stu3-card" id="stu3-${m.id}"
-                            onclick="app.cycleAttendance('${claseId}','${m.id}')"
+                            onclick="app.attCardClick('${claseId}','${m.id}')"
                             ondblclick="app.attCardDblClick('${claseId}','${m.id}')"
                             title="Click: asistencia · Doble click: ficha"
                             onmouseenter="app._showHoverCard('${m.id}')"
@@ -479,10 +493,10 @@ Object.assign(GuitarStudioApp.prototype, {
                     </button>
                     <div class="h3-title-block">
                         <button id="clase-detalle-titulo-btn" class="h3-title h3-title-btn" onclick="app._openEditClaseModal('${claseId}')" title="Editar clase">
-                            <span class="h3-title-txt">${this._escapeHtml(group.name||clase.title||'Clase')}</span>
+                            <span class="h3-title-txt">Clase ${this._claseNumero(clase)}${clase.nombre ? ` — ${this._escapeHtml(clase.nombre)}` : ''}</span>
                             <svg class="h3-title-edit-ico" width="14" height="14"><use href="#icon-editar"/></svg>
                         </button>
-                        <div class="h3-sub">${timeLabel} · ${type} · ${members.length} alumno${members.length!==1?'s':''}</div>
+                        <div class="h3-sub">${this._escapeHtml(group.name||clase.title||'')} · ${timeLabel} · ${type} · ${members.length} alumno${members.length!==1?'s':''}</div>
                     </div>
                     ${meetBarHtml}
                 </div>
@@ -531,10 +545,16 @@ Object.assign(GuitarStudioApp.prototype, {
         this.cycleAttendance(claseId, profileId);
     },
 
-    // Doble click en la card de asistencia: los dos clicks previos ya ciclaron 2 veces;
-    // un ciclo más completa la vuelta de 3 estados y la asistencia queda como estaba
+    // El primer click espera un instante antes de ciclar: si en ese lapso llega el segundo
+    // click, se cancela el ciclo (la card no se mueve de grupo) y se abre la Ficha.
+    // Sin esta espera el doble click era casi imposible: la card cambiaba de posición al primer click.
+    attCardClick(claseId, profileId) {
+        clearTimeout(this._attClickTimer);
+        this._attClickTimer = setTimeout(() => this.cycleAttendance(claseId, profileId), 280);
+    },
+
     attCardDblClick(claseId, profileId) {
-        this.cycleAttendance(claseId, profileId);
+        clearTimeout(this._attClickTimer);
         this.openTeacherFichaModal(profileId);
     },
 
@@ -971,6 +991,13 @@ Object.assign(GuitarStudioApp.prototype, {
             const s = new Date(ds+'T12:00').toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '').replace(/\./g, '');
             return s.charAt(0).toUpperCase() + s.slice(1);
         };
+        // Designación de las clases ya creadas: número de orden + nombre específico si tiene
+        const groupClases = this.data.getAllClases().filter(c => c.groupId === d.id);
+        const claseTag = ds => {
+            const c = groupClases.find(x => x.date === ds);
+            if (!c) return '';
+            return `<span class="dgf-prox-num">Clase ${this._claseNumero(c)}${c.nombre ? ' — ' + this._escapeHtml(c.nombre) : ''}</span>`;
+        };
         cont.innerHTML = fechas.map(f => f.skipped ? `
             <div class="dgf-prox-row salteada">
                 <span class="dgf-prox-date">${fmtLabel(f.dateStr)}</span>
@@ -979,6 +1006,7 @@ Object.assign(GuitarStudioApp.prototype, {
             </div>` : `
             <div class="dgf-prox-row">
                 <span class="dgf-prox-date">${fmtLabel(f.dateStr)}</span>
+                ${claseTag(f.dateStr)}
                 ${f.dateStr === todayStr ? '<span class="dgf-prox-hoy">Hoy</span>' : ''}
                 <button class="dgf-prox-btn" title="Editar esta clase" onclick="app.dgfEditProximaClase('${f.dateStr}')"><svg width="11" height="11"><use href="#icon-editar"/></svg></button>
                 <button class="dgf-prox-btn" title="Saltear esta clase" onclick="app.dgfToggleSkip('${f.dateStr}')"><svg width="11" height="11"><use href="#icon-saltear"/></svg></button>
@@ -1011,8 +1039,10 @@ Object.assign(GuitarStudioApp.prototype, {
             this.data.saveClase(clase);
         }
         this.closeGroupModal();
-        // Editar = entrar a la clase: se abre la página de la clase, no el modal chico
+        // Editar = entrar a la clase: se abre la página de la clase, no el modal chico.
+        // La flecha de volver devuelve al modal del grupo desde el que se entró.
         this.openClase(clase.id);
+        this._claseReturnTo = { groupId: d.id };
     },
 
     _dgfPersistDraft() {
@@ -1399,7 +1429,12 @@ Object.assign(GuitarStudioApp.prototype, {
         const override = clase.memberOverride; // null | [profileId, ...]
         const activeIds = new Set(override !== null && override !== undefined ? override : groupMemberIds);
 
-        // Populate date, time, meetUrl, whatsapp (el contacto vive en el grupo)
+        // Designación fija en el título del modal: grupo + número de orden
+        const titleEl = document.querySelector('#modal-edit-clase .modal-edit-title');
+        if (titleEl) titleEl.textContent = `${group.name || 'Clase'} · Clase ${this._claseNumero(clase)}`;
+
+        // Populate nombre, date, time, meetUrl, whatsapp (el contacto vive en el grupo)
+        document.getElementById('modal-edit-nombre').value = clase.nombre || '';
         document.getElementById('modal-edit-date').value = clase.date || '';
         document.getElementById('modal-edit-time').value = clase.time || group.time || '';
         document.getElementById('modal-edit-meeturl').value = clase.meetUrl || '';
@@ -1482,6 +1517,7 @@ Object.assign(GuitarStudioApp.prototype, {
         const newTime = document.getElementById('modal-edit-time').value;
         if (newDate) clase.date = newDate;
         if (newTime) clase.time = newTime;
+        clase.nombre = document.getElementById('modal-edit-nombre').value.trim();
         clase.meetUrl = newMeet || null;
         clase.memberOverride = sameAsGroup ? null : checkedIds;
 
@@ -1883,18 +1919,18 @@ Object.assign(GuitarStudioApp.prototype, {
 
         const questionsPanel = expanded ? this._tbRenderQuestionsAccordion(p.id) : '';
 
-        // Fila colapsada = identidad + chips de clases + rutina + racha/minutos + semáforo; al expandir: Ficha + consultas
+        // Fila colapsada = identidad (lápiz = editar SOLO el alias) + rutina + racha/minutos + semáforo.
+        // Al expandir: Ficha (roja, ícono grande) seguida de la próxima clase (verde) y las pasadas + consultas.
         return `<div class="tb-student-row${expanded ? ' expanded' : ''}" data-profile-id="${p.id}">
             <div class="tb-row-header" onclick="app.tbToggleExpand('${p.id}')">
                 <div class="tb-avatar" style="background:${p.color || 'var(--tb-accent)'}">${displayName.charAt(0).toUpperCase()}</div>
                 <div class="tb-identity">
                     <div class="tb-name-row">
                         <div class="tb-name">${this._escapeHtml(displayName)}</div>
-                        <button class="tb-alias-edit" title="Editar alias (abre la Ficha)" onclick="event.stopPropagation();app.openTeacherFichaModal('${p.id}')"><svg width="11" height="11"><use href="#icon-editar"/></svg></button>
+                        <button class="tb-alias-edit" title="Editar alias" onclick="event.stopPropagation();app.tbEditAlias('${p.id}')"><svg width="11" height="11"><use href="#icon-editar"/></svg></button>
                     </div>
                     <div class="tb-group">${hasAlias ? `${this._escapeHtml(realName)} · ` : ''}${this._escapeHtml(s.groupLabel)}</div>
                 </div>
-                ${claseChipsHtml}
                 ${rutinaChip}
                 <span class="tb-inline-stats">${s.streak > 0 ? `🔥 ${s.streak}d` : '— racha'} · ${minutesToday} min</span>
                 <div class="tb-status-dot-wrap" title="${this._escapeHtml(s.alertStatus.reason)}">
@@ -1904,11 +1940,24 @@ Object.assign(GuitarStudioApp.prototype, {
             </div>
             ${expanded ? `<div class="tb-row-expanded">
                 <div class="tb-expanded-actions">
-                    <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();app.openTeacherFichaModal('${p.id}')" style="display:inline-flex; align-items:center; gap:6px; font-size:13px; padding:7px 14px;"><svg width="16" height="16"><use href="#icon-ficha"/></svg> Ficha</button>
+                    <button class="tb-ficha-btn" onclick="event.stopPropagation();app.openTeacherFichaModal('${p.id}')"><svg width="18" height="18"><use href="#icon-ficha"/></svg> Ficha</button>
+                    ${claseChipsHtml}
                 </div>
                 ${questionsPanel}
             </div>` : ''}
         </div>`;
+    },
+
+    // Lápiz junto al nombre: edita SOLO el alias interno (la Ficha completa vive en el botón rojo)
+    async tbEditAlias(profileId) {
+        const profiles = await this.data.getProfiles();
+        const p = profiles.find(x => x.id === profileId);
+        if (!p) return;
+        const next = prompt('Alias interno (solo lo ves vos; dejalo vacío para usar el nombre real):', (p.teacherAlias || '').trim());
+        if (next === null) return;
+        p.teacherAlias = next.trim();
+        await this.data.saveProfile(p);
+        this.renderTeacherBoardView();
     },
 
     _tbRenderQuestionsAccordion(profileId) {

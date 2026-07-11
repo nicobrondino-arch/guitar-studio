@@ -6805,12 +6805,12 @@ span.ck3-box { cursor: default; }
     transition: border-color .15s, color .15s, background .15s;
 }
 .tb-clase-chip.prox {
-    background: var(--tb-accent-glow);
-    border-color: color-mix(in srgb, var(--tb-accent) 45%, transparent);
-    color: var(--tb-accent);
+    background: color-mix(in srgb, var(--tb-success) 14%, transparent);
+    border-color: color-mix(in srgb, var(--tb-success) 45%, transparent);
+    color: var(--tb-success);
 }
 .tb-clase-chip.past:hover { border-color: var(--tb-border-hover); color: var(--tb-text-primary); }
-.tb-clase-chip.prox:hover { border-color: var(--tb-accent); }
+.tb-clase-chip.prox:hover { border-color: var(--tb-success); }
 .tb-clase-chip.empty {
     cursor: default;
     font-style: italic;
@@ -6853,8 +6853,25 @@ span.ck3-box { cursor: default; }
 }
 .tb-rutina-inline.empty { font-style: italic; color: var(--tb-text-muted); background: transparent; }
 @media (max-width: 900px) {
-    .tb-clase-chips, .tb-rutina-inline { display: none; }
+    .tb-rutina-inline { display: none; }
 }
+/* Botón Ficha (rojo, ícono grande) — abre la Ficha completa; convive con los chips de clases */
+.tb-ficha-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: 1px solid color-mix(in srgb, var(--tb-danger) 45%, transparent);
+    background: color-mix(in srgb, var(--tb-danger) 14%, transparent);
+    color: var(--tb-danger);
+    font: 600 13px var(--font-primary);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background .15s, border-color .15s;
+}
+.tb-ficha-btn:hover { background: color-mix(in srgb, var(--tb-danger) 22%, transparent); border-color: var(--tb-danger); }
+.tb-ficha-btn svg { display: block; flex-shrink: 0; }
 .tb-group { font: 400 11px var(--font-primary); color: var(--tb-text-secondary); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tb-status-dot-wrap { flex-shrink: 0; }
 .tb-status-dot {
@@ -6884,7 +6901,7 @@ span.ck3-box { cursor: default; }
     gap: 12px;
 }
 
-.tb-expanded-actions { display: flex; gap: 8px; }
+.tb-expanded-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
 /* ── Consultas ── */
 .tb-questions-block { border-top: 1px dashed var(--tb-border); padding-top: 12px; }
@@ -7684,6 +7701,19 @@ input.dgf-input[type="time"] { cursor: pointer; }
 .dgf-prox-row.salteada .dgf-prox-date { color: var(--tb-text-muted); }
 .dgf-prox-hoy { font: 400 10px var(--font-primary); color: var(--tb-accent); }
 .dgf-prox-tag { font: 400 10px var(--font-primary); color: var(--tb-text-muted); }
+.dgf-prox-num {
+    font: 600 10px var(--font-primary);
+    color: var(--tb-text-secondary);
+    background: var(--tb-bg-primary);
+    border: 1px solid var(--tb-border);
+    border-radius: 10px;
+    padding: 1px 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+    flex-shrink: 0;
+}
 .dgf-prox-btn {
     display: flex;
     align-items: center;
