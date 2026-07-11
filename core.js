@@ -1636,7 +1636,7 @@ class GuitarStudioApp {
     async renderBibliotecaView() {
         const container = document.getElementById('biblioteca-content');
         if (!container) return;
-        container.innerHTML = '<div style="padding:24px;color:var(--tb-text-secondary)">Cargando...</div>';
+        // Sin "Cargando..." intermedio: pisaba el contenido por milisegundos y parpadeaba al cambiar de pestaña
         const [profiles, items] = await Promise.all([this.data.getProfiles(), this.data.getLibraryItems()]);
         const groups = this.data.getAllGroups();
 
@@ -1852,6 +1852,13 @@ class GuitarStudioApp {
         else if (tab === 'fields') this.renderTeacherFichaFieldsConfig();
     }
 
+    // Nombre con el que el profesor ve al alumno en SUS listas (punto 4): alias privado si existe.
+    // El alumno nunca ve este alias — sus vistas siguen usando displayName/name.
+    _teacherDisplayName(p) {
+        const alias = (p.teacherAlias || '').trim();
+        return alias || p.displayName || p.name || '?';
+    }
+
     async openTeacherFichaModal(studentId) {
         const profiles = await this.data.getProfiles();
         const p = profiles.find(x => x.id === studentId);
@@ -1864,6 +1871,7 @@ class GuitarStudioApp {
         document.getElementById("tf-ficha-name").value = p.name || '';
         document.getElementById("tf-ficha-whatsapp").value = p.whatsapp || '';
         document.getElementById("tf-ficha-nivel").value = p.nivel || 'Inicial';
+        document.getElementById("tf-ficha-alias").value = p.teacherAlias || '';
         document.getElementById("tf-ficha-observaciones").value = p.observaciones || '';
 
         // Chip informativo de grupo(s) y horario
@@ -1939,6 +1947,7 @@ class GuitarStudioApp {
         p.name = document.getElementById("tf-ficha-name").value.trim();
         p.whatsapp = document.getElementById("tf-ficha-whatsapp").value.trim();
         p.nivel = document.getElementById("tf-ficha-nivel").value;
+        p.teacherAlias = document.getElementById("tf-ficha-alias").value.trim();
         p.observaciones = document.getElementById("tf-ficha-observaciones").value.trim();
 
         // Guardar valores dinámicos de los campos de Ficha

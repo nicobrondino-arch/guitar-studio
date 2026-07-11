@@ -225,6 +225,11 @@
         <symbol id="icon-arriba" viewBox="0 0 24 24">
           <path d="M6 14l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </symbol>
+        <symbol id="icon-drag" viewBox="0 0 24 24">
+          <circle cx="9" cy="6" r="1.7" fill="currentColor"/><circle cx="15" cy="6" r="1.7" fill="currentColor"/>
+          <circle cx="9" cy="12" r="1.7" fill="currentColor"/><circle cx="15" cy="12" r="1.7" fill="currentColor"/>
+          <circle cx="9" cy="18" r="1.7" fill="currentColor"/><circle cx="15" cy="18" r="1.7" fill="currentColor"/>
+        </symbol>
         <symbol id="icon-abajo" viewBox="0 0 24 24">
           <path d="M6 10l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </symbol>
@@ -765,6 +770,10 @@
                         </select>
                     </div>
                     <div>
+                        <label class="dgf-label">Alias en tus listas (solo lo ves vos)</label>
+                        <input type="text" id="tf-ficha-alias" class="dgf-input tf3-input-dark" placeholder="Ej: Juan (papá de Sofi)">
+                    </div>
+                    <div>
                         <label class="dgf-label">Observaciones técnicas privadas</label>
                         <textarea id="tf-ficha-observaciones" class="dgf-input tf3-input-dark" rows="3" placeholder="Anotaciones privadas del profesor sobre este alumno…" style="resize: vertical;"></textarea>
                     </div>
@@ -1138,6 +1147,9 @@
 
     <!-- MODAL: EDITAR GRUPO (Pieza 3 — contenido renderizado por tableroProfesor.js) -->
     <div class="modal-overlay" id="modal-edit-group" style="display:none" onclick="if(event.target===this)app.closeGroupModal()"></div>
+
+    <!-- MODAL: Crear Clase (punto 9) — reemplaza el select+fecha inline del tab "Clase Nueva" -->
+    <div class="modal-overlay" id="modal-create-clase" style="display:none" onclick="if(event.target===this)app.closeCreateClaseModal()"></div>
 
     <!-- MODAL: NUEVO ALUMNO (punto 6 — alta desde el tab Alumnos o Biblioteca) -->
     <div class="modal-overlay" id="bib-alumno-modal" style="display:none" onclick="if(event.target===this)app.bibCloseAlumnoModal()">

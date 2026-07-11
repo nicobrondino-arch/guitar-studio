@@ -75,10 +75,9 @@ Object.assign(GuitarStudioApp.prototype, {
         // Contenido del panel central (Detalles o Creación)
         let middleContentHtml = '';
         if (this._currentClaseId) {
-            middleContentHtml = `
-            <div class="empty-hint" style="padding: 24px; color: var(--tb-text-secondary); text-align: center;">
-                Cargando detalles de la clase...
-            </div>`;
+            // Placeholder vacío: el detalle real lo pinta _renderClaseDetail enseguida y un
+            // cartel de texto acá solo se percibía como parpadeo
+            middleContentHtml = `<div class="empty-hint" style="padding: 24px;"></div>`;
         } else {
             const activeTab = this._dashActiveTab || 'clase';
             let tabBodyHtml = '';
@@ -97,23 +96,18 @@ Object.assign(GuitarStudioApp.prototype, {
                             <div class="pc3-label">Próxima clase · ${this._escapeHtml(proxName)}</div>
                             <div class="pc3-when ${prox.isToday?'hoy':''}">${prox.label}</div>
                         </div>
-                        ${proxMeet ? `<a class="pc3-btn" href="${this._escapeHtml(proxMeet)}" target="_blank" title="Entrar al Meet"><svg width="17" height="17"><use href="#icon-meet"/></svg> Meet</a>` : ''}
-                        ${prox.clase
-                            ? `<button id="crear-clase-proxima-editar-btn" class="pc3-btn" onclick="app._openEditClaseModal('${prox.clase.id}')"><svg width="17" height="17"><use href="#icon-editar"/></svg> Editar</button>`
-                            : `<button id="crear-clase-proxima-editar-btn" class="pc3-btn" onclick="app.createClase('${prox.group.id}','${prox.dateStr}')"><svg width="17" height="17"><use href="#icon-nuevo"/></svg> Crear</button>`}
+                        <div class="pc3-actions">
+                            ${prox.clase
+                                ? `<button id="crear-clase-proxima-editar-btn" class="pc3-btn" onclick="app._openEditClaseModal('${prox.clase.id}')"><svg width="17" height="17"><use href="#icon-editar"/></svg> Editar</button>`
+                                : `<button id="crear-clase-proxima-editar-btn" class="pc3-btn" onclick="app.createClase('${prox.group.id}','${prox.dateStr}')"><svg width="17" height="17"><use href="#icon-nuevo"/></svg> Crear</button>`}
+                            ${proxMeet ? `<a class="pc3-btn" href="${this._escapeHtml(proxMeet)}" target="_blank" title="Entrar al Meet"><svg width="17" height="17"><use href="#icon-meet"/></svg> Meet</a>` : ''}
+                        </div>
                     </div>` : '';
                 tabBodyHtml = `
                 <div class="dash-tab-content" style="padding: 16px; display: flex; flex-direction: column; gap: 16px;">
                     <h3 style="margin: 0; font-size: 15px; color: var(--tb-text-primary); font-family: var(--font-heading);">Crear Clase</h3>
-                    <p style="margin: 0; font-size: 13px; color: var(--tb-text-secondary);">Seleccioná un alumno o grupo y la fecha de la clase:</p>
-                    <div style="display: flex; gap: 8px;">
-                        <select id="dash-create-class-select" class="form-select" style="flex: 1; background: var(--tb-bg-primary); border: 1px solid var(--tb-border); color: var(--tb-text-primary); border-radius: 6px; padding: 6px 12px; font-size: 13px;">
-                            <option value="">— Seleccionar Alumno/Grupo —</option>
-                            ${groups.map(g => `<option value="${g.id}">${this._escapeHtml(g.name)}</option>`).join('')}
-                        </select>
-                        <input type="date" id="dash-create-class-date" value="${todayStr}" class="form-select" style="background: var(--tb-bg-primary); border: 1px solid var(--tb-border); color: var(--tb-text-primary); border-radius: 6px; padding: 6px 12px; font-size: 13px;">
-                        <button class="btn btn-primary" onclick="app.dashCreateClaseFromSelect()">Crear Clase</button>
-                    </div>
+                    <p style="margin: 0; font-size: 13px; color: var(--tb-text-secondary);">Elegí el alumno o grupo y la fecha en el siguiente paso:</p>
+                    <button class="btn btn-primary" onclick="app.openCreateClaseModal()" style="align-self: flex-start; display: inline-flex; align-items: center; gap: 6px;"><svg width="14" height="14"><use href="#icon-nuevo"/></svg> Crear Clase</button>
                     <div style="margin-top: 24px; border-top: 1px solid var(--tb-border); padding-top: 20px;">
                         ${proxCardHtml}
                         <p style="font-size: 12px; max-width: 250px; margin: ${proxCardHtml ? '16px auto 0' : '0 auto'}; text-align: center; color: var(--tb-text-muted);">También podés seleccionar una clase en curso o pendiente desde el panel de la izquierda.</p>
@@ -366,24 +360,30 @@ Object.assign(GuitarStudioApp.prototype, {
                     </div>`;
 
                 const nameColor = pracDot === 'full' ? 'var(--tb-success)' : pracDot === 'partial' ? '#f5a623' : 'var(--tb-danger)';
-                const firstName = (m.name||'').split(' ')[0];
+                const firstName = this._teacherDisplayName(m).split(' ')[0];
 
-                const avatarChar = m.avatarChar || (m.name||'?')[0].toUpperCase();
+                const avatarChar = m.avatarChar || this._teacherDisplayName(m)[0].toUpperCase();
                 
                 let actionHtml = '';
                 if (label === 'Ausentes') {
                     actionHtml = `<button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); app.rescheduleClassForAbsentStudent('${claseId}', '${m.id}')" style="margin-top: 6px; font-size: 11px; padding: 4px 8px; width: 100%; border-radius: 6px; display: flex; align-items: center; justify-content: center; gap: 4px; border-color: var(--tb-border); color: var(--tb-text-primary);"><svg width="12" height="12" style="flex-shrink:0"><use href="#icon-fecha"/></svg> Reprogramar</button>`;
                 }
 
+                // Click en avatar/nombre abre la Ficha (punto 2); el chip de estado es el gesto que cicla la asistencia
+                const att = (clase.attendance||{})[m.id] || '';
+                const attState = att === 'presente' ? 'present' : att === 'ausente' ? 'absent' : 'unmarked';
+                const attLabel = att === 'presente' ? '✓ Presente' : att === 'ausente' ? '✕ Ausente' : '○ Marcar';
+
                 return `<div class="stu3-card-wrapper" style="display: flex; flex-direction: column; gap: 4px; align-items: stretch; flex-shrink: 0; min-width: 70px;">
                     <div class="stu3-card" id="stu3-${m.id}"
-                            onclick="app.cycleAttendance('${claseId}','${m.id}')"
+                            onclick="app.openTeacherFichaModal('${m.id}')"
+                            title="Ver Ficha"
                             onmouseenter="app._showHoverCard('${m.id}')"
                             onmouseleave="app._hideHoverCard('${m.id}')"
                             style="position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 10px 7px;">
                         <div class="stu3-av" style="background:${m.color||'#6366f1'}">${avatarChar}</div>
                         <span class="stu3-cname" style="color:${nameColor}">${this._escapeHtml(firstName)}</span>
-                        <button onclick="event.stopPropagation(); app.openTeacherFichaModal('${m.id}')" title="Ver Ficha" style="background:none; border:none; cursor:pointer; font-size:12px; padding:2px; display:flex; align-items:center; justify-content:center; opacity: 0.6; transition: opacity 0.2s;" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0.6"><svg width="14" height="14" style="color:var(--tb-text-secondary)"><use href="#icon-ficha"/></svg></button>
+                        <button class="stu3-att-btn ${attState}" title="Cambiar asistencia" onclick="event.stopPropagation(); app.cycleAttendance('${claseId}','${m.id}')">${attLabel}</button>
                         ${hoverCard}
                     </div>
                     ${actionHtml}
@@ -481,13 +481,13 @@ Object.assign(GuitarStudioApp.prototype, {
                         <svg width="26" height="26"><use href="#icon-volver"/></svg>
                     </button>
                     <div class="h3-title-block">
-                        <div class="h3-title">${this._escapeHtml(group.name||clase.title||'Clase')}</div>
+                        <button id="clase-detalle-titulo-btn" class="h3-title h3-title-btn" onclick="app._openEditClaseModal('${claseId}')" title="Editar clase">
+                            <span class="h3-title-txt">${this._escapeHtml(group.name||clase.title||'Clase')}</span>
+                            <svg class="h3-title-edit-ico" width="14" height="14"><use href="#icon-editar"/></svg>
+                        </button>
                         <div class="h3-sub">${timeLabel} · ${type} · ${members.length} alumno${members.length!==1?'s':''}</div>
                     </div>
                     ${meetBarHtml}
-                    <button id="clase-detalle-editar-btn" class="h3-btn h3-btn-edit" onclick="app._openEditClaseModal('${claseId}')">
-                        <svg width="14" height="14"><use href="#icon-editar"/></svg> Editar
-                    </button>
                 </div>
 
                 ${resumenAntHtml}
@@ -546,8 +546,19 @@ Object.assign(GuitarStudioApp.prototype, {
             const expanded = this._pasoExpandedId === p.id;
             const showPreview = !expanded && libItem && p.descripcion;
             return `
-            <div class="paso3-card ${libItem ? '' : 'consigna'}">
+            <div class="paso3-card ${libItem ? '' : 'consigna'}" data-paso-id="${p.id}"
+                 ondragstart="app.pasoDragStart(event,'${clase.id}','${p.id}')"
+                 ondragend="app.pasoDragEnd(event)"
+                 ondragover="app.pasoDragOver(event)"
+                 ondragleave="app.pasoDragLeave(event)"
+                 ondrop="app.pasoDrop(event,'${clase.id}','${p.id}')">
                 <div class="paso3-head" onclick="app.pasoToggleExpand('${clase.id}','${p.id}')">
+                    <span class="paso3-drag" title="Arrastrar para reordenar"
+                          onmousedown="this.closest('.paso3-card').setAttribute('draggable','true')"
+                          onmouseup="this.closest('.paso3-card').removeAttribute('draggable')"
+                          onclick="event.stopPropagation()">
+                        <svg width="14" height="14"><use href="#icon-drag"/></svg>
+                    </span>
                     <span class="paso3-num">${idx + 1}</span>
                     <span class="paso3-dot" style="background:${dotColor}"></span>
                     <span class="paso3-txt">
@@ -596,6 +607,56 @@ Object.assign(GuitarStudioApp.prototype, {
         [list[i], list[j]] = [list[j], list[i]];
         this.data.saveClase(clase);
         this._refreshPasosList(claseId);
+    },
+
+    // ── Drag & drop de pasos (punto 3): el handle ⠿ habilita draggable en la card; las flechas siguen vivas ──
+    pasoDragStart(e, claseId, pasoId) {
+        this._pasoDragging = { claseId, pasoId };
+        e.dataTransfer.effectAllowed = 'move';
+        try { e.dataTransfer.setData('text/plain', pasoId); } catch (err) {}
+        e.currentTarget.classList.add('dragging');
+    },
+
+    pasoDragOver(e) {
+        if (!this._pasoDragging) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const card = e.currentTarget;
+        if (!card.classList.contains('dragging')) card.classList.add('drag-over');
+    },
+
+    pasoDragLeave(e) {
+        e.currentTarget.classList.remove('drag-over');
+    },
+
+    pasoDragEnd(e) {
+        e.currentTarget.removeAttribute('draggable');
+        e.currentTarget.classList.remove('dragging');
+        document.querySelectorAll('.paso3-card.drag-over').forEach(el => el.classList.remove('drag-over'));
+        this._pasoDragging = null;
+    },
+
+    async pasoDrop(e, claseId, targetPasoId) {
+        e.preventDefault();
+        const drag = this._pasoDragging;
+        this._pasoDragging = null;
+        if (!drag || drag.claseId !== claseId || drag.pasoId === targetPasoId) return;
+        const clase = this.data.getClase(claseId);
+        if (!clase) return;
+        const list = clase.content || [];
+        const from = list.findIndex(p => p.id === drag.pasoId);
+        const to = list.findIndex(p => p.id === targetPasoId);
+        if (from < 0 || to < 0) return;
+        const [moved] = list.splice(from, 1);
+        list.splice(to, 0, moved);
+        this.data.saveClase(clase);
+        await this._refreshPasosList(claseId);
+        // Perceptibilidad: resalte de borde en la card recién soltada
+        const el = document.querySelector(`#paso3-list-${claseId} .paso3-card[data-paso-id="${drag.pasoId}"]`);
+        if (el) {
+            el.classList.add('dropped');
+            setTimeout(() => el.classList.remove('dropped'), 700);
+        }
     },
 
     pasoRemove(claseId, pasoId) {
@@ -673,6 +734,44 @@ Object.assign(GuitarStudioApp.prototype, {
         this.renderDashboardView();
     },
 
+    // ── Modal Crear Clase (punto 9): reemplaza el select+fecha inline del tab "Clase Nueva" ──
+    openCreateClaseModal() {
+        const overlay = document.getElementById('modal-create-clase');
+        if (!overlay) return;
+        const groups = this.data.getAllGroups();
+        const todayStr = this.getTodayString();
+        overlay.innerHTML = `
+        <div class="big3-modal" style="width:380px;">
+            <div class="big3-modal-header">
+                <div class="big3-modal-title">Crear Clase</div>
+                <button class="big3-modal-close" onclick="app.closeCreateClaseModal()"><svg width="18" height="18"><use href="#icon-cerrar"/></svg></button>
+            </div>
+            <div class="big3-modal-body" style="display:flex; flex-direction:column; gap:14px;">
+                <div>
+                    <label class="dgf-label">Alumno o grupo</label>
+                    <select id="dash-create-class-select" class="dgf-input">
+                        <option value="">— Seleccionar Alumno/Grupo —</option>
+                        ${groups.map(g => `<option value="${g.id}">${this._escapeHtml(g.name)}</option>`).join('')}
+                    </select>
+                </div>
+                <div>
+                    <label class="dgf-label">Fecha de la clase</label>
+                    <input type="date" id="dash-create-class-date" class="dgf-input" value="${todayStr}">
+                </div>
+            </div>
+            <div class="big3-modal-footer">
+                <button class="big3-btn" onclick="app.closeCreateClaseModal()">Cancelar</button>
+                <button class="big3-btn pri" onclick="app.dashCreateClaseFromSelect()">Crear Clase</button>
+            </div>
+        </div>`;
+        overlay.style.display = 'flex';
+    },
+
+    closeCreateClaseModal() {
+        const overlay = document.getElementById('modal-create-clase');
+        if (overlay) overlay.style.display = 'none';
+    },
+
     dashCreateClaseFromSelect() {
         const select = document.getElementById('dash-create-class-select');
         const groupId = select ? select.value : '';
@@ -681,7 +780,9 @@ Object.assign(GuitarStudioApp.prototype, {
             return;
         }
         const dateInput = document.getElementById('dash-create-class-date');
-        this.createClase(groupId, dateInput && dateInput.value ? dateInput.value : null);
+        const date = dateInput && dateInput.value ? dateInput.value : null;
+        this.closeCreateClaseModal();
+        this.createClase(groupId, date);
     },
 
     // ── Modal Editar Grupo (Pieza 3) ──
@@ -703,7 +804,7 @@ Object.assign(GuitarStudioApp.prototype, {
         const profiles = await this.data.getProfiles();
         const memberSet = new Set(d.memberIds || []);
         const memberRows = profiles.map(p => {
-            const displayName = p.displayName || p.name || '?';
+            const displayName = this._teacherDisplayName(p);
             return `
             <label class="dgf-member-row" data-name="${this._escapeHtml(displayName.toLowerCase())}">
                 <input type="checkbox" name="dgf-member" value="${p.id}" ${memberSet.has(p.id) ? 'checked' : ''}>
@@ -1102,6 +1203,14 @@ Object.assign(GuitarStudioApp.prototype, {
         const sourceGroup = card.closest('.tab3-group');
         targetGroup.querySelector('.tab3-group-body').appendChild(card);
 
+        // El chip de estado (punto 2) vive dentro de la card: actualizarlo al mover, no solo el grupo
+        const chip = card.querySelector('.stu3-att-btn');
+        if (chip) {
+            const st = newStatus === 'presente' ? 'present' : newStatus === 'ausente' ? 'absent' : 'unmarked';
+            chip.className = `stu3-att-btn ${st}`;
+            chip.textContent = newStatus === 'presente' ? '✓ Presente' : newStatus === 'ausente' ? '✕ Ausente' : '○ Marcar';
+        }
+
         const refreshHeader = g => {
             const hdr   = g.querySelector('.tab3-group-header');
             const count = g.querySelectorAll('.stu3-card').length;
@@ -1284,12 +1393,13 @@ Object.assign(GuitarStudioApp.prototype, {
         } else {
             const renderRow = p => {
                 const checked = activeIds.has(p.id);
-                const initial = (p.name||'?')[0].toUpperCase();
+                const displayName = this._teacherDisplayName(p);
+                const initial = displayName[0].toUpperCase();
                 const color = p.color || '#c0392b';
                 return `<div class="modal-stu-row ${checked?'checked':''}" data-pid="${p.id}" onclick="app._toggleModalStu(this)">
                     <div class="modal-stu-cb">${checked?'✓':''}</div>
                     <div class="modal-stu-av" style="background:${color}">${initial}</div>
-                    <span class="modal-stu-name">${this._escapeHtml(p.name||p.id)}</span>
+                    <span class="modal-stu-name">${this._escapeHtml(displayName)}</span>
                 </div>`;
             };
             // Checked → "Del grupo", unchecked → "Otros alumnos"
@@ -1540,21 +1650,32 @@ Object.assign(GuitarStudioApp.prototype, {
             candidateDate.setDate(now.getDate() + diff);
             const candidateStr = candidateDate.toISOString().slice(0, 10);
             const existingClase = allClases.find(c => c.groupId === g.id && c.date === candidateStr);
-            const info = { groupId: g.id, groupName: g.name, date: candidateStr, time: g.time, daysAway: diff, claseId: existingClase ? existingClase.id : null, meetLink: g.meetLink };
+            const info = { groupId: g.id, groupName: g.name, date: candidateStr, time: g.time, daysAway: diff, claseId: existingClase ? existingClase.id : null, meetLink: g.meetLink, resumen: existingClase ? (existingClase.resumenProfesor || existingClase.resumen || '') : '' };
             if (!nextClase || info.daysAway < nextClase.daysAway) nextClase = info;
+        });
+
+        // Última clase dictada entre los grupos del alumno (punto 6: línea "Últ:" en la fila compacta)
+        const todayStr = this.getTodayString();
+        let lastClaseInfo = null;
+        groups.forEach(g => {
+            const ant = this.data.getClaseAnterior(g.id, todayStr);
+            if (ant && (!lastClaseInfo || ant.date > lastClaseInfo.date)) {
+                lastClaseInfo = { date: ant.date, groupName: g.name, claseId: ant.id, resumen: ant.resumenProfesor || ant.resumen || '' };
+            }
         });
 
         return {
             profile, groupLabel, streak, pasosProgress, lastPracticedTime,
             bucket, daysSince, pendingQuestions, objetivosPct, hasObjetivos,
-            alertStatus, nextClase, minutesToday
+            alertStatus, nextClase, lastClaseInfo, minutesToday
         };
     },
 
     async renderTeacherBoardView() {
         const container = document.getElementById('teacher-board-content');
         if (!container) return;
-        container.innerHTML = '<div style="padding:24px;color:var(--tb-text-secondary)">Cargando...</div>';
+        // No pisar el contenido con "Cargando..." mientras se esperan los datos: los awaits tardan
+        // milisegundos y el cartel solo se percibía como un parpadeo al cambiar de pestaña.
 
         const [profiles, items] = await Promise.all([
             this.data.getProfiles(), this.data.getLibraryItems()
@@ -1602,7 +1723,7 @@ Object.assign(GuitarStudioApp.prototype, {
 
         const filtered = studentsData.filter(s => {
             const q = (this._tbSearch || '').toLowerCase().trim();
-            if (q && !((s.profile.displayName || s.profile.name || '').toLowerCase().includes(q))) return false;
+            if (q && !(`${s.profile.teacherAlias || ''} ${s.profile.displayName || s.profile.name || ''}`.toLowerCase().includes(q))) return false;
             if (this._tbGroupFilter && this._tbGroupFilter !== 'todos' && s.groupLabel !== this._tbGroupFilter) return false;
             if (this._tbStatusFilter && this._tbStatusFilter !== 'todos' && s.alertStatus.level !== this._tbStatusFilter) return false;
             if (this._tbFocusProfileId && s.profile.id !== this._tbFocusProfileId) return false;
@@ -1618,7 +1739,7 @@ Object.assign(GuitarStudioApp.prototype, {
                 const db = b.nextClase ? b.nextClase.daysAway : Infinity;
                 return da - db;
             }
-            return (a.profile.displayName || a.profile.name || '').localeCompare(b.profile.displayName || b.profile.name || '');
+            return this._teacherDisplayName(a.profile).localeCompare(this._teacherDisplayName(b.profile));
         });
 
         const buckets = [
@@ -1695,7 +1816,9 @@ Object.assign(GuitarStudioApp.prototype, {
 
     _tbRenderStudentRow(s) {
         const p = s.profile;
-        const displayName = p.displayName || p.name || '?';
+        const displayName = this._teacherDisplayName(p);
+        const realName = p.displayName || p.name || '';
+        const hasAlias = !!(p.teacherAlias || '').trim() && displayName !== realName;
         const expanded = this._teacherBoardExpandedId === p.id;
         const statusColor = s.alertStatus.level === 'green' ? 'var(--tb-success)' : s.alertStatus.level === 'yellow' ? '#f5a623' : 'var(--tb-accent)';
 
@@ -1749,15 +1872,29 @@ Object.assign(GuitarStudioApp.prototype, {
                 </div>
             </div>`;
 
-        // Fila colapsada = identidad + racha/minutos inline + semáforo (punto 6); el resto al expandir
+        // Líneas compactas de próxima/última clase (punto 6); hover = resumenProfesor de esa clase puntual
+        const fmtCorta = d => new Date(d + 'T12:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+        const proxLabel = s.nextClase
+            ? `${s.nextClase.daysAway === 0 ? 'Hoy' : s.nextClase.daysAway === 1 ? 'Mañana' : `En ${s.nextClase.daysAway} días`} · ${s.nextClase.groupName}${s.nextClase.time ? ' · ' + s.nextClase.time.slice(0, 5) : ''}`
+            : '';
+        const proxLine = s.nextClase
+            ? `<span class="tb-clase-line" ${s.nextClase.resumen ? `title="${this._escapeHtml(s.nextClase.resumen)}"` : ''}><span class="tb-clase-line-tag">Próx</span> ${this._escapeHtml(proxLabel)}</span>`
+            : `<span class="tb-clase-line tb-clase-line-empty"><span class="tb-clase-line-tag">Próx</span> Sin programar</span>`;
+        const lastLine = s.lastClaseInfo
+            ? `<span class="tb-clase-line" ${s.lastClaseInfo.resumen ? `title="${this._escapeHtml(s.lastClaseInfo.resumen)}"` : ''}><span class="tb-clase-line-tag">Últ</span> ${fmtCorta(s.lastClaseInfo.date)} · ${this._escapeHtml(s.lastClaseInfo.groupName)}</span>`
+            : `<span class="tb-clase-line tb-clase-line-empty"><span class="tb-clase-line-tag">Últ</span> Sin clases previas</span>`;
+        const claseLinesHtml = `<div class="tb-clase-lines">${proxLine}${lastLine}</div>`;
+
+        // Fila colapsada = identidad + próxima/última clase + racha/minutos inline + semáforo; el resto al expandir
         return `<div class="tb-student-row${expanded ? ' expanded' : ''}" data-profile-id="${p.id}">
             <div class="tb-row-header" onclick="app.tbToggleExpand('${p.id}')"
                  onmouseenter="app._showHoverCard('tb-${p.id}')" onmouseleave="app._hideHoverCard('tb-${p.id}')">
                 <div class="tb-avatar" style="background:${p.color || 'var(--tb-accent)'}">${displayName.charAt(0).toUpperCase()}</div>
                 <div class="tb-identity">
                     <div class="tb-name">${this._escapeHtml(displayName)}</div>
-                    <div class="tb-group">${this._escapeHtml(s.groupLabel)}</div>
+                    <div class="tb-group">${hasAlias ? `${this._escapeHtml(realName)} · ` : ''}${this._escapeHtml(s.groupLabel)}</div>
                 </div>
+                ${claseLinesHtml}
                 <span class="tb-inline-stats">${s.streak > 0 ? `🔥 ${s.streak}d` : '— racha'} · ${minutesToday} min</span>
                 <div class="tb-status-dot-wrap" title="${this._escapeHtml(s.alertStatus.reason)}">
                     <span class="tb-status-dot tb-status-${s.alertStatus.level}" style="background:${statusColor}"></span>
@@ -1943,7 +2080,7 @@ Object.assign(GuitarStudioApp.prototype, {
         const q = (this._tbConsultasSearch || '').toLowerCase().trim();
         const f = this._tbConsultasFilter || 'todos';
         const filtered = entries.filter(e => {
-            const name = (e.profile.displayName || e.profile.name || '').toLowerCase();
+            const name = `${e.profile.teacherAlias || ''} ${e.profile.displayName || e.profile.name || ''}`.toLowerCase();
             const text = e.kind === 'consulta'
                 ? (e.preg.text || e.preg.pregunta || '').toLowerCase()
                 : `${e.item.title || ''} ${e.item.observation || ''}`.toLowerCase();
@@ -1958,7 +2095,7 @@ Object.assign(GuitarStudioApp.prototype, {
 
         const typeColors = { score: '#a29bfe', gp: '#a29bfe', gpx: '#a29bfe', pdf: '#55efc4', youtube: '#fdcb6e', spotify: '#74b9ff', audio: '#74b9ff' };
         const avatar = p => {
-            const displayName = p.displayName || p.name || '?';
+            const displayName = this._teacherDisplayName(p);
             return `<div class="cc3-avatar" style="background:${p.color || 'var(--tb-accent)'}">${displayName.charAt(0).toUpperCase()}</div>
                 <span class="cc3-name">${this._escapeHtml(displayName)}</span>`;
         };
@@ -1972,7 +2109,7 @@ Object.assign(GuitarStudioApp.prototype, {
                 <div class="cc3-card consulta ${preg.resolved ? 'respondida' : 'pendiente'}">
                     <div class="cc3-head">
                         ${avatar(p)}
-                        <span class="cc3-chip ${preg.resolved ? 'ok' : 'acc'}"><svg width="11" height="11"><use href="#icon-consulta"/></svg>${preg.resolved ? 'Respondida' : 'Consulta'}</span>
+                        <span class="cc3-chip ${preg.resolved ? 'ok' : 'pend'}"><svg width="16" height="16"><use href="#icon-consulta"/></svg>${preg.resolved ? 'Respondida' : 'Consulta'}</span>
                         <span class="cc3-time">${timeLabel}</span>
                     </div>
                     <div class="cc3-pregunta">${itemBadge}"${this._escapeHtml(preg.text || preg.pregunta || '')}"</div>
