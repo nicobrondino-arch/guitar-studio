@@ -72,7 +72,10 @@ class GuitarStudioApp {
         this._dashActiveTab = 'clase'; // tab activo de creación: 'clase' | 'grupo' | 'plantilla'
         this._libSearch = '';        // búsqueda en biblioteca col 3
         this._libCatFilter = 'todos'; // filtro categoría biblioteca col 3
-        this._weekOffset = 0;        // página de 5 días de la agenda, relativa a hoy (0 = arranca hoy)
+        this._calMode = 'mes';       // pestaña Calendario: 'mes' | 'semana'
+        this._calMonthOffset = 0;    // meses respecto al mes actual (0 = este mes)
+        this._calWeekOffset = 0;     // semanas lun–dom respecto a la actual (0 = esta semana)
+        this._dashCreateDate = null; // fecha precargada al crear clase desde el calendario
         this._gcalEvents = [];       // placeholder — Google Calendar OAuth integration, a implementar en etapa futura
 
         // Biblioteca Pro (v2)
@@ -1198,8 +1201,6 @@ class GuitarStudioApp {
 
     navigateToView(viewId) {
         this._currentView = viewId;
-        // La agenda semanal siempre re-arranca en HOY al abrir la vista Clases
-        if (viewId === 'dashboard') this._weekOffset = 0;
         // Cerrar visores si están abiertos
         if (this._pdfViewerOpen) this.closePDFViewer();
         if (document.getElementById('yt-viewer-panel')?.style.display === 'flex') this.closeYouTubeViewer();

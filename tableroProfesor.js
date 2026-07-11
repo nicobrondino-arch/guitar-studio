@@ -534,7 +534,8 @@ Object.assign(GuitarStudioApp.prototype, {
 
                 <!-- H: FINALIZAR -->
                 <div class="finalizar3-bar">
-                    <span class="finalizar3-hint">${status==='finalizada'?`Publicada para <strong>${members.length} alumno${members.length!==1?'s':''}</strong> · podés actualizar cuando quieras`:`Disponible para <strong>${members.length} alumno${members.length!==1?'s':''}</strong> al publicar`}</span>
+                    <span class="finalizar3-hint">${status==='suspendida'?`Clase <strong>suspendida</strong> · no se dictó`:status==='finalizada'?`Publicada para <strong>${members.length} alumno${members.length!==1?'s':''}</strong> · podés actualizar cuando quieras`:`Disponible para <strong>${members.length} alumno${members.length!==1?'s':''}</strong> al publicar`}</span>
+                    <button class="finalizar3-suspend ${status==='suspendida'?'active':''}" onclick="app.suspenderClase('${claseId}')" title="${status==='suspendida'?'Reactivar la clase':'Marcar como suspendida (no se dictó)'}">${status==='suspendida'?'↩ Reactivar':'⏸ Suspender'}</button>
                     <button class="finalizar3-btn ${status==='finalizada'?'done':''}" onclick="app.finalizarClase('${claseId}')">${status==='finalizada'?'↑ Actualizar publicación':'✓ Publicar clase'}</button>
                 </div>
 
@@ -754,6 +755,18 @@ Object.assign(GuitarStudioApp.prototype, {
         this.renderDashboardView();
     },
 
+    // Suspender = la clase no se dictó (feriado, cancelación). Estado propio 'suspendida'
+    // que el calendario pinta en naranja. Reactivar la devuelve a 'programada'.
+    suspenderClase(claseId) {
+        const clase = this.data.getClase(claseId);
+        if (!clase) return;
+        const suspendida = clase.status === 'suspendida';
+        clase.status = suspendida ? 'programada' : 'suspendida';
+        this.data.saveClase(clase);
+        this.showToast(suspendida ? 'Clase reactivada' : 'Clase suspendida', suspendida ? '↩️' : '⏸️');
+        this.renderDashboardView();
+    },
+
     switchDashCreationTab(tab) {
         this._dashActiveTab = tab;
         this.renderDashboardView();
@@ -761,14 +774,16 @@ Object.assign(GuitarStudioApp.prototype, {
 
     // ── Crear Clase = página de la clase en blanco (sin modal): elegís alumno/grupo y fecha
     //    en el mismo panel del detalle, y al confirmar la clase real ya queda abierta ──
-    dashStartCreateClase() {
+    dashStartCreateClase(dateStr) {
         this._currentClaseId = null;
         this._dashCreatingClase = true;
+        this._dashCreateDate = dateStr || null; // precargada al venir de un día del calendario
         this.renderDashboardView();
     },
 
     dashCancelCreateClase() {
         this._dashCreatingClase = false;
+        this._dashCreateDate = null;
         this.renderDashboardView();
     },
 
@@ -778,6 +793,7 @@ Object.assign(GuitarStudioApp.prototype, {
         if (!groupId) return;
         const dateInput = document.getElementById('dash-create-class-date');
         this._dashCreatingClase = false;
+        this._dashCreateDate = null;
         this.createClase(groupId, dateInput && dateInput.value ? dateInput.value : null);
     },
 
@@ -798,7 +814,7 @@ Object.assign(GuitarStudioApp.prototype, {
                     <div style="display:flex; flex-direction:column; gap:14px; max-width:340px;">
                         <div>
                             <label class="dgf-label">Fecha de la clase</label>
-                            <input type="date" id="dash-create-class-date" class="dgf-input" value="${todayStr}">
+                            <input type="date" id="dash-create-class-date" class="dgf-input" value="${this._dashCreateDate || todayStr}">
                         </div>
                         <div>
                             <label class="dgf-label">Alumno o grupo</label>
@@ -1074,13 +1090,6 @@ Object.assign(GuitarStudioApp.prototype, {
         this.renderDashboardView();
     },
 
-    shiftWeek(delta) {
-        this._weekOffset += delta;
-        // La agenda vive en la pestaña Calendario; re-renderizar la vista que esté activa
-        if (this._currentView === 'teacher-board') this.renderTeacherBoardView();
-        else this.renderDashboardView();
-    },
-
     // Próxima clase (Pieza 5B): la más cercana entre clases creadas y horarios semanales de grupos
     _proximaClaseInfo(allClases, groups) {
         const now = new Date();
@@ -1126,86 +1135,146 @@ Object.assign(GuitarStudioApp.prototype, {
         return { ...c, label, isToday };
     },
 
-    _getWeekDates(offset) {
-        // La franja visible arranca siempre en HOY (offset 0) y pagina de a 5 días con ‹ ›
-        const pad = n => String(n).padStart(2, '0');
-        const start = new Date();
-        start.setDate(start.getDate() + offset * 5);
-        return [0,1,2,3,4].map(i => {
-            const d = new Date(start);
-            d.setDate(start.getDate() + i);
-            return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-        });
+    // ── Pestaña Calendario (handoff Design, opción 2a: chips de color por estado) ──
+    // Estado en core.js: _calMode ('mes'|'semana'), _calMonthOffset, _calWeekOffset.
+    _CAL_WD: ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'],
+    _CAL_MONTHS: ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'],
+    _CAL_MON_ABBR: ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'],
+
+    _calPad(n) { return String(n).padStart(2, '0'); },
+    _calFmt(d) { return `${d.getFullYear()}-${this._calPad(d.getMonth()+1)}-${this._calPad(d.getDate())}`; },
+    _calMondayIndex(d) { return (d.getDay() + 6) % 7; }, // 0 = lunes
+
+    // Estado de una clase para el color del chip. "Suspendida/Faltó" (naranja) se deriva de:
+    //   grupal → status:'suspendida' (lo setea el profe con "Suspender clase")
+    //   individual → asistencia del único alumno en 'ausente' (faltó)
+    _calStatus(clase, group) {
+        if (clase.status === 'suspendida') return 'suspendida';
+        const isIndividual = group && (group._personal || (group.memberIds || []).length <= 1);
+        if (isIndividual) {
+            const vals = Object.values(clase.attendance || {});
+            if (vals.length && vals.every(v => v === 'ausente')) return 'suspendida';
+        }
+        return clase.status === 'finalizada' ? 'finalizada'
+             : clase.status === 'en-curso'   ? 'iniciada'
+             : 'pendiente';
     },
 
-    _renderSemanaCols(allClases, groups, todayStr) {
-        const weekDates = this._getWeekDates(this._weekOffset);
-        const dayAbbrs = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-        const dayNames = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+    // Descriptores de chip para las clases de un día, ordenados por hora
+    _calDayItems(dateStr, allClases, groups) {
+        return allClases.filter(c => c.date === dateStr).map(c => {
+            const g = groups.find(x => x.id === c.groupId) || {};
+            return {
+                id: c.id,
+                time: (g.time || c.time || '').slice(0, 5),
+                name: g.name || c.title || 'Clase',
+                st: this._calStatus(c, g)
+            };
+        }).sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+    },
 
-        const cols = weekDates.map(dateStr => {
-            const dayNum = parseInt(dateStr.slice(8), 10);
-            const dow = new Date(dateStr+'T12:00').getDay();
-            const isToday = dateStr === todayStr;
+    _calRangeLabel(todayStr) {
+        const today = new Date(todayStr + 'T12:00');
+        if (this._calMode === 'mes') {
+            const d = new Date(today.getFullYear(), today.getMonth() + this._calMonthOffset, 1);
+            return `${this._CAL_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+        }
+        const monday = new Date(today);
+        monday.setDate(today.getDate() - this._calMondayIndex(today) + this._calWeekOffset * 7);
+        const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+        return monday.getMonth() === sunday.getMonth()
+            ? `${monday.getDate()} — ${sunday.getDate()} ${this._CAL_MON_ABBR[sunday.getMonth()]}`
+            : `${monday.getDate()} ${this._CAL_MON_ABBR[monday.getMonth()]} — ${sunday.getDate()} ${this._CAL_MON_ABBR[sunday.getMonth()]}`;
+    },
 
-            // Clases existentes + grupos programados sin clase creada ese día
-            const dayClases = allClases.filter(c => c.date === dateStr);
-            const existingGroupIds = new Set(dayClases.map(c => c.groupId));
-            const items = dayClases.map(c => {
-                const g = groups.find(x => x.id === c.groupId) || {};
-                const st = c.status==='finalizada'?'finalizada':c.status==='en-curso'?'iniciada':'pendiente';
-                return { time:(g.time||c.time||'').slice(0,5), name:g.name||c.title||'Clase', st, sel:c.id===this._currentClaseId, click:`app.tbGoToClase('${c.id}')` };
-            });
-            groups.filter(g => g.day === dayNames[dow] && !existingGroupIds.has(g.id)).forEach(g => {
-                items.push({ time:(g.time||'').slice(0,5), name:g.name, st:'new', sel:false, click:`app.tbCreateClaseAndGo('${g.id}','${dateStr}')` });
-            });
-            items.sort((a,b) => (a.time||'').localeCompare(b.time||''));
+    _calMonthGrid(allClases, groups, todayStr) {
+        const MAX = 3;
+        const today = new Date(todayStr + 'T12:00');
+        const base = new Date(today.getFullYear(), today.getMonth() + this._calMonthOffset, 1);
+        const gridStart = new Date(base); gridStart.setDate(1 - this._calMondayIndex(base));
 
-            const card = it => `
-                <div class="sem3-card ${it.st} ${it.sel?'selected':''}" onclick="${it.click}">
-                    <div class="sem3-dot ${it.st}"></div>
-                    <span class="sem3-card-txt">
-                        <span class="sem3-card-time">${it.time||'—'}</span>
-                        <span class="sem3-card-name">${this._escapeHtml(it.name)}</span>
-                    </span>
-                </div>`;
-            const manana = items.filter(it => it.time && it.time < '13:00');
-            const tarde  = items.filter(it => !(it.time && it.time < '13:00'));
+        const wd = this._CAL_WD.map(w => `<div class="cal3-wd">${w}</div>`).join('');
+        let cells = '';
+        for (let i = 0; i < 42; i++) {
+            const d = new Date(gridStart); d.setDate(gridStart.getDate() + i);
+            const key = this._calFmt(d);
+            const inMonth = d.getMonth() === base.getMonth();
+            const isToday = key === todayStr;
+            const items = this._calDayItems(key, allClases, groups);
+            const shown = items.slice(0, MAX);
+            const overflow = items.length - shown.length;
+            const chips = shown.map(it => `
+                <div class="cal3-chip ${it.st}" onclick="event.stopPropagation();app.tbGoToClase('${it.id}')" title="${this._escapeHtml((it.time ? it.time + ' ' : '') + it.name)}">
+                    <span class="cal3-chip-txt">${it.time ? it.time + ' ' : ''}${this._escapeHtml(it.name)}</span>
+                </div>`).join('');
+            cells += `<div class="cal3-cell ${isToday ? 'today' : ''} ${inMonth ? '' : 'out'}" onclick="app.calCreateOnDate('${key}')" title="Crear clase el ${key}">
+                <span class="cal3-cell-num">${d.getDate()}</span>
+                ${chips}
+                ${overflow > 0 ? `<span class="cal3-more">+${overflow} más</span>` : ''}
+            </div>`;
+        }
+        return `<div class="cal3-grid cal3-month">${wd}${cells}</div>`;
+    },
 
-            const bodyHtml = items.length ? `
-                <div class="sem3-day-slots">
-                    <div class="sem3-slot manana">
-                        <div class="sem3-slot-label">Mañana</div>
-                        ${manana.map(card).join('') || '<span class="sem3-slot-empty">—</span>'}
-                    </div>
-                    <div class="sem3-slot">
-                        <div class="sem3-slot-label">Tarde</div>
-                        ${tarde.map(card).join('') || '<span class="sem3-slot-empty">—</span>'}
-                    </div>
-                </div>` : `<div class="sem3-day-empty">Sin clases</div>`;
+    _calWeekGrid(allClases, groups, todayStr) {
+        const today = new Date(todayStr + 'T12:00');
+        const monday = new Date(today);
+        monday.setDate(today.getDate() - this._calMondayIndex(today) + this._calWeekOffset * 7);
 
-            return `<div class="sem3-col ${isToday?'today':''}">
-                <div class="sem3-col-header">
-                    <span class="sem3-day-name">${isToday?'Hoy · ':''}${dayAbbrs[dow]}</span>
-                    <span class="sem3-day-num ${isToday?'today':''}">${dayNum}</span>
+        const cols = [0,1,2,3,4,5,6].map(i => {
+            const d = new Date(monday); d.setDate(monday.getDate() + i);
+            const key = this._calFmt(d);
+            const isToday = key === todayStr;
+            const items = this._calDayItems(key, allClases, groups);
+            const chips = items.map(it => `
+                <div class="cal3-wchip ${it.st}" onclick="event.stopPropagation();app.tbGoToClase('${it.id}')">
+                    <span class="cal3-wchip-time">${it.time || '—'}</span>
+                    <span class="cal3-wchip-name">${this._escapeHtml(it.name)}</span>
+                </div>`).join('');
+            return `<div class="cal3-wcol" onclick="app.calCreateOnDate('${key}')" title="Crear clase el ${key}">
+                <div class="cal3-wcol-head ${isToday ? 'today' : ''}">
+                    <span class="cal3-wd">${this._CAL_WD[i]}</span>
+                    <span class="cal3-wnum ${isToday ? 'today' : ''}">${d.getDate()}</span>
                 </div>
-                ${bodyHtml}
+                ${items.length ? chips : '<div class="cal3-wempty">Sin clases</div>'}
             </div>`;
         }).join('');
+        return `<div class="cal3-grid cal3-week">${cols}</div>`;
+    },
 
-        // Placeholder para Google Calendar — integración futura vía OAuth
-        return `<div class="sem3-wrap">
-            <div class="sem3-strip">
-                <button class="sem3-nav-btn" onclick="app.shiftWeek(-1)" title="Días anteriores">‹</button>
-                <div class="sem3-grid">${cols}</div>
-                <button class="sem3-nav-btn" onclick="app.shiftWeek(1)" title="Días siguientes">›</button>
+    _renderCalendario(allClases, groups, todayStr) {
+        const isMes = this._calMode === 'mes';
+        const grid = isMes
+            ? this._calMonthGrid(allClases, groups, todayStr)
+            : this._calWeekGrid(allClases, groups, todayStr);
+        return `<div class="cal3-wrap">
+            <div class="cal3-toolbar">
+                <div class="cal3-toggle">
+                    <button class="cal3-toggle-btn ${isMes ? 'active' : ''}" onclick="app.calSetMode('mes')">Mes</button>
+                    <button class="cal3-toggle-btn ${!isMes ? 'active' : ''}" onclick="app.calSetMode('semana')">Semana</button>
+                </div>
+                <div class="cal3-nav">
+                    <button class="cal3-nav-btn" onclick="app.calPrev()" title="Anterior">‹</button>
+                    <span class="cal3-range">${this._calRangeLabel(todayStr)}</span>
+                    <button class="cal3-nav-btn" onclick="app.calNext()" title="Siguiente">›</button>
+                </div>
+                <button class="cal3-today" onclick="app.calToday()">Hoy</button>
+                <div class="cal3-legend">
+                    <span class="cal3-leg"><span class="cal3-dot pendiente"></span>Pendiente</span>
+                    <span class="cal3-leg"><span class="cal3-dot iniciada"></span>En curso</span>
+                    <span class="cal3-leg"><span class="cal3-dot finalizada"></span>Finalizada</span>
+                    <span class="cal3-leg"><span class="cal3-dot suspendida"></span>Suspendida/Faltó</span>
+                </div>
             </div>
-            <div class="sem3-gcal-hint">
-                <svg width="11" height="11"><use href="#icon-fecha"/></svg>
-                Conectar Google Calendar (próximamente)
-            </div>
+            <div class="cal3-body">${grid}</div>
         </div>`;
     },
+
+    calSetMode(mode) { this._calMode = mode; this.renderTeacherBoardView(); },
+    calPrev() { if (this._calMode === 'mes') this._calMonthOffset--; else this._calWeekOffset--; this.renderTeacherBoardView(); },
+    calNext() { if (this._calMode === 'mes') this._calMonthOffset++; else this._calWeekOffset++; this.renderTeacherBoardView(); },
+    calToday() { this._calMonthOffset = 0; this._calWeekOffset = 0; this.renderTeacherBoardView(); },
+    calCreateOnDate(dateStr) { this.navigateToView('dashboard'); this.dashStartCreateClase(dateStr); },
 
     cycleAttendance(claseId, profileId) {
         const clase = this.data.getClase(claseId);
@@ -1759,10 +1828,9 @@ Object.assign(GuitarStudioApp.prototype, {
         if (this._teacherBoardMainTab === 'consultas') {
             contentHtml = this._tbRenderConsultasCargasTab(profiles, allClases, items);
         } else if (this._teacherBoardMainTab === 'calendario') {
-            // Interina: la agenda semanal que vivía al pie de Planificación, ahora con toda la pestaña.
-            // Pendiente handoff de Design para el calendario definitivo (vista mensual, etc.)
+            // Calendario definitivo (handoff Design 2a): vista Mes/Semana con chips de color por estado.
             const groups = this.data.getAllGroups();
-            contentHtml = `<div class="tb-cal-wrap">${this._renderSemanaCols(allClases, groups, this.getTodayString())}</div>`;
+            contentHtml = `<div class="tb-cal-wrap">${this._renderCalendario(allClases, groups, this.getTodayString())}</div>`;
         } else {
             if (!profiles.length) {
                 contentHtml = `<div style="padding:24px;color:var(--tb-text-secondary)">Todavía no hay alumnos.</div>`;
