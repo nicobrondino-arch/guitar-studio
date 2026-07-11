@@ -5409,6 +5409,51 @@ span.ck3-box { cursor: default; }
     color: var(--tb-text-secondary);
     margin-top: 2px;
 }
+
+/* Crear Clase = una sola página (mismo layout que el detalle, picker en el header) */
+.cc-eyebrow {
+    font: 700 10px var(--font-primary);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--tb-text-muted);
+    margin-bottom: 8px;
+}
+.cc-pickers {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+.cc-select, .cc-date {
+    font: 600 13px var(--font-primary);
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--tb-border);
+    background: var(--tb-bg-secondary);
+    color: var(--tb-text-primary);
+    cursor: pointer;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+}
+/* El select es la acción principal: acento + glow para que salte a la vista */
+.cc-select { min-width: 210px; border-color: var(--tb-accent); box-shadow: 0 0 0 3px var(--tb-accent-glow); }
+.cc-select:focus, .cc-date:focus { border-color: var(--tb-accent); }
+.cc-date { color: var(--tb-text-secondary); }
+.cc-guide {
+    text-align: center;
+    font: 500 12.5px var(--font-primary);
+    color: var(--tb-text-secondary);
+    max-width: 380px;
+    margin: 2px auto 6px;
+}
+.cc-ghost { opacity: .5; pointer-events: none; }
+.cc-ph {
+    font: italic 400 12px var(--font-primary);
+    color: var(--tb-text-muted);
+    margin: 0;
+    padding: 6px 0 2px;
+}
 .h3-meet-bar {
     flex: 0 1 auto;
     max-width: 280px;
@@ -5508,6 +5553,13 @@ span.ck3-box { cursor: default; }
 }
 .pc3-btn:hover { background: var(--tb-bg-tertiary); border-color: var(--tb-border-hover); color: var(--tb-text-primary); }
 .pc3-btn svg { display: block; flex-shrink: 0; }
+.pc3-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+/* Meet: se ilumina azul al hover */
+.pc3-btn-meet:hover { background: rgba(26,115,232,.14); border-color: rgba(26,115,232,.5); color: #3b82f6; }
+/* WhatsApp: verde tenue, se ilumina verde al hover y se rellena al click */
+.pc3-btn-wa { font-weight: 700; color: #25d366; background: rgba(37,211,102,.08); border-color: rgba(37,211,102,.25); }
+.pc3-btn-wa:hover { background: rgba(37,211,102,.16); border-color: rgba(37,211,102,.5); color: #25d366; }
+.pc3-btn-wa:active { background: #25d366; border-color: #25d366; color: #fff; }
 /* Toda la card lleva a la clase ("editar" = entrar); solo Meet queda como acción aparte */
 .pc3-card.pc3-clickable { cursor: pointer; transition: border-color .15s, background .15s; }
 .pc3-card.pc3-clickable:hover { border-color: var(--tb-border-hover); background: var(--tb-bg-tertiary); }
@@ -6293,18 +6345,25 @@ span.ck3-box { cursor: default; }
 .cal3-cell.today .cal3-cell-num { color: var(--tb-accent); }
 .cal3-more { font: 700 9px var(--font-primary); color: var(--tb-text-muted); }
 
-/* Chip de clase (2a): fondo tenue + barra de color por estado */
+/* Chip de clase (2a): fondo tenue + barra de color por estado (--st).
+   Al hover se ilumina: sube el mix de fondo + halo en el color del estado. */
+.cal3-chip, .cal3-wchip { --st: var(--tb-border-hover); }
+.cal3-chip.iniciada,   .cal3-wchip.iniciada   { --st: var(--tb-accent); }
+.cal3-chip.finalizada, .cal3-wchip.finalizada { --st: var(--tb-success); }
+.cal3-chip.suspendida, .cal3-wchip.suspendida { --st: var(--tb-warning); }
 .cal3-chip {
     min-width: 0;
     padding: 3px 6px;
     border-radius: 5px;
-    border-left: 2.5px solid var(--tb-border-hover);
-    background: color-mix(in srgb, var(--tb-border-hover) 22%, transparent);
+    border-left: 2.5px solid var(--st);
+    background: color-mix(in srgb, var(--st) 22%, transparent);
     cursor: pointer;
+    transition: background .12s, box-shadow .12s;
 }
-.cal3-chip.iniciada   { border-left-color: var(--tb-accent);  background: color-mix(in srgb, var(--tb-accent) 22%, transparent); }
-.cal3-chip.finalizada { border-left-color: var(--tb-success); background: color-mix(in srgb, var(--tb-success) 22%, transparent); }
-.cal3-chip.suspendida { border-left-color: var(--tb-warning); background: color-mix(in srgb, var(--tb-warning) 22%, transparent); }
+.cal3-chip:hover {
+    background: color-mix(in srgb, var(--st) 44%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--st) 55%, transparent);
+}
 .cal3-chip-txt {
     font: 700 9px var(--font-primary);
     color: var(--tb-text-primary);
@@ -6352,13 +6411,15 @@ span.ck3-box { cursor: default; }
     min-width: 0;
     padding: 5px 8px;
     border-radius: 6px;
-    border-left: 3px solid var(--tb-border-hover);
-    background: color-mix(in srgb, var(--tb-border-hover) 20%, transparent);
+    border-left: 3px solid var(--st);
+    background: color-mix(in srgb, var(--st) 20%, transparent);
     cursor: pointer;
+    transition: background .12s, box-shadow .12s;
 }
-.cal3-wchip.iniciada   { border-left-color: var(--tb-accent);  background: color-mix(in srgb, var(--tb-accent) 20%, transparent); }
-.cal3-wchip.finalizada { border-left-color: var(--tb-success); background: color-mix(in srgb, var(--tb-success) 20%, transparent); }
-.cal3-wchip.suspendida { border-left-color: var(--tb-warning); background: color-mix(in srgb, var(--tb-warning) 20%, transparent); }
+.cal3-wchip:hover {
+    background: color-mix(in srgb, var(--st) 44%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--st) 55%, transparent);
+}
 .cal3-wchip-time { font: 600 9px var(--font-primary); color: var(--tb-text-muted); display: block; }
 .cal3-wchip-name {
     font: 700 10.5px var(--font-primary);

@@ -99,7 +99,10 @@ Object.assign(GuitarStudioApp.prototype, {
                             <div class="pc3-label">Próxima clase · ${this._escapeHtml(proxName)}</div>
                             <div class="pc3-when ${prox.isToday?'hoy':''}">${prox.label}</div>
                         </div>
-                        ${proxMeet ? `<a class="pc3-btn" href="${this._escapeHtml(proxMeet)}" target="_blank" title="Entrar al Meet" onclick="event.stopPropagation()"><svg width="17" height="17"><use href="#icon-meet"/></svg> Meet</a>` : ''}
+                        ${proxMeet ? `<div class="pc3-actions">
+                            <a class="pc3-btn pc3-btn-meet" href="${this._escapeHtml(proxMeet)}" target="_blank" title="Entrar al Meet" onclick="event.stopPropagation()"><svg width="17" height="17"><use href="#icon-meet"/></svg> Meet</a>
+                            <button class="pc3-btn pc3-btn-wa" title="Compartir el link por WhatsApp" onclick="event.stopPropagation();app.sendMeetWhatsApp('${prox.group.id}')">W</button>
+                        </div>` : ''}
                     </div>` : '';
                 tabBodyHtml = `
                 <div class="dash-tab-content" style="padding: 16px; display: flex; flex-direction: column; gap: 16px;">
@@ -797,42 +800,45 @@ Object.assign(GuitarStudioApp.prototype, {
         this.createClase(groupId, dateInput && dateInput.value ? dateInput.value : null);
     },
 
+    // Crear Clase = una sola página: misma estructura que el detalle real, con el selector
+    // de alumno/grupo + fecha en el encabezado. Al elegir el grupo (onchange) se crea la
+    // clase y la MISMA columna se re-renderiza como el detalle real (openClase) — sin paso previo.
     _renderClaseCreationPanel(groups, todayStr) {
+        const dateVal = this._dashCreateDate || todayStr;
+        const opts = groups.map(g => `<option value="${g.id}">${this._escapeHtml(g.name)}</option>`).join('');
         return `
             <div class="clase3-scroll">
+                <!-- A: HEADER con selector de alumno/grupo + fecha -->
                 <div class="h3-header">
                     <button class="h3-back-btn" onclick="app.dashCancelCreateClase()" title="Volver">
                         <svg width="26" height="26"><use href="#icon-volver"/></svg>
                     </button>
                     <div class="h3-title-block">
-                        <div class="h3-title">Nueva clase</div>
-                        <div class="h3-sub">Elegí la fecha y el alumno o grupo — el resto se carga acá mismo</div>
-                    </div>
-                </div>
-                <div class="sec3-block">
-                    <div class="sec3-label">Datos de la clase</div>
-                    <div style="display:flex; flex-direction:column; gap:14px; max-width:340px;">
-                        <div>
-                            <label class="dgf-label">Fecha de la clase</label>
-                            <input type="date" id="dash-create-class-date" class="dgf-input" value="${this._dashCreateDate || todayStr}">
-                        </div>
-                        <div>
-                            <label class="dgf-label">Alumno o grupo</label>
-                            <select id="dash-create-class-select" class="dgf-input" onchange="app.dashConfirmCreateClase()">
-                                <option value="">— Seleccionar —</option>
-                                ${groups.map(g => `<option value="${g.id}">${this._escapeHtml(g.name)}</option>`).join('')}
+                        <div class="cc-eyebrow">Nueva clase</div>
+                        <div class="cc-pickers">
+                            <select id="dash-create-class-select" class="cc-select" onchange="if(this.value)app.dashConfirmCreateClase()">
+                                <option value="">Elegí alumno o grupo…</option>
+                                ${opts}
                             </select>
-                            <p class="text3-muted" style="margin:6px 0 0; font-size:11.5px;">Al elegirlo, la clase se abre y seguís cargando el plan.</p>
+                            <input type="date" id="dash-create-class-date" class="cc-date" value="${dateVal}" title="Fecha de la clase">
                         </div>
                     </div>
                 </div>
-                <div class="sec3-block">
+
+                <div class="cc-guide">Elegí un alumno o grupo y la clase se arma acá mismo: asistencia, plan y biblioteca.</div>
+
+                <!-- Vista previa inerte de las secciones — se activan al elegir el alumno/grupo -->
+                <div class="sec3-block cc-ghost">
                     <div class="sec3-label">Asistencia</div>
-                    <p class="text3-muted">Se habilita al elegir el alumno o grupo.</p>
+                    <p class="cc-ph">Se completa con los alumnos del grupo.</p>
                 </div>
-                <div class="sec3-block">
+                <div class="sec3-block cc-ghost">
                     <div class="sec3-label">Plan de la clase</div>
-                    <p class="text3-muted">Acá vas a armar los pasos en orden y agregar material desde la Biblioteca →</p>
+                    <p class="cc-ph">Pasos en orden + material desde la Biblioteca →</p>
+                </div>
+                <div class="sec3-block cc-ghost">
+                    <div class="sec3-label">Resumen privado</div>
+                    <p class="cc-ph">Tus notas de la clase.</p>
                 </div>
             </div>`;
     },
