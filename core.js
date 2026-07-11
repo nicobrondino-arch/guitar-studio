@@ -1139,7 +1139,7 @@ class GuitarStudioApp {
     _genGroupId() { return 'grp_' + Date.now() + '_' + Math.random().toString(36).slice(2,7); }
 
 
-    sendMeetWhatsApp(groupId) {
+    async sendMeetWhatsApp(groupId) {
         const group = this.data.getAllGroups().find(function(g) { return g.id === groupId; });
         if (!group || !group.meetLink) return;
         const dayTime = [group.day, group.time].filter(Boolean).join(' a las ');
@@ -1149,7 +1149,22 @@ class GuitarStudioApp {
             (dayTime ? ' (' + dayTime + ')' : '') +
             ':\n' + group.meetLink
         );
-        window.open('https://wa.me/?text=' + msg, '_blank');
+
+        // Contacto guardado: el del grupo, o el de la Ficha del alumno si es clase individual
+        let contact = (group.whatsapp || '').trim();
+        if (!contact && (group.memberIds || []).length === 1) {
+            const profiles = await this.data.getProfiles();
+            const p = profiles.find(x => x.id === group.memberIds[0]);
+            contact = ((p && p.whatsapp) || '').trim();
+        }
+
+        if (/chat\.whatsapp\.com/.test(contact)) {
+            // Link a chat de grupo: WhatsApp no permite prefijar texto ahí, se abre el chat directo
+            window.open(/^https?:/.test(contact) ? contact : 'https://' + contact, '_blank');
+            return;
+        }
+        const phone = contact.replace(/[^\d]/g, '');
+        window.open('https://wa.me/' + (phone.length >= 8 ? phone : '') + '?text=' + msg, '_blank');
     }
 
     // ==========================================================================

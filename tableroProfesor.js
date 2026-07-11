@@ -1399,10 +1399,11 @@ Object.assign(GuitarStudioApp.prototype, {
         const override = clase.memberOverride; // null | [profileId, ...]
         const activeIds = new Set(override !== null && override !== undefined ? override : groupMemberIds);
 
-        // Populate date, time, meetUrl
+        // Populate date, time, meetUrl, whatsapp (el contacto vive en el grupo)
         document.getElementById('modal-edit-date').value = clase.date || '';
         document.getElementById('modal-edit-time').value = clase.time || group.time || '';
         document.getElementById('modal-edit-meeturl').value = clase.meetUrl || '';
+        document.getElementById('modal-edit-whatsapp').value = group.whatsapp || '';
 
         // Populate student list — muestra TODOS los perfiles, pre-marca los activos
         const stuList = document.getElementById('modal-edit-students');
@@ -1483,6 +1484,17 @@ Object.assign(GuitarStudioApp.prototype, {
         if (newTime) clase.time = newTime;
         clase.meetUrl = newMeet || null;
         clase.memberOverride = sameAsGroup ? null : checkedIds;
+
+        // El contacto de WhatsApp pertenece al grupo (también al personal de un alumno individual)
+        const newWa = document.getElementById('modal-edit-whatsapp').value.trim();
+        if (group.id && newWa !== (group.whatsapp || '')) {
+            const groups = this.data.getAllGroups();
+            const gi = groups.findIndex(g => g.id === group.id);
+            if (gi >= 0) {
+                groups[gi].whatsapp = newWa;
+                this.data.saveGroups(groups);
+            }
+        }
 
         this.data.saveClase(clase);
         this.closeEditClaseModal();
