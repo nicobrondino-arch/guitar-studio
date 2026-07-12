@@ -1764,7 +1764,14 @@ Object.assign(GuitarStudioApp.prototype, {
         }
 
         const groups = this.data.getAllGroups().filter(g => (g.memberIds || []).includes(pid));
-        const groupLabel = groups.length ? groups.map(g => g.name).join(' · ') : (this.lang === 'es' ? 'Individual' : 'Individual');
+        // El grupo personal oculto (grp-personal-*) se llama igual que el alumno; mostrarlo como
+        // "Individual" en vez de repetir el nombre (evita el subtítulo "Nico · Rock Viernes · Nico").
+        const labelParts = groups.filter(g => !g._personal).map(g => g.name);
+        if (groups.some(g => g._personal)) labelParts.push('Individual');
+        const groupLabel = labelParts.length ? labelParts.join(' · ') : 'Individual';
+        // Cuando hay más de un contexto (grupo + individual, o varios grupos) las clases se mezclan:
+        // ahí cada chip lleva su designación de grupo/individual. Con un solo contexto es redundante.
+        const multiContext = labelParts.length > 1;
 
         // Consultas pendientes: iterar clases de los grupos del alumno (evita escanear localStorage por prefijo)
         const myClaseIds = allClases.filter(c => groups.some(g => g.id === c.groupId)).map(c => c.id);
@@ -1806,7 +1813,7 @@ Object.assign(GuitarStudioApp.prototype, {
             candidateDate.setDate(now.getDate() + diff);
             const candidateStr = candidateDate.toISOString().slice(0, 10);
             const existingClase = allClases.find(c => c.groupId === g.id && c.date === candidateStr);
-            const info = { groupId: g.id, groupName: g.name, date: candidateStr, time: g.time, daysAway: diff, claseId: existingClase ? existingClase.id : null, meetLink: g.meetLink, resumen: existingClase ? (existingClase.resumenProfesor || existingClase.resumen || '') : '' };
+            const info = { groupId: g.id, groupName: g.name, label: g._personal ? 'Individual' : g.name, date: candidateStr, time: g.time, daysAway: diff, claseId: existingClase ? existingClase.id : null, meetLink: g.meetLink, resumen: existingClase ? (existingClase.resumenProfesor || existingClase.resumen || '') : '' };
             if (!nextClase || info.daysAway < nextClase.daysAway) nextClase = info;
         });
 
@@ -1816,14 +1823,18 @@ Object.assign(GuitarStudioApp.prototype, {
             .filter(c => groups.some(g => g.id === c.groupId) && c.date < todayStr)
             .sort((a, b) => b.date.localeCompare(a.date))
             .slice(0, 3)
-            .map(c => ({
-                date: c.date,
-                claseId: c.id,
-                resumen: c.resumenProfesor || c.resumen || ''
-            }));
+            .map(c => {
+                const g = groups.find(gg => gg.id === c.groupId);
+                return {
+                    date: c.date,
+                    claseId: c.id,
+                    label: g && g._personal ? 'Individual' : (g ? g.name : ''),
+                    resumen: c.resumenProfesor || c.resumen || ''
+                };
+            });
 
         return {
-            profile, groupLabel, streak, pasosProgress, lastPracticedTime,
+            profile, groupLabel, multiContext, streak, pasosProgress, lastPracticedTime,
             bucket, daysSince, pendingQuestions, objetivosPct, hasObjetivos,
             alertStatus, nextClase, pastClases, minutesToday
         };
@@ -1995,13 +2006,15 @@ Object.assign(GuitarStudioApp.prototype, {
         // Hover = resumen privado del profesor (tooltip via data-resumen); click = ir a la clase.
         const fmtCorta = d => new Date(d + 'T12:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
         const tip = r => r ? ` data-resumen="${this._escapeHtml(r)}"` : '';
+        // Designación de grupo/individual: solo si el alumno mezcla contextos (si no, es redundante).
+        const grpTag = l => (s.multiContext && l) ? `<span class="tb-chip-grp">${this._escapeHtml(l)}</span>` : '';
         const proxChip = s.nextClase
             ? `<button class="tb-clase-chip prox"${tip(s.nextClase.resumen)}
                     onclick="event.stopPropagation();${s.nextClase.claseId ? `app.tbGoToClase('${s.nextClase.claseId}')` : `app.tbCreateClaseAndGo('${s.nextClase.groupId}','${s.nextClase.date}')`}"
-                    >${s.nextClase.daysAway === 0 ? 'Hoy' : s.nextClase.daysAway === 1 ? 'Mañana' : fmtCorta(s.nextClase.date)}${s.nextClase.time ? ' · ' + s.nextClase.time.slice(0, 5) : ''}</button>`
+                    >${grpTag(s.nextClase.label)}${s.nextClase.daysAway === 0 ? 'Hoy' : s.nextClase.daysAway === 1 ? 'Mañana' : fmtCorta(s.nextClase.date)}${s.nextClase.time ? ' · ' + s.nextClase.time.slice(0, 5) : ''}</button>`
             : `<span class="tb-clase-chip empty">Sin próxima</span>`;
         const pastChips = (s.pastClases || []).map(c =>
-            `<button class="tb-clase-chip past"${tip(c.resumen)} onclick="event.stopPropagation();app.tbGoToClase('${c.claseId}')">${fmtCorta(c.date)}</button>`
+            `<button class="tb-clase-chip past"${tip(c.resumen)} onclick="event.stopPropagation();app.tbGoToClase('${c.claseId}')">${grpTag(c.label)}${fmtCorta(c.date)}</button>`
         ).join('');
         const claseChipsHtml = `<div class="tb-clase-chips">${proxChip}${pastChips}</div>`;
 

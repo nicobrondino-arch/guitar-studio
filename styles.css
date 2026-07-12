@@ -6956,6 +6956,9 @@ span.ck3-box { cursor: default; }
 }
 .tb-clase-chip.past:hover { border-color: var(--tb-border-hover); color: var(--tb-text-primary); }
 .tb-clase-chip.prox:hover { border-color: var(--tb-success); }
+/* Designación de grupo/individual dentro del chip (solo cuando el alumno mezcla contextos) */
+.tb-clase-chip .tb-chip-grp { font-weight: 700; opacity: .72; }
+.tb-clase-chip .tb-chip-grp::after { content: '·'; margin: 0 5px; opacity: .5; font-weight: 400; }
 .tb-clase-chip.empty {
     cursor: default;
     font-style: italic;
