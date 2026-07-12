@@ -2115,8 +2115,9 @@ Object.assign(GuitarStudioApp.prototype, {
 
         const questionsPanel = expanded ? this._tbRenderQuestionsAccordion(p.id) : '';
 
-        // Fila colapsada = identidad (lápiz = editar SOLO el alias) + rutina + racha/minutos + semáforo.
-        // Al expandir: Ficha (roja, ícono grande) seguida de la próxima clase (verde) y las pasadas + consultas.
+        // Fila colapsada = identidad (lápiz = editar SOLO el alias) + rutina + racha/minutos + semáforo
+        // + botón de Ficha (amarillo, recuadro a la derecha; accesible sin expandir).
+        // Al expandir: próxima clase (verde) + pasadas + consultas.
         return `<div class="tb-student-row${expanded ? ' expanded' : ''}" data-profile-id="${p.id}">
             <div class="tb-row-header" onclick="app.tbToggleExpand('${p.id}')">
                 <div class="tb-avatar" style="background:${p.color || 'var(--tb-accent)'}">${displayName.charAt(0).toUpperCase()}</div>
@@ -2132,11 +2133,11 @@ Object.assign(GuitarStudioApp.prototype, {
                 <div class="tb-status-dot-wrap" title="${this._escapeHtml(s.alertStatus.reason)}">
                     <span class="tb-status-dot tb-status-${s.alertStatus.level}" style="background:${statusColor}"></span>
                 </div>
+                <button class="tb-ficha-icon" title="Ver ficha del alumno" onclick="event.stopPropagation();app.openTeacherFichaModal('${p.id}')"><svg width="20" height="20"><use href="#icon-ficha"/></svg></button>
                 <span class="tb-row-chevron">${expanded ? '▴' : '▾'}</span>
             </div>
             ${expanded ? `<div class="tb-row-expanded">
                 <div class="tb-expanded-actions">
-                    <button class="tb-ficha-btn" onclick="event.stopPropagation();app.openTeacherFichaModal('${p.id}')"><svg width="18" height="18"><use href="#icon-ficha"/></svg> Ficha</button>
                     ${claseChipsHtml}
                 </div>
                 ${questionsPanel}
@@ -2366,11 +2367,13 @@ Object.assign(GuitarStudioApp.prototype, {
             const it = e.item;
             const color = typeColors[it.type] || 'var(--tb-accent)';
             return `
-            <div class="cc3-card carga">
+            <div class="cc3-card carga" style="border-color: color-mix(in srgb, ${color} 40%, var(--tb-border)); box-shadow: inset 4px 0 0 ${color};">
                 <div class="cc3-head">
                     ${avatar(e.profile)}
-                    <span class="cc3-chip" style="background:color-mix(in srgb, ${color} 20%, transparent); color:${color}">${this._bibTypeIcon(it.type)}${this._bibTypeLabel(it.type)}</span>
-                    <span class="cc3-time">${timeLabel}</span>
+                    <div class="cc3-head-right">
+                        <span class="cc3-time">${timeLabel}</span>
+                        <span class="cc3-chip cc3-type" style="background:color-mix(in srgb, ${color} 20%, transparent); color:${color}">${this._bibTypeIcon(it.type)}${this._bibTypeLabel(it.type)}</span>
+                    </div>
                 </div>
                 <div class="cc3-carga-title">${this._escapeHtml(it.title || 'Sin título')}</div>
                 ${it.observation ? `<div class="cc3-carga-obs">"${this._escapeHtml(it.observation)}"</div>` : ''}
