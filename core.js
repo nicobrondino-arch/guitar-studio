@@ -75,7 +75,6 @@ class GuitarStudioApp {
         this._calMode = 'mes';       // pestaña Calendario: 'mes' | 'semana'
         this._calMonthOffset = 0;    // meses respecto al mes actual (0 = este mes)
         this._calWeekOffset = 0;     // semanas lun–dom respecto a la actual (0 = esta semana)
-        this._dashCreateDate = null; // fecha precargada al crear clase desde el calendario
         this._gcalEvents = [];       // placeholder — Google Calendar OAuth integration, a implementar en etapa futura
 
         // Biblioteca Pro (v2)

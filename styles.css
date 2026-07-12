@@ -5440,14 +5440,6 @@ span.ck3-box { cursor: default; }
 .cc-select { min-width: 210px; border-color: var(--tb-accent); box-shadow: 0 0 0 3px var(--tb-accent-glow); }
 .cc-select:focus, .cc-date:focus { border-color: var(--tb-accent); }
 .cc-date { color: var(--tb-text-secondary); }
-.cc-guide {
-    text-align: center;
-    font: 500 12.5px var(--font-primary);
-    color: var(--tb-text-secondary);
-    max-width: 380px;
-    margin: 2px auto 6px;
-}
-.cc-ghost { opacity: .5; pointer-events: none; }
 .cc-ph {
     font: italic 400 12px var(--font-primary);
     color: var(--tb-text-muted);
@@ -5556,8 +5548,8 @@ span.ck3-box { cursor: default; }
 .pc3-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 /* Meet: se ilumina azul al hover */
 .pc3-btn-meet:hover { background: rgba(26,115,232,.14); border-color: rgba(26,115,232,.5); color: #3b82f6; }
-/* WhatsApp: verde tenue, se ilumina verde al hover y se rellena al click */
-.pc3-btn-wa { font-weight: 700; color: #25d366; background: rgba(37,211,102,.08); border-color: rgba(37,211,102,.25); }
+/* WhatsApp: mismo color base que Meet (neutro); se ilumina verde al hover */
+.pc3-btn-wa { font-weight: 700; }
 .pc3-btn-wa:hover { background: rgba(37,211,102,.16); border-color: rgba(37,211,102,.5); color: #25d366; }
 .pc3-btn-wa:active { background: #25d366; border-color: #25d366; color: #fff; }
 /* Toda la card lleva a la clase ("editar" = entrar); solo Meet queda como acción aparte */
@@ -7882,6 +7874,22 @@ input.dgf-input[type="time"] { cursor: pointer; }
 }
 .dgf-prox-btn:hover { background: var(--tb-bg-elevated); color: var(--tb-text-secondary); }
 .dgf-prox-empty { font: italic 400 11px var(--font-primary); color: var(--tb-text-muted); }
+/* Clase suelta: fecha fuera del cronograma regular del grupo */
+.dgf-suelta-row { display: flex; gap: 6px; margin-top: 8px; }
+.dgf-suelta-date { flex: 1; min-width: 0; }
+.dgf-suelta-btn {
+    flex-shrink: 0;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px dashed var(--tb-border-hover);
+    background: transparent;
+    color: var(--tb-text-secondary);
+    font: 600 11px var(--font-primary);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .12s, border-color .12s, color .12s;
+}
+.dgf-suelta-btn:hover { background: var(--tb-bg-secondary); border-color: var(--tb-accent); color: var(--tb-accent); }
 
 /* Modal Plantilla con mini-biblioteca */
 .tpl3-modal { width: 780px; max-height: 90vh; }

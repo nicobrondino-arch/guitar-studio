@@ -26,7 +26,7 @@ Object.assign(GuitarStudioApp.prototype, {
         const buildTlItems = (dateStr, dayName) => {
             const now = new Date();
             const nowMins = now.getHours() * 60 + now.getMinutes();
-            const existing = allClases.filter(c => c.date === dateStr);
+            const existing = allClases.filter(c => c.date === dateStr && !c._draft);
             const existingGroupIds = new Set(existing.map(c => c.groupId));
             const items = [];
             existing.forEach(c => {
@@ -69,14 +69,14 @@ Object.assign(GuitarStudioApp.prototype, {
                 </div>`).join('')
             : `<div class="dash-tl-empty">No hay clases hoy.<br><span>Asigná un día a tus grupos en el Cuaderno.</span></div>`;
 
-        // Contenido del panel central (Detalles o Creación)
+        // Contenido del panel central (Detalle de clase o tabs de creación).
+        // Crear Clase abre una clase BORRADOR y cae en el detalle real (ver dashStartCreateClase),
+        // así que no hay un panel de creación aparte: siempre es _currentClaseId o los tabs.
         let middleContentHtml = '';
         if (this._currentClaseId) {
             // Placeholder vacío: el detalle real lo pinta _renderClaseDetail enseguida y un
             // cartel de texto acá solo se percibía como parpadeo
             middleContentHtml = `<div class="empty-hint" style="padding: 24px;"></div>`;
-        } else if (this._dashCreatingClase) {
-            middleContentHtml = this._renderClaseCreationPanel(groups, todayStr);
         } else {
             const activeTab = this._dashActiveTab || 'clase';
             let tabBodyHtml = '';
@@ -106,8 +106,8 @@ Object.assign(GuitarStudioApp.prototype, {
                     </div>` : '';
                 tabBodyHtml = `
                 <div class="dash-tab-content" style="padding: 16px; display: flex; flex-direction: column; gap: 16px;">
-                    <h3 style="margin: 0; font-size: 15px; color: var(--tb-text-primary); font-family: var(--font-heading);">Crear Clase</h3>
-                    <p style="margin: 0; font-size: 13px; color: var(--tb-text-secondary);">Se abre la página de la clase en blanco: elegís alumno/grupo y fecha ahí mismo, y seguís cargando el plan.</p>
+                    <h3 style="margin: 0; font-size: 15px; color: var(--tb-text-primary); font-family: var(--font-heading);">Crear Clase individual</h3>
+                    <p style="margin: 0; font-size: 13px; color: var(--tb-text-secondary);">Caés directo en la página de la clase y elegís el alumno ahí mismo. Para clases de un grupo, usá la pestaña <strong>Grupo Nuevo</strong> (cada grupo arma sus clases desde su cronograma).</p>
                     <button class="btn btn-primary" onclick="app.dashStartCreateClase()" style="align-self: flex-start; display: inline-flex; align-items: center; gap: 6px;"><svg width="14" height="14"><use href="#icon-nuevo"/></svg> Crear Clase</button>
                     <div style="margin-top: 24px; border-top: 1px solid var(--tb-border); padding-top: 20px;">
                         ${proxCardHtml}
@@ -281,19 +281,28 @@ Object.assign(GuitarStudioApp.prototype, {
     },
 
     openClase(claseId) {
+        this._purgeDraftClases(claseId); // descartar borradores sin elegir grupo que hayan quedado
         this._currentClaseId = claseId;
-        this._dashCreatingClase = false;
         this._claseReturnTo = null; // quien quiera volver a otro lado lo setea DESPUÉS de llamar openClase
         this.renderDashboardView();
     },
 
     closeClasetDetail() {
+        this._purgeDraftClases(null); // si se sale de una clase borrador sin elegir grupo, se descarta
         this._currentClaseId = null;
         const ret = this._claseReturnTo;
         this._claseReturnTo = null;
         this.renderDashboardView();
         // Si se entró desde "Próximas clases del grupo", la flecha devuelve a ese modal
         if (ret && ret.groupId) this.openGroupModal(ret.groupId);
+    },
+
+    // Borra las clases borrador (sin grupo elegido) menos la que se está por abrir.
+    // Un borrador solo existe mientras su detalle está abierto sin grupo; al elegirlo pierde _draft.
+    _purgeDraftClases(exceptId) {
+        this.data.getAllClases()
+            .filter(c => c._draft && c.id !== exceptId)
+            .forEach(c => this.data.deleteClase(c.id));
     },
 
     async _renderClaseDetail(claseId) {
@@ -303,6 +312,7 @@ Object.assign(GuitarStudioApp.prototype, {
         const clase = this.data.getClase(claseId);
         if (!clase) { this.closeClasetDetail(); return; }
 
+        const isDraft = !clase.groupId; // clase recién creada, todavía sin alumno/grupo
         const group = this.data.getGroup(clase.groupId) || {};
         const [profiles, libraryItems] = await Promise.all([
             this.data.getProfiles(),
@@ -495,13 +505,23 @@ Object.assign(GuitarStudioApp.prototype, {
                         <svg width="26" height="26"><use href="#icon-volver"/></svg>
                     </button>
                     <div class="h3-title-block">
-                        <button id="clase-detalle-titulo-btn" class="h3-title h3-title-btn" onclick="app._openEditClaseModal('${claseId}')" title="Editar clase">
-                            <span class="h3-title-txt">Clase ${this._claseNumero(clase)}${clase.nombre ? ` — ${this._escapeHtml(clase.nombre)}` : ''}</span>
-                            <svg class="h3-title-edit-ico" width="14" height="14"><use href="#icon-editar"/></svg>
-                        </button>
-                        <div class="h3-sub">${this._escapeHtml(group.name||clase.title||'')} · ${timeLabel} · ${type} · ${members.length} alumno${members.length!==1?'s':''}</div>
+                        ${isDraft ? `
+                            <div class="cc-eyebrow">Nueva clase individual</div>
+                            <div class="cc-pickers">
+                                <select class="cc-select" onchange="if(this.value)app.dashPickDraftStudent('${claseId}', this.value)">
+                                    <option value="">Elegí un alumno…</option>
+                                    ${profiles.map(p => `<option value="${p.id}">${this._escapeHtml(this._teacherDisplayName(p))}</option>`).join('')}
+                                </select>
+                            </div>
+                        ` : `
+                            <button id="clase-detalle-titulo-btn" class="h3-title h3-title-btn" onclick="app._openEditClaseModal('${claseId}')" title="Editar clase">
+                                <span class="h3-title-txt">Clase ${this._claseNumero(clase)}${clase.nombre ? ` — ${this._escapeHtml(clase.nombre)}` : ''}</span>
+                                <svg class="h3-title-edit-ico" width="14" height="14"><use href="#icon-editar"/></svg>
+                            </button>
+                            <div class="h3-sub">${this._escapeHtml(group.name||clase.title||'')} · ${timeLabel} · ${type} · ${members.length} alumno${members.length!==1?'s':''}</div>
+                        `}
                     </div>
-                    ${meetBarHtml}
+                    ${isDraft ? '' : meetBarHtml}
                 </div>
 
                 ${resumenAntHtml}
@@ -510,7 +530,7 @@ Object.assign(GuitarStudioApp.prototype, {
                 <div class="sec3-block">
                     <div class="sec3-label">Asistencia</div>
                     <div class="tab3-wrap" id="tablero-${claseId}">
-                        ${tableroHtml}
+                        ${isDraft ? '<p class="cc-ph">Elegí el alumno o grupo arriba para ver la asistencia.</p>' : tableroHtml}
                     </div>
                 </div>
 
@@ -535,12 +555,12 @@ Object.assign(GuitarStudioApp.prototype, {
 
                 ${dudasSectionHtml}
 
-                <!-- H: FINALIZAR -->
-                <div class="finalizar3-bar">
+                <!-- H: FINALIZAR (oculto en borrador: no se puede publicar sin alumno/grupo) -->
+                ${isDraft ? '' : `<div class="finalizar3-bar">
                     <span class="finalizar3-hint">${status==='suspendida'?`Clase <strong>suspendida</strong> · no se dictó`:status==='finalizada'?`Publicada para <strong>${members.length} alumno${members.length!==1?'s':''}</strong> · podés actualizar cuando quieras`:`Disponible para <strong>${members.length} alumno${members.length!==1?'s':''}</strong> al publicar`}</span>
                     <button class="finalizar3-suspend ${status==='suspendida'?'active':''}" onclick="app.suspenderClase('${claseId}')" title="${status==='suspendida'?'Reactivar la clase':'Marcar como suspendida (no se dictó)'}">${status==='suspendida'?'↩ Reactivar':'⏸ Suspender'}</button>
                     <button class="finalizar3-btn ${status==='finalizada'?'done':''}" onclick="app.finalizarClase('${claseId}')">${status==='finalizada'?'↑ Actualizar publicación':'✓ Publicar clase'}</button>
-                </div>
+                </div>`}
 
             </div>`;
     },
@@ -775,72 +795,44 @@ Object.assign(GuitarStudioApp.prototype, {
         this.renderDashboardView();
     },
 
-    // ── Crear Clase = página de la clase en blanco (sin modal): elegís alumno/grupo y fecha
-    //    en el mismo panel del detalle, y al confirmar la clase real ya queda abierta ──
+    // ── Crear Clase = clase INDIVIDUAL, cae DIRECTO en la página real de la clase ──
+    // Crea una clase borrador (sin grupo) y la abre: el detalle se renderiza igual que
+    // siempre, pero con un selector de solo-alumnos en el encabezado. Al elegir el alumno
+    // (dashPickDraftStudent) la clase se ata a su grupo personal y queda completa en el lugar.
     dashStartCreateClase(dateStr) {
-        this._currentClaseId = null;
-        this._dashCreatingClase = true;
-        this._dashCreateDate = dateStr || null; // precargada al venir de un día del calendario
-        this.renderDashboardView();
+        this._purgeDraftClases(null); // no acumular borradores si ya había uno abierto
+        const clase = {
+            id: this.data.generateId('clase'),
+            groupId: '',
+            title: '',
+            date: dateStr || this.getTodayString(),
+            status: 'programada',
+            attendance: {},
+            content: [],
+            objetivos: [],
+            resumen: '',
+            pasosV2: true,
+            _draft: true
+        };
+        this.data.saveClase(clase);
+        this.openClase(clase.id);
     },
 
-    dashCancelCreateClase() {
-        this._dashCreatingClase = false;
-        this._dashCreateDate = null;
-        this.renderDashboardView();
-    },
-
-    dashConfirmCreateClase() {
-        const select = document.getElementById('dash-create-class-select');
-        const groupId = select ? select.value : '';
-        if (!groupId) return;
-        const dateInput = document.getElementById('dash-create-class-date');
-        this._dashCreatingClase = false;
-        this._dashCreateDate = null;
-        this.createClase(groupId, dateInput && dateInput.value ? dateInput.value : null);
-    },
-
-    // Crear Clase = una sola página: misma estructura que el detalle real, con el selector
-    // de alumno/grupo + fecha en el encabezado. Al elegir el grupo (onchange) se crea la
-    // clase y la MISMA columna se re-renderiza como el detalle real (openClase) — sin paso previo.
-    _renderClaseCreationPanel(groups, todayStr) {
-        const dateVal = this._dashCreateDate || todayStr;
-        const opts = groups.map(g => `<option value="${g.id}">${this._escapeHtml(g.name)}</option>`).join('');
-        return `
-            <div class="clase3-scroll">
-                <!-- A: HEADER con selector de alumno/grupo + fecha -->
-                <div class="h3-header">
-                    <button class="h3-back-btn" onclick="app.dashCancelCreateClase()" title="Volver">
-                        <svg width="26" height="26"><use href="#icon-volver"/></svg>
-                    </button>
-                    <div class="h3-title-block">
-                        <div class="cc-eyebrow">Nueva clase</div>
-                        <div class="cc-pickers">
-                            <select id="dash-create-class-select" class="cc-select" onchange="if(this.value)app.dashConfirmCreateClase()">
-                                <option value="">Elegí alumno o grupo…</option>
-                                ${opts}
-                            </select>
-                            <input type="date" id="dash-create-class-date" class="cc-date" value="${dateVal}" title="Fecha de la clase">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="cc-guide">Elegí un alumno o grupo y la clase se arma acá mismo: asistencia, plan y biblioteca.</div>
-
-                <!-- Vista previa inerte de las secciones — se activan al elegir el alumno/grupo -->
-                <div class="sec3-block cc-ghost">
-                    <div class="sec3-label">Asistencia</div>
-                    <p class="cc-ph">Se completa con los alumnos del grupo.</p>
-                </div>
-                <div class="sec3-block cc-ghost">
-                    <div class="sec3-label">Plan de la clase</div>
-                    <p class="cc-ph">Pasos en orden + material desde la Biblioteca →</p>
-                </div>
-                <div class="sec3-block cc-ghost">
-                    <div class="sec3-label">Resumen privado</div>
-                    <p class="cc-ph">Tus notas de la clase.</p>
-                </div>
-            </div>`;
+    // Elegir el alumno del borrador (Crear Clase = individual): usa/crea su grupo personal
+    // oculto, completa la clase y la re-renderiza como detalle real. Las clases de grupo se
+    // crean desde el editor de grupos (lista "Próximas clases" + "Agregar clase suelta").
+    async dashPickDraftStudent(claseId, profileId) {
+        const clase = this.data.getClase(claseId);
+        if (!clase || !profileId) return;
+        const profiles = await this.data.getProfiles();
+        const profile = profiles.find(p => p.id === profileId);
+        if (!profile) return;
+        const group = this._bibEnsurePersonalGroup(profile); // grupo personal oculto del alumno
+        clase.groupId = group.id;
+        delete clase._draft;
+        clase.title = `Clase ${new Date((clase.date || this.getTodayString()) + 'T12:00').toLocaleDateString('es-AR', { day:'numeric', month:'short' })}`;
+        this.data.saveClase(clase);
+        this.openClase(claseId);
     },
 
     // ── Modal Editar Grupo (Pieza 3) ──
@@ -936,6 +928,10 @@ Object.assign(GuitarStudioApp.prototype, {
                 <div class="dgf-prox-col">
                     <label class="dgf-label" style="margin-bottom:7px;">Próximas clases del grupo</label>
                     <div class="dgf-prox-list" id="dgf-prox-list"></div>
+                    <div class="dgf-suelta-row">
+                        <input type="date" id="dgf-suelta-date" class="dgf-input dgf-suelta-date">
+                        <button class="dgf-suelta-btn" onclick="app.dgfAddClaseSuelta()" title="Crear una clase extra en una fecha fuera del cronograma (ej. recuperación)">+ Agregar clase suelta</button>
+                    </div>
                 </div>
             </div>
             <div class="big3-modal-footer">
@@ -1067,6 +1063,15 @@ Object.assign(GuitarStudioApp.prototype, {
         this._claseReturnTo = { groupId: d.id };
     },
 
+    // Clase "suelta": una clase extra en una fecha fuera del cronograma regular (ej. recuperación).
+    // Reusa dgfEditProximaClase, que la crea si no existe y la abre (con volver al modal del grupo).
+    dgfAddClaseSuelta() {
+        const inp = document.getElementById('dgf-suelta-date');
+        const dateStr = inp && inp.value;
+        if (!dateStr) { alert('Elegí una fecha para la clase suelta.'); return; }
+        this.dgfEditProximaClase(dateStr);
+    },
+
     _dgfPersistDraft() {
         const d = this._dgfDraft;
         if (!d) return;
@@ -1110,7 +1115,7 @@ Object.assign(GuitarStudioApp.prototype, {
             candidates.push({ dt, dateStr, time, group, clase });
         };
 
-        allClases.filter(c => c.status !== 'finalizada').forEach(c => {
+        allClases.filter(c => c.status !== 'finalizada' && !c._draft).forEach(c => {
             const g = groups.find(x => x.id === c.groupId) || {};
             pushCand(c.date, (g.time||c.time||'').slice(0,5), g, c);
         });
@@ -1168,7 +1173,7 @@ Object.assign(GuitarStudioApp.prototype, {
 
     // Descriptores de chip para las clases de un día, ordenados por hora
     _calDayItems(dateStr, allClases, groups) {
-        return allClases.filter(c => c.date === dateStr).map(c => {
+        return allClases.filter(c => c.date === dateStr && !c._draft).map(c => {
             const g = groups.find(x => x.id === c.groupId) || {};
             return {
                 id: c.id,
@@ -1368,20 +1373,10 @@ Object.assign(GuitarStudioApp.prototype, {
         if (!body) return;
 
         const allItems = await this.data.getLibraryItems();
-        const claseId = this._currentClaseId;
-        const clase = claseId ? this.data.getClase(claseId) : null;
-        const addedIds = new Set((clase?.content||[]).map(c => this._pasoLibId(c)).filter(Boolean));
+        this._bibAllItems = allItems; // cache para refrescar solo la lista al buscar (sin re-fetch)
 
         const q = (this._libSearch||'').toLowerCase().trim();
         const catF = this._libCatFilter || 'todos';
-
-        let items = allItems;
-        if (q) items = items.filter(it => (it.title||it.name||'').toLowerCase().includes(q));
-        if (catF !== 'todos') {
-            items = items.filter(it => (it.category||it.exerciseType||'') === catF);
-        }
-
-        const iconFor = ft => this._bibTypeIcon(ft);
 
         // La categoría es metadata de biblioteca; clase.categories dejó de leerse (modelo de Pasos)
         const panelCats = this.data.getDefaultCategories();
@@ -1389,26 +1384,13 @@ Object.assign(GuitarStudioApp.prototype, {
             `<div class="bib3-chip ${catF===c?'active':''}" onclick="app.filterBiblioteca('${this._escapeHtml(c)}')">${c==='todos'?'Todos':this._escapeHtml(c)}</div>`
         ).join('');
 
-        const listHtml = items.length
-            ? items.map(it => {
-                const added = addedIds.has(it.id);
-                return `<div class="bib3-item ${added?'added':''}">
-                    <div class="bib3-ico">${iconFor(it.fileType||it.type)}</div>
-                    <span class="bib3-title">${this._escapeHtml(it.title||it.name)}</span>
-                    ${added
-                        ? `<div class="bib3-check">✓</div>`
-                        : `<div class="bib3-add" onclick="app.addContentFromBib('${it.id}')">+</div>`}
-                </div>`;
-              }).join('')
-            : '<p class="text3-muted" style="padding:10px 0">Sin resultados</p>';
-
         body.innerHTML = `
             <div class="bib3-search-wrap">
                 <span class="bib3-search-icon"><svg width="13" height="13"><use href="#icon-buscar"/></svg></span>
                 <input type="text" class="bib3-search" placeholder="Buscar en biblioteca…" value="${this._escapeHtml(q)}" oninput="app.searchBiblioteca(this.value)">
             </div>
             <div class="bib3-chips">${catChips}</div>
-            <div class="bib3-list">${listHtml}</div>
+            <div class="bib3-list" id="dash-bib-list">${this._bibPanelListHtml()}</div>
             <div class="bib3-upload">
                 <div class="bib3-upload-title">Subir nuevo</div>
                 <div class="bib3-dz" ondragover="event.preventDefault()" ondrop="app._handleLibDrop(event)">
@@ -1423,6 +1405,35 @@ Object.assign(GuitarStudioApp.prototype, {
             </div>`;
     },
 
+    // Solo el HTML de la lista (usa el cache _bibAllItems). Se re-genera al buscar sin tocar
+    // el <input>, para no perder el foco del buscador en cada tecla.
+    _bibPanelListHtml() {
+        const allItems = this._bibAllItems || [];
+        const claseId = this._currentClaseId;
+        const clase = claseId ? this.data.getClase(claseId) : null;
+        const addedIds = new Set((clase?.content||[]).map(c => this._pasoLibId(c)).filter(Boolean));
+
+        const q = (this._libSearch||'').toLowerCase().trim();
+        const catF = this._libCatFilter || 'todos';
+
+        let items = allItems;
+        if (q) items = items.filter(it => (it.title||it.name||'').toLowerCase().includes(q));
+        if (catF !== 'todos') items = items.filter(it => (it.category||it.exerciseType||'') === catF);
+
+        return items.length
+            ? items.map(it => {
+                const added = addedIds.has(it.id);
+                return `<div class="bib3-item ${added?'added':''}">
+                    <div class="bib3-ico">${this._bibTypeIcon(it.fileType||it.type)}</div>
+                    <span class="bib3-title">${this._escapeHtml(it.title||it.name)}</span>
+                    ${added
+                        ? `<div class="bib3-check">✓</div>`
+                        : `<div class="bib3-add" onclick="app.addContentFromBib('${it.id}')">+</div>`}
+                </div>`;
+              }).join('')
+            : '<p class="text3-muted" style="padding:10px 0">Sin resultados</p>';
+    },
+
     filterBiblioteca(cat) {
         this._libCatFilter = cat;
         this._renderBibliotecaPanel();
@@ -1430,7 +1441,10 @@ Object.assign(GuitarStudioApp.prototype, {
 
     searchBiblioteca(q) {
         this._libSearch = q;
-        this._renderBibliotecaPanel();
+        // Refrescar SOLO la lista: el <input> queda intacto y no pierde el foco al tipear.
+        const list = document.getElementById('dash-bib-list');
+        if (list) list.innerHTML = this._bibPanelListHtml();
+        else this._renderBibliotecaPanel();
     },
 
     async addContentFromBib(libItemId) {
