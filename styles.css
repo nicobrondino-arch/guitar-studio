@@ -5966,9 +5966,9 @@ span.ck3-box { cursor: default; }
     font: 700 9px Inter, sans-serif;
     text-transform: uppercase;
     letter-spacing: .1em;
-    color: #3b82f6;
-    background: rgba(59,130,246,.07);
-    border-bottom: 1px solid rgba(59,130,246,.15);
+    color: var(--tb-accent);
+    background: color-mix(in srgb, var(--tb-accent) 7%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--tb-accent) 15%, transparent);
     flex-shrink: 0;
 }
 .bib3-body {
