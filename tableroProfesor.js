@@ -1234,7 +1234,8 @@ Object.assign(GuitarStudioApp.prototype, {
                 <div class="cal3-chip ${it.st}" onclick="event.stopPropagation();app.tbGoToClase('${it.id}')" title="${this._escapeHtml((it.time ? it.time + ' ' : '') + it.name)}">
                     <span class="cal3-chip-txt">${it.time ? it.time + ' ' : ''}${this._escapeHtml(it.name)}</span>
                 </div>`).join('');
-            cells += `<div class="cal3-cell ${isToday ? 'today' : ''} ${inMonth ? '' : 'out'}" onclick="app.calCreateOnDate('${key}')" title="Crear clase el ${key}">
+            const hover = items.length ? ` onmouseenter="app.calDayHover(event,'${key}')" onmouseleave="app.calDayHoverOut()"` : '';
+            cells += `<div class="cal3-cell ${isToday ? 'today' : ''} ${inMonth ? '' : 'out'}" onclick="app.calCreateOnDate('${key}')" title="Crear clase el ${key}"${hover}>
                 <span class="cal3-cell-num">${d.getDate()}</span>
                 ${chips}
                 ${overflow > 0 ? `<span class="cal3-more">+${overflow} más</span>` : ''}
@@ -1269,11 +1270,39 @@ Object.assign(GuitarStudioApp.prototype, {
         return `<div class="cal3-grid cal3-week">${cols}</div>`;
     },
 
-    _renderCalendario(allClases, groups, todayStr) {
+    _renderCalendario(allClases, groups, todayStr, profiles = []) {
+        // Cerrar cualquier popover de día que haya quedado abierto de un render anterior
+        const pop = document.getElementById('cal3-daypop');
+        if (pop) pop.style.display = 'none';
+
+        // Filtros por alumno / curso (arriba del calendario). Se aplican una vez acá y se
+        // guardan en _calCache para que el popover de hover use exactamente el mismo set.
+        let clases = allClases;
+        if (this._calFilterGroup !== 'todos') {
+            clases = clases.filter(c => c.groupId === this._calFilterGroup);
+        }
+        if (this._calFilterStudent !== 'todos') {
+            const sid = this._calFilterStudent;
+            clases = clases.filter(c => {
+                const g = groups.find(x => x.id === c.groupId);
+                return g && (g.memberIds || []).includes(sid);
+            });
+        }
+        this._calCache = { clases, groups };
+
         const isMes = this._calMode === 'mes';
         const grid = isMes
-            ? this._calMonthGrid(allClases, groups, todayStr)
-            : this._calWeekGrid(allClases, groups, todayStr);
+            ? this._calMonthGrid(clases, groups, todayStr)
+            : this._calWeekGrid(clases, groups, todayStr);
+
+        const cursos = groups.filter(g => !g._personal);
+        const studentOpts = ['<option value="todos">Todos los alumnos</option>'].concat(
+            (profiles || []).map(p => `<option value="${p.id}"${this._calFilterStudent === p.id ? ' selected' : ''}>${this._escapeHtml(this._teacherDisplayName ? this._teacherDisplayName(p) : (p.displayName || p.name || '?'))}</option>`)
+        ).join('');
+        const groupOpts = ['<option value="todos">Todos los cursos</option>'].concat(
+            cursos.map(g => `<option value="${g.id}"${this._calFilterGroup === g.id ? ' selected' : ''}>${this._escapeHtml(g.name)}</option>`)
+        ).join('');
+
         return `<div class="cal3-wrap">
             <div class="cal3-toolbar">
                 <div class="cal3-toggle">
@@ -1286,6 +1315,10 @@ Object.assign(GuitarStudioApp.prototype, {
                     <button class="cal3-nav-btn" onclick="app.calNext()" title="Siguiente">›</button>
                 </div>
                 <button class="cal3-today" onclick="app.calToday()">Hoy</button>
+                <div class="cal3-filters">
+                    <select class="cal3-filter" onchange="app.calSetFilterStudent(this.value)" title="Filtrar por alumno">${studentOpts}</select>
+                    <select class="cal3-filter" onchange="app.calSetFilterGroup(this.value)" title="Filtrar por curso">${groupOpts}</select>
+                </div>
                 <div class="cal3-legend">
                     <span class="cal3-leg"><span class="cal3-dot pendiente"></span>Pendiente</span>
                     <span class="cal3-leg"><span class="cal3-dot iniciada"></span>En curso</span>
@@ -1301,7 +1334,53 @@ Object.assign(GuitarStudioApp.prototype, {
     calPrev() { if (this._calMode === 'mes') this._calMonthOffset--; else this._calWeekOffset--; this.renderTeacherBoardView(); },
     calNext() { if (this._calMode === 'mes') this._calMonthOffset++; else this._calWeekOffset++; this.renderTeacherBoardView(); },
     calToday() { this._calMonthOffset = 0; this._calWeekOffset = 0; this.renderTeacherBoardView(); },
+    calSetFilterStudent(id) { this._calFilterStudent = id; this.renderTeacherBoardView(); },
+    calSetFilterGroup(id) { this._calFilterGroup = id; this.renderTeacherBoardView(); },
     calCreateOnDate(dateStr) { this.navigateToView('dashboard'); this.dashStartCreateClase(dateStr); },
+
+    // Popover de hover: overview completo del día partido en Mañana / Tarde (criterio < '13:00').
+    // Es informativo (pointer-events:none) y position:fixed para escapar el overflow del calendario.
+    _calDayPopInner(dateStr, items) {
+        const manana = items.filter(it => (it.time || '00:00') < '13:00');
+        const tarde  = items.filter(it => (it.time || '00:00') >= '13:00');
+        const sec = (label, arr) => `
+            <div class="cal3-pop-sec">
+                <div class="cal3-pop-sec-hd">${label}</div>
+                ${arr.length ? arr.map(it => `
+                    <div class="cal3-pop-item ${it.st}">
+                        <span class="cal3-pop-time">${it.time || '—'}</span>
+                        <span class="cal3-pop-name">${this._escapeHtml(it.name)}</span>
+                    </div>`).join('') : '<div class="cal3-pop-empty">— sin clases —</div>'}
+            </div>`;
+        const d = new Date(dateStr + 'T12:00');
+        return `<div class="cal3-pop-date">${d.getDate()} ${this._CAL_MON_ABBR[d.getMonth()]}</div>${sec('Mañana', manana)}${sec('Tarde', tarde)}`;
+    },
+
+    calDayHover(ev, dateStr) {
+        const cache = this._calCache || {};
+        const items = this._calDayItems(dateStr, cache.clases || [], cache.groups || []);
+        if (!items.length) return;
+        let host = document.getElementById('cal3-daypop');
+        if (!host) { host = document.createElement('div'); host.id = 'cal3-daypop'; document.body.appendChild(host); }
+        host.innerHTML = this._calDayPopInner(dateStr, items);
+        host.style.display = 'block';
+        const r = ev.currentTarget.getBoundingClientRect();
+        const pw = host.offsetWidth || 210;
+        const ph = host.offsetHeight || 120;
+        let left = r.right + 8;
+        if (left + pw > window.innerWidth - 8) left = r.left - pw - 8;
+        if (left < 8) left = 8;
+        let top = r.top;
+        if (top + ph > window.innerHeight - 8) top = window.innerHeight - ph - 8;
+        if (top < 8) top = 8;
+        host.style.left = left + 'px';
+        host.style.top = top + 'px';
+    },
+
+    calDayHoverOut() {
+        const host = document.getElementById('cal3-daypop');
+        if (host) host.style.display = 'none';
+    },
 
     cycleAttendance(claseId, profileId) {
         const clase = this.data.getClase(claseId);
@@ -1877,7 +1956,7 @@ Object.assign(GuitarStudioApp.prototype, {
         } else if (this._teacherBoardMainTab === 'calendario') {
             // Calendario definitivo (handoff Design 2a): vista Mes/Semana con chips de color por estado.
             const groups = this.data.getAllGroups();
-            contentHtml = `<div class="tb-cal-wrap">${this._renderCalendario(allClases, groups, this.getTodayString())}</div>`;
+            contentHtml = `<div class="tb-cal-wrap">${this._renderCalendario(allClases, groups, this.getTodayString(), profiles)}</div>`;
         } else {
             if (!profiles.length) {
                 contentHtml = `<div style="padding:24px;color:var(--tb-text-secondary)">Todavía no hay alumnos.</div>`;

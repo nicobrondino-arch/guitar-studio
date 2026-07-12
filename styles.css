@@ -6301,6 +6301,56 @@ span.ck3-box { cursor: default; }
 .cal3-dot.finalizada { background: var(--tb-success); }
 .cal3-dot.suspendida { background: var(--tb-warning); }
 
+/* Filtros del calendario (por alumno / por curso), arriba del calendario */
+.cal3-filters { display: flex; align-items: center; gap: 6px; }
+.cal3-filter {
+    padding: 5px 8px;
+    border-radius: 7px;
+    background: var(--tb-bg-secondary);
+    border: 1px solid var(--tb-border);
+    color: var(--tb-text-secondary);
+    font: 600 11px var(--font-primary);
+    cursor: pointer;
+    max-width: 150px;
+}
+.cal3-filter:hover { border-color: var(--tb-border-hover); }
+.cal3-filter:focus { border-color: var(--tb-accent); outline: none; }
+
+/* Popover de día (hover en el mes): overview completo Mañana/Tarde. Informativo. */
+#cal3-daypop {
+    position: fixed;
+    z-index: 9999;
+    display: none;
+    pointer-events: none;
+    width: 210px;
+    max-height: 62vh;
+    overflow: hidden;
+    background: var(--tb-bg-elevated);
+    border: 1px solid var(--tb-border-hover);
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    padding: 10px 11px;
+}
+.cal3-pop-date { font: 700 12px var(--font-primary); color: var(--tb-text-primary); margin-bottom: 4px; }
+.cal3-pop-sec { margin-top: 7px; }
+.cal3-pop-sec-hd {
+    font: 700 8.5px var(--font-primary); text-transform: uppercase; letter-spacing: .08em;
+    color: var(--tb-text-muted); margin-bottom: 3px;
+}
+.cal3-pop-item {
+    --st: var(--tb-border-hover);
+    display: flex; align-items: center; gap: 6px;
+    padding: 3px 6px; border-radius: 5px; margin-bottom: 2px;
+    border-left: 2.5px solid var(--st);
+    background: color-mix(in srgb, var(--st) 16%, transparent);
+}
+.cal3-pop-item.iniciada   { --st: var(--tb-accent); }
+.cal3-pop-item.finalizada { --st: var(--tb-success); }
+.cal3-pop-item.suspendida { --st: var(--tb-warning); }
+.cal3-pop-time { font: 700 9.5px var(--font-primary); color: var(--tb-text-secondary); flex-shrink: 0; }
+.cal3-pop-name { font: 600 10px var(--font-primary); color: var(--tb-text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal3-pop-empty { font: italic 400 10px var(--font-primary); color: var(--tb-text-muted); padding: 1px 6px; }
+
 .cal3-body { flex: 1; min-height: 0; overflow-y: auto; }
 
 /* Grilla mensual: 7 columnas (encabezados de día + 42 celdas) */
