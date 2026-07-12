@@ -1143,13 +1143,16 @@ class GuitarStudioApp {
 
     async sendMeetWhatsApp(groupId) {
         const group = this.data.getAllGroups().find(function(g) { return g.id === groupId; });
-        if (!group || !group.meetLink) return;
+        if (!group) return;
         const dayTime = [group.day, group.time].filter(Boolean).join(' a las ');
+        // El grupo personal se llama igual que el alumno: no repetir el nombre al escribirle.
+        const groupPart = (group.name && !group._personal) ? ' de ' + group.name : '';
+        // Sin link de Meet cargado igual se abre WhatsApp para coordinar (sin la línea del link).
         const msg = encodeURIComponent(
-            '¡Hola! Te comparto el link para la clase' +
-            (group.name ? ' de ' + group.name : '') +
+            (group.meetLink ? '¡Hola! Te comparto el link para la clase' : '¡Hola! Te escribo por la clase') +
+            groupPart +
             (dayTime ? ' (' + dayTime + ')' : '') +
-            ':\n' + group.meetLink
+            (group.meetLink ? ':\n' + group.meetLink : '.')
         );
 
         // Contacto guardado: el del grupo, o el de la Ficha del alumno si es clase individual

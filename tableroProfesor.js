@@ -99,10 +99,12 @@ Object.assign(GuitarStudioApp.prototype, {
                             <div class="pc3-label">Próxima clase · ${this._escapeHtml(proxName)}</div>
                             <div class="pc3-when ${prox.isToday?'hoy':''}">${prox.label}</div>
                         </div>
-                        ${proxMeet ? `<div class="pc3-actions">
-                            <a class="pc3-btn pc3-btn-meet" href="${this._escapeHtml(proxMeet)}" target="_blank" title="Entrar al Meet" onclick="event.stopPropagation()"><svg width="17" height="17"><use href="#icon-meet"/></svg> Meet</a>
-                            <button class="pc3-btn pc3-btn-wa" title="Compartir el link por WhatsApp" onclick="event.stopPropagation();app.sendMeetWhatsApp('${prox.group.id}')">W</button>
-                        </div>` : ''}
+                        <div class="pc3-actions">
+                            ${proxMeet
+                                ? `<a class="pc3-btn pc3-btn-meet" href="${this._escapeHtml(proxMeet)}" target="_blank" title="Entrar al Meet" onclick="event.stopPropagation()"><svg width="17" height="17"><use href="#icon-meet"/></svg> Meet</a>`
+                                : `<button class="pc3-btn pc3-btn-meet pc3-btn-addmeet" title="Cargar el link de Meet de esta clase" onclick="event.stopPropagation();app.dashSetProxMeet('${prox.group.id}')"><svg width="17" height="17"><use href="#icon-meet"/></svg> + Meet</button>`}
+                            <button class="pc3-btn pc3-btn-wa" title="Escribir por WhatsApp" onclick="event.stopPropagation();app.sendMeetWhatsApp('${prox.group.id}')">W</button>
+                        </div>
                     </div>` : '';
                 tabBodyHtml = `
                 <div class="dash-tab-content" style="padding: 16px; display: flex; flex-direction: column; gap: 16px;">
@@ -284,6 +286,20 @@ Object.assign(GuitarStudioApp.prototype, {
         this._purgeDraftClases(claseId); // descartar borradores sin elegir grupo que hayan quedado
         this._currentClaseId = claseId;
         this._claseReturnTo = null; // quien quiera volver a otro lado lo setea DESPUÉS de llamar openClase
+        this.renderDashboardView();
+    },
+
+    // "+ Meet" de la card Próxima clase: carga el link de Meet del grupo (o del grupo personal
+    // en clases individuales) ahí mismo, sin pasar por el modal de grupo. Cubre la deuda de que
+    // los alumnos individuales no tenían dónde editar su Meet.
+    dashSetProxMeet(groupId) {
+        const groups = this.data.getAllGroups();
+        const group = groups.find(g => g.id === groupId);
+        if (!group) return;
+        const next = prompt('Pegá el link de la videollamada para esta clase (Google Meet, Zoom, etc.):', group.meetLink || '');
+        if (next === null) return;
+        group.meetLink = next.trim();
+        this.data.saveGroups(groups);
         this.renderDashboardView();
     },
 
