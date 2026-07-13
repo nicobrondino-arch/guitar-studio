@@ -350,7 +350,7 @@ Object.assign(GuitarStudioApp.prototype, {
         const meetHref = meetUrl ? (/^https?:/.test(meetUrl) ? meetUrl : 'https://'+meetUrl) : '';
         const meetBarHtml = meetUrl ? `
             <div class="h3-meet-bar">
-                <span class="h3-meet-icon">▣</span>
+                <span class="h3-meet-icon"><svg width="11" height="11"><use href="#icon-meet"/></svg></span>
                 <span class="h3-meet-url">${this._escapeHtml(meetUrl)}</span>
                 <a href="${this._escapeHtml(meetHref)}" target="_blank" class="h3-btn h3-btn-meet">Entrar</a>
                 <button class="h3-btn h3-btn-wa" onclick="app.sendMeetWhatsApp('${group.id}')">W</button>
@@ -380,7 +380,7 @@ Object.assign(GuitarStudioApp.prototype, {
                 const lastDuda = dudas.sort((a,b)=>b.timestamp-a.timestamp)[0];
                 const dudaHtml = lastDuda ? `
                     <div class="hc-duda">
-                        <div class="hc-duda-label">💬 Duda pendiente</div>
+                        <div class="hc-duda-label">Duda pendiente</div>
                         <div class="hc-duda-text">"${this._escapeHtml(lastDuda.text)}"</div>
                     </div>` : '';
 
@@ -491,7 +491,7 @@ Object.assign(GuitarStudioApp.prototype, {
         const dudasSectionHtml = `
             <div class="sec3-block" style="border-top:1px solid var(--tb-border); padding-top:20px; margin-top:20px">
                 <div class="sec3-label" style="display:flex; align-items:center; gap:6px">
-                    <span>💬 Consultas / Dudas del Alumno</span>
+                    <span>Consultas / Dudas del Alumno</span>
                     ${hasAnyDudas ? `<span class="bib-tab-badge" style="background:var(--tb-accent); color:#fff; font-size:10px; padding:2px 6px">${currentPreguntas.length + classUploadedItems.length}</span>` : ''}
                 </div>
                 ${!hasAnyDudas ? `
@@ -553,9 +553,9 @@ Object.assign(GuitarStudioApp.prototype, {
                 <!-- PLAN DE LA CLASE: PASOS (Pieza 6A) -->
                 <div class="sec3-block">
                     <div class="sec3-label" style="display:flex; align-items:center; gap:8px;">
-                        <span>Plan de la clase <span class="sec3-hint">pasos en orden · agregá material desde Biblioteca →</span></span>
+                        <span>Plan de la clase <span class="sec3-hint">pasos en orden · agregá material desde la Biblioteca</span></span>
                         <select class="form-select" onchange="if(this.value){app.applyTemplateToClase(this.value); this.value='';}" style="font-size:11px; padding:4px 8px; border-radius:4px; height:auto; width:auto; max-width:135px; margin:0 0 0 auto; outline:none; background:var(--tb-bg-primary); border:1px solid var(--tb-border); color:var(--tb-text-primary); cursor:pointer;">
-                            <option value="">— Aplicar Plantilla —</option>
+                            <option value="">Aplicar plantilla</option>
                             ${templates.map(t => `<option value="${t.id}">${this._escapeHtml(t.name)}</option>`).join('')}
                         </select>
                     </div>
@@ -601,7 +601,7 @@ Object.assign(GuitarStudioApp.prototype, {
     // ── Pasos (Pieza 6A): render + CRUD en el detalle de clase ──
     _renderPasosListHtml(clase, libraryItems) {
         const pasos = clase.content || [];
-        if (!pasos.length) return '<p class="text3-muted">Sin pasos. Agregá material desde la Biblioteca → o un paso de consigna.</p>';
+        if (!pasos.length) return '<p class="text3-muted">Sin pasos. Agregá material desde la Biblioteca o un paso de consigna.</p>';
         return pasos.map((p, idx) => {
             const libItem = p.libraryItemId ? libraryItems.find(it => it.id === p.libraryItemId) : null;
             const title = libItem ? (libItem.title || 'Sin título') : (p.descripcion || 'Paso sin contenido');
