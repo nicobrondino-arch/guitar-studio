@@ -2298,6 +2298,37 @@ Object.assign(GuitarStudioApp.prototype, {
 
     // Pestaña fusionada "Consultas y Cargas" (Pieza 7): lista única ordenada por fecha
     _tbRenderConsultasCargasTab(profiles, allClases, items) {
+        this._tbConsultasData = { profiles, allClases, items }; // cache para refrescar la lista sin re-render completo (buscador)
+        const f = this._tbConsultasFilter || 'todos';
+        const cardsHtml = this._tbConsultasCardsHtml(profiles, allClases, items);
+        return `<div class="teacher-board-layout horizontal-layout">
+            <div class="tb-main-area">
+                <div class="tb-toolbar">
+                    <div class="bib-search-wrap">
+                        <svg class="bib-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <input type="text" class="bib-search-input" id="tb-consultas-search" placeholder="Buscar por alumno o contenido…" value="${(this._tbConsultasSearch || '').replace(/"/g, '&quot;')}">
+                    </div>
+                    <select class="form-control" id="tb-consultas-filter" style="max-width:200px">
+                        <option value="todos" ${f === 'todos' ? 'selected' : ''}>Todo</option>
+                        <option value="pendientes" ${f === 'pendientes' ? 'selected' : ''}>Consultas pendientes</option>
+                        <option value="respondidas" ${f === 'respondidas' ? 'selected' : ''}>Consultas respondidas</option>
+                        <option value="cargas" ${f === 'cargas' ? 'selected' : ''}>Solo cargas</option>
+                    </select>
+                </div>
+                <div class="tb-list-scroll" style="padding:20px"><div class="cc3-list">${cardsHtml}</div></div>
+            </div>
+        </div>`;
+    },
+
+    // Refresca SOLO la lista de tarjetas: el <input> de búsqueda queda intacto y no pierde el foco al tipear.
+    _tbRefreshConsultasList() {
+        const d = this._tbConsultasData;
+        if (!d) return;
+        const list = document.querySelector('#view-teacher-board .cc3-list');
+        if (list) list.innerHTML = this._tbConsultasCardsHtml(d.profiles, d.allClases, d.items);
+    },
+
+    _tbConsultasCardsHtml(profiles, allClases, items) {
         const entries = [];
 
         // Consultas de todos los alumnos
@@ -2388,30 +2419,14 @@ Object.assign(GuitarStudioApp.prototype, {
             </div>`;
         }).join('') || `<div style="padding:24px;color:var(--tb-text-secondary)">No hay consultas ni cargas que coincidan con los filtros.</div>`;
 
-        return `<div class="teacher-board-layout horizontal-layout">
-            <div class="tb-main-area">
-                <div class="tb-toolbar">
-                    <div class="bib-search-wrap">
-                        <svg class="bib-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                        <input type="text" class="bib-search-input" id="tb-consultas-search" placeholder="Buscar por alumno o contenido…" value="${(this._tbConsultasSearch || '').replace(/"/g, '&quot;')}">
-                    </div>
-                    <select class="form-control" id="tb-consultas-filter" style="max-width:200px">
-                        <option value="todos" ${f === 'todos' ? 'selected' : ''}>Todo</option>
-                        <option value="pendientes" ${f === 'pendientes' ? 'selected' : ''}>Consultas pendientes</option>
-                        <option value="respondidas" ${f === 'respondidas' ? 'selected' : ''}>Consultas respondidas</option>
-                        <option value="cargas" ${f === 'cargas' ? 'selected' : ''}>Solo cargas</option>
-                    </select>
-                </div>
-                <div class="tb-list-scroll" style="padding:20px"><div class="cc3-list">${cardsHtml}</div></div>
-            </div>
-        </div>`;
+        return cardsHtml;
     },
 
     _tbBindConsultasEvents() {
         const si = document.getElementById('tb-consultas-search');
-        if (si) si.addEventListener('input', e => { this._tbConsultasSearch = e.target.value; this.renderTeacherBoardView(); });
+        if (si) si.addEventListener('input', e => { this._tbConsultasSearch = e.target.value; this._tbRefreshConsultasList(); });
         const fl = document.getElementById('tb-consultas-filter');
-        if (fl) fl.addEventListener('change', e => { this._tbConsultasFilter = e.target.value; this.renderTeacherBoardView(); });
+        if (fl) fl.addEventListener('change', e => { this._tbConsultasFilter = e.target.value; this._tbRefreshConsultasList(); });
     },
 
     tbReplyConsultasTab(profileId, claseId, pregId) {

@@ -1491,9 +1491,13 @@ Object.assign(GuitarStudioApp.prototype, {
         const si = document.getElementById('my-lib-search-input');
         if (si && !si.dataset.bound) {
             si.dataset.bound = 'true';
-            si.addEventListener('input', e => {
+            si.addEventListener('input', async e => {
                 this._myLibSearch = e.target.value;
-                this.renderMyLibraryView();
+                const caret = e.target.selectionStart;
+                await this.renderMyLibraryView();
+                // Restaurar foco y posición del cursor: el re-render reemplaza el <input>
+                const ni = document.getElementById('my-lib-search-input');
+                if (ni) { ni.focus(); try { ni.setSelectionRange(caret, caret); } catch (_) {} }
             });
         }
         const da = document.getElementById('my-bib-droparea');

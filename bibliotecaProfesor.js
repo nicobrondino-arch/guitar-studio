@@ -106,6 +106,7 @@ Object.assign(GuitarStudioApp.prototype, {
     },
 
     _bibRenderMain(profiles, groups, items, isReadOnly = false) {
+        if (!isReadOnly) this._bibMainItems = items; // cache para refrescar la tabla sin re-render completo (buscador)
         const filtered = this._bibFilterItems(items, isReadOnly);
         return `<div class="bib-layout">
   <div class="bib-main-area">
@@ -289,9 +290,19 @@ Object.assign(GuitarStudioApp.prototype, {
 </div>`;
     },
 
+    // Refresca SOLO la tabla + el contador: el <input> de búsqueda queda intacto y no pierde el foco al tipear.
+    _bibRefreshTable() {
+        const items = this._bibMainItems || [];
+        const filtered = this._bibFilterItems(items, false);
+        const wrap = document.querySelector('#biblioteca-content .bib-table-wrap');
+        if (wrap) wrap.innerHTML = this._bibRenderTable(filtered, items, false);
+        const count = document.querySelector('#biblioteca-content .bib-item-count');
+        if (count) count.textContent = `${filtered.length} ítem${filtered.length !== 1 ? 's' : ''}`;
+    },
+
     _bibBindMainEvents() {
         const si = document.getElementById('bib-search-input');
-        if (si) si.addEventListener('input', e => { this._bibSearch = e.target.value; this.renderBibliotecaView(); });
+        if (si) si.addEventListener('input', e => { this._bibSearch = e.target.value; this._bibRefreshTable(); });
         const da = document.getElementById('bib-droparea');
         if (da) {
             da.addEventListener('dragover', e => { e.preventDefault(); da.classList.add('bib-drag-over'); });
