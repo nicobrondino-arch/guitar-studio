@@ -695,7 +695,7 @@ button {
 }
 .dash-section-header:first-of-type { border-top: none; }
 .dash-section-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.dash-section-title { font: 600 11px Inter, sans-serif; text-transform: uppercase; letter-spacing: .1em; }
+.dash-section-title { font: 600 11px var(--font-primary); text-transform: uppercase; letter-spacing: .08em; }
 .dash-section-count { font: 400 11px Inter, sans-serif; color: var(--tb-text-muted); }
 
 .dash-rows { display: flex; flex-direction: column; gap: 3px; }
@@ -5584,10 +5584,10 @@ span.ck3-box { cursor: default; }
     gap: 8px;
 }
 .sec3-label {
-    font: 700 9px Inter, sans-serif;
+    font: 600 11px var(--font-primary); /* header de sección unificado (ver .tb/.bib-zone-header, .dash-section-title) */
     color: var(--tb-text-muted);
     text-transform: uppercase;
-    letter-spacing: .1em;
+    letter-spacing: .08em;
     padding-bottom: 5px;
     border-top: var(--tb-orn-label-border);
     padding-top: 6px;
@@ -7111,7 +7111,7 @@ span.ck3-box { cursor: default; }
 
 /* ── Consultas ── */
 .tb-questions-block { border-top: 1px dashed var(--tb-border); padding-top: 12px; }
-.tb-zone-header { font: 600 11px var(--font-primary); color: var(--tb-text-muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px; }
+.tb-zone-header { font: 600 11px var(--font-primary); color: var(--tb-text-muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; }
 .tb-questions-empty { font: 400 12px var(--font-primary); color: var(--tb-text-muted); }
 .tb-question-row {
     background: var(--tb-bg-elevated);
@@ -7272,10 +7272,10 @@ span.ck3-box { cursor: default; }
 .bib-upload-zone  { padding: 12px 14px; border-right: 1px solid var(--tb-border); }
 .bib-templates-zone { padding: 12px 14px; }
 .bib-zone-header {
-    font: 600 10px var(--font-primary);
+    font: 600 11px var(--font-primary); /* header de sección unificado */
     color: var(--tb-text-secondary);
     text-transform: uppercase;
-    letter-spacing: .6px;
+    letter-spacing: .08em;
     margin-bottom: 8px;
 }
 .bib-droparea {
