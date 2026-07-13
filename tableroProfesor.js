@@ -2097,21 +2097,30 @@ Object.assign(GuitarStudioApp.prototype, {
             ? `<span class="tb-rutina-inline ${prog.dot === 'full' ? 'done' : ''}" title="Pasos de la rutina de hoy">Rutina ${prog.hechos}/${prog.total}</span>`
             : `<span class="tb-rutina-inline empty">Sin rutina</span>`;
 
-        // Chips de clases: la próxima primero, las pasadas al costado en orden descendente.
+        // Chips de clases: la próxima primero, las pasadas en orden descendente.
         // Hover = resumen privado del profesor (tooltip via data-resumen); click = ir a la clase.
+        // Cada contexto (Individual / cada grupo) va en su PROPIA fila (pedido de Nico).
         const fmtCorta = d => new Date(d + 'T12:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
         const tip = r => r ? ` data-resumen="${this._escapeHtml(r)}"` : '';
-        // Designación de grupo/individual: solo si el alumno mezcla contextos (si no, es redundante).
-        const grpTag = l => (s.multiContext && l) ? `<span class="tb-chip-grp">${this._escapeHtml(l)}</span>` : '';
-        const proxChip = s.nextClase
-            ? `<button class="tb-clase-chip prox"${tip(s.nextClase.resumen)}
-                    onclick="event.stopPropagation();${s.nextClase.claseId ? `app.tbGoToClase('${s.nextClase.claseId}')` : `app.tbCreateClaseAndGo('${s.nextClase.groupId}','${s.nextClase.date}')`}"
-                    >${grpTag(s.nextClase.label)}${s.nextClase.daysAway === 0 ? 'Hoy' : s.nextClase.daysAway === 1 ? 'Mañana' : fmtCorta(s.nextClase.date)}${s.nextClase.time ? ' · ' + s.nextClase.time.slice(0, 5) : ''}</button>`
-            : `<span class="tb-clase-chip empty">Sin próxima</span>`;
-        const pastChips = (s.pastClases || []).map(c =>
-            `<button class="tb-clase-chip past"${tip(c.resumen)} onclick="event.stopPropagation();app.tbGoToClase('${c.claseId}')">${grpTag(c.label)}${fmtCorta(c.date)}</button>`
-        ).join('');
-        const claseChipsHtml = `<div class="tb-clase-chips">${proxChip}${pastChips}</div>`;
+        const ctxOrder = [];
+        const ctx = new Map();
+        const ensureCtx = l => { const k = l || 'Individual'; if (!ctx.has(k)) { ctx.set(k, { prox: null, pasts: [] }); ctxOrder.push(k); } return ctx.get(k); };
+        if (s.nextClase) ensureCtx(s.nextClase.label).prox = s.nextClase;
+        (s.pastClases || []).forEach(c => ensureCtx(c.label).pasts.push(c));
+
+        const claseChipsHtml = ctxOrder.length ? ctxOrder.map(label => {
+            const b = ctx.get(label);
+            const prox = b.prox
+                ? `<button class="tb-clase-chip prox"${tip(b.prox.resumen)} onclick="event.stopPropagation();${b.prox.claseId ? `app.tbGoToClase('${b.prox.claseId}')` : `app.tbCreateClaseAndGo('${b.prox.groupId}','${b.prox.date}')`}">${b.prox.daysAway === 0 ? 'Hoy' : b.prox.daysAway === 1 ? 'Mañana' : fmtCorta(b.prox.date)}${b.prox.time ? ' · ' + b.prox.time.slice(0, 5) : ''}</button>`
+                : `<span class="tb-clase-chip empty">Sin próxima</span>`;
+            const pasts = b.pasts.map(c =>
+                `<button class="tb-clase-chip past"${tip(c.resumen)} onclick="event.stopPropagation();app.tbGoToClase('${c.claseId}')">${fmtCorta(c.date)}</button>`
+            ).join('');
+            return `<div class="tb-clase-ctx-row">
+                <span class="tb-clase-ctx-label">${this._escapeHtml(label)}</span>
+                <div class="tb-clase-chips">${prox}${pasts}</div>
+            </div>`;
+        }).join('') : `<div class="tb-clase-ctx-row"><div class="tb-clase-chips"><span class="tb-clase-chip empty">Sin clases</span></div></div>`;
 
         const questionsPanel = expanded ? this._tbRenderQuestionsAccordion(p.id) : '';
 
@@ -2124,16 +2133,16 @@ Object.assign(GuitarStudioApp.prototype, {
                 <div class="tb-identity">
                     <div class="tb-name-row">
                         <div class="tb-name">${this._escapeHtml(displayName)}</div>
+                        <button class="tb-ficha-icon" title="Ver ficha del alumno" onclick="event.stopPropagation();app.openTeacherFichaModal('${p.id}')"><svg width="26" height="26"><use href="#icon-ficha"/></svg></button>
                         <button class="tb-alias-edit" title="Editar alias" onclick="event.stopPropagation();app.tbEditAlias('${p.id}')"><svg width="11" height="11"><use href="#icon-editar"/></svg></button>
                     </div>
-                    <div class="tb-group">${hasAlias ? `${this._escapeHtml(realName)} · ` : ''}${this._escapeHtml(s.groupLabel)}</div>
+                    ${hasAlias ? `<div class="tb-group">${this._escapeHtml(realName)}</div>` : ''}
                 </div>
                 ${rutinaChip}
                 <span class="tb-inline-stats">${s.streak > 0 ? `🔥 ${s.streak}d` : '— racha'} · ${minutesToday} min</span>
                 <div class="tb-status-dot-wrap" title="${this._escapeHtml(s.alertStatus.reason)}">
                     <span class="tb-status-dot tb-status-${s.alertStatus.level}" style="background:${statusColor}"></span>
                 </div>
-                <button class="tb-ficha-icon" title="Ver ficha del alumno" onclick="event.stopPropagation();app.openTeacherFichaModal('${p.id}')"><svg width="20" height="20"><use href="#icon-ficha"/></svg></button>
                 <span class="tb-row-chevron">${expanded ? '▴' : '▾'}</span>
             </div>
             ${expanded ? `<div class="tb-row-expanded">
