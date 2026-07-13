@@ -8209,9 +8209,9 @@ input.dgf-input[type="time"] { cursor: pointer; }
    ========================================================================== */
 .tf3-tabs {
     display: flex;
+    flex-wrap: wrap;
     gap: 4px;
     border-bottom: 1px solid var(--tb-border);
-    overflow-x: auto;
 }
 .tf3-tab {
     padding: 9px 14px;

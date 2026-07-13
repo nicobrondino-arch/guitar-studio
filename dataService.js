@@ -831,24 +831,22 @@ class DataService {
     // Configuración de campos de la Ficha del Alumno
     // ==========================================================================
     getFichaFields() {
+        const DEFAULTS = [
+            'Estudios/Conocimientos previos',
+            'Gustos musicales / Intereses',
+            'Repertorio/Canciones que ya sabe'
+        ];
+        // País/Localidad y Edad pasaron a ser datos FIJOS de la Ficha (no campos configurables);
+        // se filtran acá aunque hayan quedado guardados en un gs-ficha-fields viejo.
+        const FIXED = ['país / localidad', 'pais / localidad', 'edad'];
+        let list;
         try {
             const raw = JSON.parse(localStorage.getItem('gs-ficha-fields'));
-            return Array.isArray(raw) && raw.length ? raw : [
-                'Estudios/Conocimientos previos',
-                'Gustos musicales / Intereses',
-                'Repertorio/Canciones que ya sabe',
-                'País / Localidad',
-                'Edad'
-            ];
+            list = Array.isArray(raw) && raw.length ? raw : DEFAULTS;
         } catch {
-            return [
-                'Estudios/Conocimientos previos',
-                'Gustos musicales / Intereses',
-                'Repertorio/Canciones que ya sabe',
-                'País / Localidad',
-                'Edad'
-            ];
+            list = DEFAULTS;
         }
+        return list.filter(f => !FIXED.includes(String(f).trim().toLowerCase()));
     }
     setFichaFields(arr) {
         localStorage.setItem('gs-ficha-fields', JSON.stringify(arr));

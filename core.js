@@ -1890,6 +1890,9 @@ class GuitarStudioApp {
         document.getElementById("tf-ficha-gmail").value = p.gmail || '';
         document.getElementById("tf-ficha-name").value = p.name || '';
         document.getElementById("tf-ficha-whatsapp").value = p.whatsapp || '';
+        // País/Edad: datos fijos; migran desde las respuestas viejas de ficha si aún no tienen valor propio
+        document.getElementById("tf-ficha-pais").value = p.pais || (p.fichaValues && (p.fichaValues['País / Localidad'] || p.fichaValues['Pais / Localidad'])) || '';
+        document.getElementById("tf-ficha-edad").value = p.edad || (p.fichaValues && p.fichaValues['Edad']) || '';
         document.getElementById("tf-ficha-nivel").value = p.nivel || 'Inicial';
         document.getElementById("tf-ficha-alias").value = p.teacherAlias || '';
         document.getElementById("tf-ficha-observaciones").value = p.observaciones || '';
@@ -1976,6 +1979,8 @@ class GuitarStudioApp {
         p.gmail = document.getElementById("tf-ficha-gmail").value.trim();
         p.name = document.getElementById("tf-ficha-name").value.trim();
         p.whatsapp = document.getElementById("tf-ficha-whatsapp").value.trim();
+        p.pais = document.getElementById("tf-ficha-pais").value.trim();
+        p.edad = document.getElementById("tf-ficha-edad").value.trim();
         p.nivel = document.getElementById("tf-ficha-nivel").value;
         p.teacherAlias = document.getElementById("tf-ficha-alias").value.trim();
         p.observaciones = document.getElementById("tf-ficha-observaciones").value.trim();
