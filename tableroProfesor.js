@@ -1182,9 +1182,8 @@ Object.assign(GuitarStudioApp.prototype, {
             const vals = Object.values(clase.attendance || {});
             if (vals.length && vals.every(v => v === 'ausente')) return 'suspendida';
         }
-        return clase.status === 'finalizada' ? 'finalizada'
-             : clase.status === 'en-curso'   ? 'iniciada'
-             : 'pendiente';
+        // "En curso" no se señaliza en el calendario (pedido de Nico): se trata como pendiente.
+        return clase.status === 'finalizada' ? 'finalizada' : 'pendiente';
     },
 
     // Descriptores de chip para las clases de un día, ordenados por hora
@@ -1321,7 +1320,6 @@ Object.assign(GuitarStudioApp.prototype, {
                 </div>
                 <div class="cal3-legend">
                     <span class="cal3-leg"><span class="cal3-dot pendiente"></span>Pendiente</span>
-                    <span class="cal3-leg"><span class="cal3-dot iniciada"></span>En curso</span>
                     <span class="cal3-leg"><span class="cal3-dot finalizada"></span>Finalizada</span>
                     <span class="cal3-leg"><span class="cal3-dot suspendida"></span>Suspendida/Faltó</span>
                 </div>
@@ -1365,14 +1363,16 @@ Object.assign(GuitarStudioApp.prototype, {
         host.innerHTML = this._calDayPopInner(dateStr, items);
         host.style.display = 'block';
         const r = ev.currentTarget.getBoundingClientRect();
-        const pw = host.offsetWidth || 210;
+        // Expansión EN EL LUGAR: el panel arranca sobre la propia celda (misma izquierda y ancho)
+        // y crece hacia abajo, en vez de salir para un costado.
+        host.style.minWidth = Math.max(r.width, 190) + 'px';
+        const pw = host.offsetWidth || r.width;
         const ph = host.offsetHeight || 120;
-        let left = r.right + 8;
-        if (left + pw > window.innerWidth - 8) left = r.left - pw - 8;
+        let left = r.left;
+        if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
         if (left < 8) left = 8;
-        let top = r.top;
-        if (top + ph > window.innerHeight - 8) top = window.innerHeight - ph - 8;
-        if (top < 8) top = 8;
+        let top = r.top; // borde superior de la celda: se siente como que la celda se expande
+        if (top + ph > window.innerHeight - 8) top = Math.max(8, window.innerHeight - ph - 8);
         host.style.left = left + 'px';
         host.style.top = top + 'px';
     },
