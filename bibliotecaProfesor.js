@@ -246,15 +246,12 @@ Object.assign(GuitarStudioApp.prototype, {
             const cat = it.category || it.exerciseType || '';
             const style = it.style || it.musicalStyle || '';
             const color = this._bibCatColor(cat);
-            const sel = (!isReadOnly && this._bibDetailItemId === it.id) ? ' selected' : '';
-            const clickAction = isReadOnly 
-                ? `app.openLibraryItemById('${it.id}')` 
-                : `app.bibSelectItem('${it.id}')`;
-            const titleHtml = isReadOnly 
-                ? this._escapeHtml(it.title || 'Sin título')
-                : `<span class="bib-title-link" onclick="event.stopPropagation(); app.openLibraryItemById('${it.id}')">${this._escapeHtml(it.title || 'Sin título')}</span>`;
-            return `<tr class="bib-row${sel}" onclick="${clickAction}">
-  <td class="bib-td bib-td-title"><span class="bib-type-icon" style="background:${color}1f; color:${color}">${this._bibTypeIcon(it.type)}</span>${titleHtml}</td>
+            // La celda entera abre la vista previa (no solo el título). Hover verde + lápiz para recategorizar.
+            const clickAction = `app.openLibraryItemById('${it.id}')`;
+            const editBtn = isReadOnly ? ''
+                : `<button class="bib-row-edit" title="Recategorizar" onclick="event.stopPropagation(); app.bibEditItemCategorize('${it.id}')"><svg width="14" height="14"><use href="#icon-editar"/></svg></button>`;
+            return `<tr class="bib-row" onclick="${clickAction}">
+  <td class="bib-td bib-td-title"><span class="bib-type-icon" style="background:${color}1f; color:${color}">${this._bibTypeIcon(it.type)}</span><span class="bib-title-txt">${this._escapeHtml(it.title || 'Sin título')}</span>${editBtn}</td>
   <td class="bib-td">${this._bibTypeLabel(it.type)}</td>
   <td class="bib-td">${cat ? `<span class="bib-cat-dot" style="background:${color}"></span>${this._escapeHtml(cat)}` : '—'}</td>
   <td class="bib-td">${this._bibLevelLabel(it.level)}</td>
@@ -394,6 +391,29 @@ Object.assign(GuitarStudioApp.prototype, {
         this._bibCatModalData = null;
     },
 
+    // Recategorizar un ítem ya subido: reusa el modal de categorización precargando sus valores.
+    async bibEditItemCategorize(itemId) {
+        const item = await this.data.getLibraryItem(itemId);
+        if (!item) return;
+        this._toggleCategorizeModalFields(false);   // arma los grupos de nivel/estilo (modo docente)
+        this._bibCatModalData = { editItemId: item.id, type: item.type };
+        this._bibCatModalValues = { category: item.category || item.exerciseType || null };
+        const titleEl = document.getElementById('bib-cat-title');
+        const infoEl  = document.getElementById('bib-cat-file-info');
+        const modalTitle = document.getElementById('bib-categorize-title');
+        if (titleEl) titleEl.value = item.title || '';
+        if (infoEl)  infoEl.textContent = `Recategorizar · ${this._bibTypeLabel(item.type)}`;
+        if (modalTitle) modalTitle.textContent = 'Recategorizar ítem';
+        this._bibFillCatModalCategories(this._bibCatModalValues.category);
+        const lvl = (item.level || '').toLowerCase();
+        const sty = (item.style || item.musicalStyle || '').toLowerCase();
+        const lvlEl = document.querySelector(`input[name="bib-level"][value="${lvl}"]`);
+        if (lvlEl) lvlEl.checked = true;
+        const styEl = document.querySelector(`input[name="bib-style"][value="${sty}"]`);
+        if (styEl) styEl.checked = true;
+        document.getElementById('bib-categorize-modal').style.display = 'flex';
+    },
+
     async bibSaveLibItem() {
         const title    = document.getElementById('bib-cat-title')?.value?.trim();
         const category = this._bibCatModalValues.category;
@@ -413,7 +433,21 @@ Object.assign(GuitarStudioApp.prototype, {
             if (!style)    { alert('Seleccioná un estilo.'); return; }
         }
 
-        if (d && d.promotingItemId) {
+        if (d && d.editItemId) {
+            // Recategorización de un ítem existente (docente)
+            if (!category) { alert('Seleccioná una categoría.'); return; }
+            if (!level)    { alert('Seleccioná un nivel.'); return; }
+            if (!style)    { alert('Seleccioná un estilo.'); return; }
+            const item = await this.data.getLibraryItem(d.editItemId);
+            if (item) {
+                item.title = title;
+                item.category = category;
+                item.level = level;
+                item.style = style;
+                await this.data.saveLibraryItem(item);
+                this.showToast('Contenido recategorizado', '✓');
+            }
+        } else if (d && d.promotingItemId) {
             // Promoción por parte del docente
             if (!category) { alert('Seleccioná una categoría.'); return; }
             if (!level)    { alert('Seleccioná un nivel.'); return; }

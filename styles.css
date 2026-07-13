@@ -7175,14 +7175,17 @@ span.ck3-box { cursor: default; }
 }
 .bib-th:hover .bib-col-dropdown { display: flex; }
 .bib-cat-config-icon {
-    display: none;
+    /* visibility (no display) para que reserve su lugar SIEMPRE: al aparecer en hover
+       no ensancha el header ni desplaza las columnas de la tabla. */
+    display: inline-block;
+    visibility: hidden;
     margin-left: 6px;
     cursor: pointer;
     font-size: 11px;
     color: var(--tb-text-muted);
 }
 .bib-th:hover .bib-cat-config-icon {
-    display: inline-block;
+    visibility: visible;
 }
 .bib-cat-config-icon:hover {
     color: var(--tb-accent);
@@ -7202,9 +7205,32 @@ span.ck3-box { cursor: default; }
 .bib-empty-opts { font: 400 11px var(--font-primary); color: var(--tb-text-muted); padding: 4px 8px; }
 .bib-td { padding: 9px 12px; border-bottom: 1px solid var(--tb-border); color: var(--tb-text-primary); vertical-align: middle; }
 .bib-td-title { display: flex; align-items: center; gap: 8px; font: 500 13px var(--font-primary); }
+/* Línea vertical separando Tipo / Categoría / Nivel / Estilo (también en el header) */
+.bib-th:not(:first-child), .bib-row .bib-td:not(:first-child) { border-left: 1px solid var(--tb-border); }
 .bib-row { cursor: pointer; transition: background .1s; }
-.bib-row:hover  { background: var(--tb-bg-elevated); }
+/* La celda entera abre la vista previa: se ilumina en verde al pasar el mouse */
+.bib-row:hover  { background: color-mix(in srgb, var(--tb-success) 13%, transparent); }
 .bib-row.selected { background: color-mix(in srgb, var(--tb-accent) 7%, transparent); }
+/* Lápiz de recategorizar: aparece a la derecha del título al hover de la fila */
+.bib-title-txt { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; }
+.bib-row-edit {
+    margin-left: auto;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px; height: 24px;
+    border-radius: 6px;
+    border: 1px solid var(--tb-border);
+    background: var(--tb-bg-elevated);
+    color: var(--tb-text-secondary);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity .12s, color .12s, border-color .12s;
+}
+.bib-row:hover .bib-row-edit { opacity: 1; }
+.bib-row-edit:hover { color: var(--tb-accent); border-color: var(--tb-accent); }
+.bib-row-edit svg { display: block; }
 .bib-type-icon {
     width: 24px; height: 24px;
     border-radius: 4px;
