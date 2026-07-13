@@ -1908,6 +1908,7 @@ class GuitarStudioApp {
         }
 
         // Pre-render de respuestas para que el guardado global las incluya aunque no se visite el tab
+        this._tfRespuestasTab = 0; // arrancar siempre en la primera sub-pestaña
         this.renderTeacherFichaFields();
         this.switchTeacherFichaTab('ficha');
         document.getElementById("teacher-ficha-modal-overlay").style.display = "flex";
@@ -1925,35 +1926,44 @@ class GuitarStudioApp {
         const p = profiles.find(x => x.id === pid);
         if (!p) return;
 
-        // Campos 100% data-driven desde "Configurar Campos" (Pieza 8): textareas de 3 filas
-        // para respuestas largas; los campos cortos (Edad, País…) se emparejan en filas de 2
+        // Campos data-driven desde "Configurar Campos" (Pieza 8), mostrados en SUB-PESTAÑAS
+        // (una por campo) para que sea legible — se lee/edita una respuesta a la vez (pedido de Nico).
+        // Todos los inputs quedan en el DOM (los inactivos ocultos por CSS) para que
+        // saveTeacherFichaModal los recoja aunque no se haya visitado su pestaña.
         const fields = this.data.getFichaFields();
         const fichaValues = p.fichaValues || {};
         const container = document.getElementById("tf-ficha-dynamic-fields");
         if (!container) return;
 
+        if (!fields.length) {
+            container.innerHTML = '<p class="text-muted" style="font-size:12.5px; font-style:italic; margin:0;">Sin campos configurados. Agregalos en la pestaña "Configurar Campos".</p>';
+            return;
+        }
+
+        const active = (this._tfRespuestasTab != null && this._tfRespuestasTab < fields.length) ? this._tfRespuestasTab : 0;
         const isShort = f => f.length <= 20 || f.toLowerCase().includes('edad');
-        let html = '';
-        let shortBuf = [];
-        const flushShorts = () => {
-            if (!shortBuf.length) return;
-            html += `<div style="display:flex; gap:14px;">${shortBuf.join('')}</div>`;
-            shortBuf = [];
-        };
-        fields.forEach(f => {
+
+        const tabsHtml = fields.map((f, i) =>
+            `<button type="button" class="tf-resp-tab ${i === active ? 'active' : ''}" onclick="app.switchFichaRespuestaTab(${i})">${this._escapeHtml(f)}</button>`
+        ).join('');
+
+        const panelsHtml = fields.map((f, i) => {
             const val = fichaValues[f] || "";
-            const label = `<label class="dgf-label">${this._escapeHtml(f)}</label>`;
-            if (isShort(f)) {
-                const type = f.toLowerCase().includes('edad') ? 'number' : 'text';
-                shortBuf.push(`<div style="flex:1; min-width:0;">${label}<input type="${type}" class="dgf-input tf-ficha-field-input" data-field="${this._escapeHtml(f)}" value="${this._escapeHtml(val)}"></div>`);
-                if (shortBuf.length === 2) flushShorts();
-            } else {
-                flushShorts();
-                html += `<div>${label}<textarea class="dgf-input tf-ficha-field-input" data-field="${this._escapeHtml(f)}" rows="3" style="resize:vertical; line-height:1.5;">${this._escapeHtml(val)}</textarea></div>`;
-            }
-        });
-        flushShorts();
-        container.innerHTML = html || '<p class="text-muted" style="font-size:12.5px; font-style:italic; margin:0;">Sin campos configurados. Agregalos en la pestaña "Configurar Campos".</p>';
+            const input = isShort(f)
+                ? `<input type="${f.toLowerCase().includes('edad') ? 'number' : 'text'}" class="dgf-input tf-ficha-field-input" data-field="${this._escapeHtml(f)}" value="${this._escapeHtml(val)}">`
+                : `<textarea class="dgf-input tf-ficha-field-input" data-field="${this._escapeHtml(f)}" rows="7" style="resize:vertical; line-height:1.6;">${this._escapeHtml(val)}</textarea>`;
+            return `<div class="tf-resp-panel ${i === active ? 'active' : ''}" data-panel="${i}"><label class="dgf-label">${this._escapeHtml(f)}</label>${input}</div>`;
+        }).join('');
+
+        container.innerHTML = `<div class="tf-resp-tabs">${tabsHtml}</div><div class="tf-resp-body">${panelsHtml}</div>`;
+    }
+
+    switchFichaRespuestaTab(i) {
+        this._tfRespuestasTab = i;
+        const cont = document.getElementById('tf-ficha-dynamic-fields');
+        if (!cont) return;
+        cont.querySelectorAll('.tf-resp-tab').forEach((t, idx) => t.classList.toggle('active', idx === i));
+        cont.querySelectorAll('.tf-resp-panel').forEach((pl, idx) => pl.classList.toggle('active', idx === i));
     }
 
     async saveTeacherFichaModal() {

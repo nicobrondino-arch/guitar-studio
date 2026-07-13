@@ -2367,20 +2367,23 @@ Object.assign(GuitarStudioApp.prototype, {
             const it = e.item;
             const color = typeColors[it.type] || 'var(--tb-accent)';
             return `
-            <div class="cc3-card carga" style="border-color: color-mix(in srgb, ${color} 40%, var(--tb-border)); box-shadow: inset 4px 0 0 ${color};">
-                <div class="cc3-head">
-                    ${avatar(e.profile)}
-                    <div class="cc3-head-right">
+            <div class="cc3-card carga">
+                <div class="cc3-carga-main">
+                    <div class="cc3-head">
+                        ${avatar(e.profile)}
                         <span class="cc3-time">${timeLabel}</span>
-                        <span class="cc3-chip cc3-type" style="background:color-mix(in srgb, ${color} 20%, transparent); color:${color}">${this._bibTypeIcon(it.type)}${this._bibTypeLabel(it.type)}</span>
+                    </div>
+                    <div class="cc3-carga-title">${this._escapeHtml(it.title || 'Sin título')}</div>
+                    ${it.observation ? `<div class="cc3-carga-obs">"${this._escapeHtml(it.observation)}"</div>` : ''}
+                    <div class="cc3-actions">
+                        <button class="cc3-btn" onclick="app.openLibraryItemById('${it.id}')"><svg width="14" height="14"><use href="#icon-abrir"/></svg>Abrir</button>
+                        <button class="cc3-btn" onclick="app.promoteStudentUploadToGeneral('${it.id}')"><svg width="14" height="14"><use href="#icon-subir-bib"/></svg>Subir a Biblioteca</button>
+                        <button class="cc3-btn muted" onclick="app.deleteStudentUploadByTeacher('${it.id}')"><svg width="14" height="14"><use href="#icon-borrar"/></svg>Eliminar</button>
                     </div>
                 </div>
-                <div class="cc3-carga-title">${this._escapeHtml(it.title || 'Sin título')}</div>
-                ${it.observation ? `<div class="cc3-carga-obs">"${this._escapeHtml(it.observation)}"</div>` : ''}
-                <div class="cc3-actions">
-                    <button class="cc3-btn" onclick="app.openLibraryItemById('${it.id}')"><svg width="14" height="14"><use href="#icon-abrir"/></svg>Abrir</button>
-                    <button class="cc3-btn" onclick="app.promoteStudentUploadToGeneral('${it.id}')"><svg width="14" height="14"><use href="#icon-subir-bib"/></svg>Subir a Biblioteca</button>
-                    <button class="cc3-btn muted" onclick="app.deleteStudentUploadByTeacher('${it.id}')"><svg width="14" height="14"><use href="#icon-borrar"/></svg>Eliminar</button>
+                <div class="cc3-type-box" style="background:color-mix(in srgb, ${color} 16%, transparent); color:${color}; border-color:color-mix(in srgb, ${color} 38%, transparent);">
+                    ${this._bibTypeIcon(it.type)}
+                    <span class="cc3-type-label">${this._bibTypeLabel(it.type)}</span>
                 </div>
             </div>`;
         }).join('') || `<div style="padding:24px;color:var(--tb-text-secondary)">No hay consultas ni cargas que coincidan con los filtros.</div>`;
