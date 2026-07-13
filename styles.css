@@ -7909,6 +7909,10 @@ input.dgf-input[type="time"] { cursor: pointer; }
 .dgf-prox-tag { font: 400 10px var(--font-primary); color: var(--tb-text-muted); }
 /* Duración + Frecuencia reubicadas arriba de "Próximas clases" (más lugar para Alumnos) */
 .dgf-durfrec-row { display: flex; gap: 14px; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--tb-border); }
+/* Selector de hora (dos selects: hora + minutos) que reemplaza el reloj nativo */
+.time-picker { display: flex; align-items: center; gap: 6px; }
+.time-picker select { flex: 1; min-width: 0; width: auto; text-align: center; text-align-last: center; padding-left: 6px; padding-right: 2px; }
+.time-picker-sep { flex-shrink: 0; color: var(--tb-text-secondary); font-weight: 700; }
 /* Marcador de clase suelta (fecha fuera del cronograma) */
 .dgf-prox-suelta { font: 600 9.5px var(--font-primary); text-transform: uppercase; letter-spacing: .04em; color: var(--tb-warning); background: color-mix(in srgb, var(--tb-warning) 14%, transparent); border-radius: 6px; padding: 1px 6px; flex-shrink: 0; }
 .dgf-prox-num {

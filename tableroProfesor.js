@@ -910,9 +910,9 @@ Object.assign(GuitarStudioApp.prototype, {
                                 ${days.map(x => `<option value="${x}" ${d.day === x ? 'selected' : ''}>${x}</option>`).join('')}
                             </select>
                         </div>
-                        <div style="flex-shrink:0; width:120px;">
-                            <label class="dgf-label" for="dgf-time" style="cursor:pointer;">Horario</label>
-                            <input id="dgf-time" class="dgf-input" type="time" value="${this._escapeHtml(d.time || '')}" onchange="app.dgfRefreshProximas()">
+                        <div style="flex-shrink:0; width:150px;">
+                            <label class="dgf-label">Horario</label>
+                            ${this._timePickerHtml('dgf-time', d.time || '', 'app.dgfRefreshProximas()')}
                         </div>
                     </div>
                     <div>
@@ -972,6 +972,37 @@ Object.assign(GuitarStudioApp.prototype, {
         document.querySelectorAll('#dgf-member-list .dgf-member-row').forEach(row => {
             row.style.display = !query || (row.dataset.name || '').includes(query) ? '' : 'none';
         });
+    },
+
+    // Selector de hora cómodo (reemplaza el <input type="time"> del reloj nativo):
+    // dos <select> — hora 07–20 (rango de clases) + minutos en fracciones de 15 — que
+    // escriben "HH:MM" en un <input hidden> con el MISMO id, para no tocar la lógica de lectura.
+    _timePickerHtml(id, value, onchangeExtra = '') {
+        value = value || '';
+        const [vh, vm] = value.split(':');
+        const hours = [];
+        for (let h = 7; h <= 20; h++) hours.push(String(h).padStart(2, '0'));
+        if (vh && !hours.includes(vh)) hours.unshift(vh); // conservar una hora legada fuera de rango
+        const mins = ['00', '15', '30', '45'];
+        if (vm && !mins.includes(vm)) { mins.push(vm); mins.sort(); }
+        const cb = `app._syncTimePicker('${id}');${onchangeExtra}`;
+        const hOpts = hours.map(h => `<option value="${h}" ${h === vh ? 'selected' : ''}>${h}</option>`).join('');
+        const mOpts = mins.map(m => `<option value="${m}" ${m === vm ? 'selected' : ''}>${m}</option>`).join('');
+        return `<div class="time-picker" data-time-id="${id}">
+            <select class="dgf-input time-picker-h" onchange="${cb}"><option value="" ${!vh ? 'selected' : ''}>--</option>${hOpts}</select>
+            <span class="time-picker-sep">:</span>
+            <select class="dgf-input time-picker-m" onchange="${cb}"><option value="" ${!vm ? 'selected' : ''}>--</option>${mOpts}</select>
+            <input type="hidden" id="${id}" value="${this._escapeHtml(value)}">
+        </div>`;
+    },
+
+    _syncTimePicker(id) {
+        const wrap = document.querySelector(`.time-picker[data-time-id="${id}"]`);
+        if (!wrap) return;
+        const h = wrap.querySelector('.time-picker-h').value;
+        const m = wrap.querySelector('.time-picker-m').value;
+        const hidden = document.getElementById(id);
+        if (hidden) hidden.value = (h && m) ? `${h}:${m}` : '';
     },
 
     _dgfCollectForm() {
@@ -1632,7 +1663,7 @@ Object.assign(GuitarStudioApp.prototype, {
         // Populate nombre, date, time, meetUrl, whatsapp (el contacto vive en el grupo)
         document.getElementById('modal-edit-nombre').value = clase.nombre || '';
         document.getElementById('modal-edit-date').value = clase.date || '';
-        document.getElementById('modal-edit-time').value = clase.time || group.time || '';
+        document.getElementById('modal-edit-time-wrap').innerHTML = this._timePickerHtml('modal-edit-time', clase.time || group.time || '', '');
         document.getElementById('modal-edit-meeturl').value = clase.meetUrl || '';
         document.getElementById('modal-edit-whatsapp').value = group.whatsapp || '';
 
