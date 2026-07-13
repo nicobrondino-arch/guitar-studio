@@ -1131,7 +1131,7 @@ button {
 
 .btn-primary {
     background-color: var(--tb-accent);
-    color: var(--tb-text-primary);
+    color: #fff; /* blanco fijo: el acento es saturado en los 4 temas (rojo/tango/verde-folklore/azul), garantiza contraste */
     box-shadow: 0 4px 12px rgba(225, 79, 61, 0.2);
 }
 
@@ -5548,8 +5548,8 @@ span.ck3-box { cursor: default; }
 .pc3-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 /* Meet: se ilumina azul al hover */
 .pc3-btn-meet:hover { background: rgba(26,115,232,.14); border-color: rgba(26,115,232,.5); color: #3b82f6; }
-/* "+ Meet": afordancia de cargar el link (borde punteado hasta que exista) */
-.pc3-btn-addmeet { border-style: dashed; color: var(--tb-text-secondary); }
+/* "Meet" sin link cargado: mismo trazo sólido que el resto (sin borde punteado) */
+.pc3-btn-addmeet { color: var(--tb-text-secondary); }
 /* WhatsApp: mismo color base que Meet (neutro); se ilumina verde al hover */
 .pc3-btn-wa { font-weight: 700; }
 .pc3-btn-wa:hover { background: rgba(37,211,102,.16); border-color: rgba(37,211,102,.5); color: #25d366; }

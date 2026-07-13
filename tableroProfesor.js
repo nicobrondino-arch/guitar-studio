@@ -102,7 +102,7 @@ Object.assign(GuitarStudioApp.prototype, {
                         <div class="pc3-actions">
                             ${proxMeet
                                 ? `<a class="pc3-btn pc3-btn-meet" href="${this._escapeHtml(proxMeet)}" target="_blank" title="Entrar al Meet" onclick="event.stopPropagation()"><svg width="17" height="17"><use href="#icon-meet"/></svg> Meet</a>`
-                                : `<button class="pc3-btn pc3-btn-meet pc3-btn-addmeet" title="Cargar el link de Meet de esta clase" onclick="event.stopPropagation();app.dashSetProxMeet('${prox.group.id}')"><svg width="17" height="17"><use href="#icon-meet"/></svg> + Meet</button>`}
+                                : `<button class="pc3-btn pc3-btn-meet pc3-btn-addmeet" title="Cargar el link de Meet de esta clase" onclick="event.stopPropagation();app.dashSetProxMeet('${prox.group.id}')"><svg width="17" height="17"><use href="#icon-meet"/></svg> Meet</button>`}
                             <button class="pc3-btn pc3-btn-wa" title="Escribir por WhatsApp" onclick="event.stopPropagation();app.sendMeetWhatsApp('${prox.group.id}')">W</button>
                         </div>
                     </div>` : '';
