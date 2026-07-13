@@ -916,21 +916,6 @@ Object.assign(GuitarStudioApp.prototype, {
                         </div>
                     </div>
                     <div>
-                        <label class="dgf-label" style="margin-bottom:7px;">Duración</label>
-                        <div style="display:flex; flex-direction:column; gap:6px;">
-                            <label class="dgf-radio-row"><input type="radio" name="dgf-duracion" value="fin" ${d.duracionTipo !== 'n' ? 'checked' : ''} onchange="app.dgfRefreshProximas()">Hasta fin de año</label>
-                            <label class="dgf-radio-row"><input type="radio" name="dgf-duracion" value="n" ${d.duracionTipo === 'n' ? 'checked' : ''} onchange="app.dgfRefreshProximas()">N clases
-                                <input id="dgf-duracion-n" class="dgf-duracion-n" type="number" min="1" value="${d.duracionN}" onchange="app.dgfRefreshProximas()">
-                            </label>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="dgf-label">Frecuencia</label>
-                        <select id="dgf-frecuencia" class="dgf-input" onchange="app.dgfRefreshProximas()">
-                            ${frecs.map(x => `<option value="${x}" ${d.frecuencia === x ? 'selected' : ''}>${x}</option>`).join('')}
-                        </select>
-                    </div>
-                    <div>
                         <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:7px;">
                             <label class="dgf-label" style="margin-bottom:0;">Alumnos</label>
                             <div class="dgf-member-search">
@@ -942,6 +927,23 @@ Object.assign(GuitarStudioApp.prototype, {
                     </div>
                 </div>
                 <div class="dgf-prox-col">
+                    <div class="dgf-durfrec-row">
+                        <div style="flex:1; min-width:0;">
+                            <label class="dgf-label" style="margin-bottom:7px;">Duración</label>
+                            <div style="display:flex; flex-direction:column; gap:6px;">
+                                <label class="dgf-radio-row"><input type="radio" name="dgf-duracion" value="fin" ${d.duracionTipo !== 'n' ? 'checked' : ''} onchange="app.dgfRefreshProximas()">Hasta fin de año</label>
+                                <label class="dgf-radio-row"><input type="radio" name="dgf-duracion" value="n" ${d.duracionTipo === 'n' ? 'checked' : ''} onchange="app.dgfRefreshProximas()">N clases
+                                    <input id="dgf-duracion-n" class="dgf-duracion-n" type="number" min="1" value="${d.duracionN}" onchange="app.dgfRefreshProximas()">
+                                </label>
+                            </div>
+                        </div>
+                        <div style="flex:1; min-width:0;">
+                            <label class="dgf-label">Frecuencia</label>
+                            <select id="dgf-frecuencia" class="dgf-input" onchange="app.dgfRefreshProximas()">
+                                ${frecs.map(x => `<option value="${x}" ${d.frecuencia === x ? 'selected' : ''}>${x}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>
                     <label class="dgf-label" style="margin-bottom:7px;">Próximas clases del grupo</label>
                     <div class="dgf-prox-list" id="dgf-prox-list"></div>
                     <div class="dgf-suelta-row">
@@ -1017,16 +1019,25 @@ Object.assign(GuitarStudioApp.prototype, {
         if (!d || !cont) return;
         const todayStr = this.getTodayString();
         const fechas = this._getProximasClasesGrupo(d);
+        // Designación de las clases ya creadas: número de orden + nombre específico si tiene
+        const groupClases = this.data.getAllClases().filter(c => c.groupId === d.id);
+        // Las clases SUELTAS (fechas fuera del cronograma) también aparecen en la lista
+        const schedSet = new Set(fechas.map(f => f.dateStr));
+        groupClases.forEach(c => {
+            if (c.date >= todayStr && !schedSet.has(c.date) && !(d.skippedDates || []).includes(c.date)) {
+                fechas.push({ dateStr: c.date, skipped: false, suelta: true });
+                schedSet.add(c.date);
+            }
+        });
+        fechas.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
         if (!fechas.length) {
-            cont.innerHTML = '<p class="dgf-prox-empty">Definí un día de clase para ver las próximas fechas.</p>';
+            cont.innerHTML = '<p class="dgf-prox-empty">Definí un día de clase o agregá una clase suelta para ver las próximas fechas.</p>';
             return;
         }
         const fmtLabel = ds => {
             const s = new Date(ds+'T12:00').toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '').replace(/\./g, '');
             return s.charAt(0).toUpperCase() + s.slice(1);
         };
-        // Designación de las clases ya creadas: número de orden + nombre específico si tiene
-        const groupClases = this.data.getAllClases().filter(c => c.groupId === d.id);
         const claseTag = ds => {
             const c = groupClases.find(x => x.date === ds);
             if (!c) return '';
@@ -1041,6 +1052,7 @@ Object.assign(GuitarStudioApp.prototype, {
             <div class="dgf-prox-row">
                 <span class="dgf-prox-date">${fmtLabel(f.dateStr)}</span>
                 ${claseTag(f.dateStr)}
+                ${f.suelta ? '<span class="dgf-prox-suelta">Suelta</span>' : ''}
                 ${f.dateStr === todayStr ? '<span class="dgf-prox-hoy">Hoy</span>' : ''}
                 <button class="dgf-prox-btn" title="Editar esta clase" onclick="app.dgfEditProximaClase('${f.dateStr}')"><svg width="11" height="11"><use href="#icon-editar"/></svg></button>
                 <button class="dgf-prox-btn" title="Saltear esta clase" onclick="app.dgfToggleSkip('${f.dateStr}')"><svg width="11" height="11"><use href="#icon-saltear"/></svg></button>
