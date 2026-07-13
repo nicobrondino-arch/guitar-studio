@@ -2383,7 +2383,6 @@ Object.assign(GuitarStudioApp.prototype, {
                     <div class="cc3-head">
                         ${avatar(p)}
                         <span class="cc3-chip ${preg.resolved ? 'ok' : 'pend'}"><svg width="16" height="16"><use href="#icon-consulta"/></svg>${preg.resolved ? 'Respondida' : 'Sin responder'}</span>
-                        <span class="cc3-time">${timeLabel}</span>
                     </div>
                     <div class="cc3-pregunta">${itemBadge}"${this._escapeHtml(preg.text || preg.pregunta || '')}"</div>
                     ${preg.resolved ? `
@@ -2393,6 +2392,7 @@ Object.assign(GuitarStudioApp.prototype, {
                     </div>` : `
                     <textarea class="cc3-reply-ta" id="tb-consultas-reply-input-${preg.id}" placeholder="Escribir respuesta…" rows="2"></textarea>
                     <button class="cc3-responder-btn" onclick="app.tbReplyConsultasTab('${p.id}','${e.claseId}','${preg.id}')"><svg width="14" height="14"><use href="#icon-responder"/></svg>Responder</button>`}
+                    <div class="cc3-foot"><span class="cc3-time">${timeLabel}</span></div>
                 </div>`;
             }
             const it = e.item;
@@ -2402,7 +2402,6 @@ Object.assign(GuitarStudioApp.prototype, {
                 <div class="cc3-carga-main">
                     <div class="cc3-head">
                         ${avatar(e.profile)}
-                        <span class="cc3-time">${timeLabel}</span>
                     </div>
                     <div class="cc3-carga-title">${this._escapeHtml(it.title || 'Sin título')}</div>
                     ${it.observation ? `<div class="cc3-carga-obs">"${this._escapeHtml(it.observation)}"</div>` : ''}
@@ -2411,6 +2410,7 @@ Object.assign(GuitarStudioApp.prototype, {
                         <button class="cc3-btn" onclick="app.promoteStudentUploadToGeneral('${it.id}')"><svg width="14" height="14"><use href="#icon-subir-bib"/></svg>Subir a Biblioteca</button>
                         <button class="cc3-btn muted" onclick="app.deleteStudentUploadByTeacher('${it.id}')"><svg width="14" height="14"><use href="#icon-borrar"/></svg>Eliminar</button>
                     </div>
+                    <div class="cc3-foot"><span class="cc3-time">${timeLabel}</span></div>
                 </div>
                 <div class="cc3-type-box" style="background:color-mix(in srgb, ${color} 16%, transparent); color:${color}; border-color:color-mix(in srgb, ${color} 38%, transparent);">
                     ${this._bibTypeIcon(it.type)}

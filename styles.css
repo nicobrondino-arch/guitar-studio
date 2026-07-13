@@ -8088,7 +8088,9 @@ input.dgf-input[type="time"] { cursor: pointer; }
     border-left: 4px solid var(--tb-danger);
 }
 .cc3-card.consulta.respondida { border-left: 4px solid var(--tb-success); }
-.cc3-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+/* El alumno queda separado del resto con una línea igual a la de la fila desplegada de Alumnos */
+.cc3-head { display: flex; align-items: center; gap: 10px; padding-bottom: 10px; margin-bottom: 12px; border-bottom: 1px solid var(--tb-border); }
+.cc3-head .cc3-chip { margin-left: auto; }
 .cc3-avatar {
     width: 26px;
     height: 26px;
@@ -8100,7 +8102,7 @@ input.dgf-input[type="time"] { cursor: pointer; }
     color: #fff;
     flex-shrink: 0;
 }
-.cc3-name { font: 600 13px var(--font-primary); color: var(--tb-text-primary); }
+.cc3-name { font: 700 15px var(--font-primary); color: var(--tb-text-primary); }
 .cc3-chip {
     display: inline-flex;
     align-items: center;
@@ -8112,7 +8114,9 @@ input.dgf-input[type="time"] { cursor: pointer; }
 .cc3-chip.pend { background: color-mix(in srgb, var(--tb-danger) 16%, transparent); color: var(--tb-danger); }
 .cc3-chip.ok { background: color-mix(in srgb, var(--tb-success) 18%, transparent); color: var(--tb-success); }
 .cc3-chip svg { display: block; flex-shrink: 0; width: 16px; height: 16px; }
-.cc3-time { margin-left: auto; font: 400 11px var(--font-primary); color: var(--tb-text-muted); flex-shrink: 0; white-space: nowrap; }
+.cc3-time { font: 400 11px var(--font-primary); color: var(--tb-text-muted); flex-shrink: 0; white-space: nowrap; }
+/* Fecha y hora siempre abajo a la derecha de la tarjeta */
+.cc3-foot { display: flex; justify-content: flex-end; margin-top: 10px; }
 /* Carga: marco neutro para diferenciarla + recuadro de color (por tipo) a la derecha */
 .cc3-card.carga {
     display: flex;
@@ -8122,7 +8126,7 @@ input.dgf-input[type="time"] { cursor: pointer; }
     border: 1.5px solid var(--tb-border-hover);
 }
 .cc3-carga-main { flex: 1; min-width: 0; padding: 14px 16px; }
-.cc3-carga-main .cc3-head { margin-bottom: 8px; }
+.cc3-carga-main .cc3-head { margin-bottom: 12px; }
 .cc3-type-box {
     flex-shrink: 0;
     width: 120px;
